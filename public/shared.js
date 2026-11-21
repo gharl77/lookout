@@ -159,6 +159,7 @@ export function normalize(input) {
     // Intervalle absent (configuration d'avant cette option) ou invalide : celui du type de section.
     if (s.refreshMinutes !== 0 && !REFRESH_CHOICES.includes(s.refreshMinutes)) s.refreshMinutes = KIND_REFRESH[s.kind];
     if (!Number.isInteger(s.column) || s.column < -1 || s.column > 3) s.column = -1;
+    if (![1, 2, 3, 99].includes(s.span)) s.span = 1;   // largeurs offertes : 1, 2 ou 3 colonnes, ou pleine largeur
     s.feed = { ...FEED, ...(raw.feed ?? {}) };
     s.feed.sources = (s.feed.sources ?? []).map((x) => ({ ...feedSource('', ''), ...x }));
     s.weather = { ...WEATHER, ...(raw.weather ?? {}) };

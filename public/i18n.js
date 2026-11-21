@@ -13,7 +13,7 @@ export const EN = {
   'Réorganiser, redimensionner ou masquer les sections': 'Rearrange, resize or hide sections',
   'Configurer les sections et les sources': 'Configure sections and sources',
   'Glissez une carte par son en-tête et déposez-la où vous voulez : les autres cartes restent à leur place.': 'Drag a card by its header and drop it where you want: the other cards stay where they are.',
-  'Ajouter une section': 'Add a section', 'Pleine largeur': 'Full width', '1 colonne': '1 column', '2 colonnes': '2 columns',
+  'Ajouter une section': 'Add a section', 'Pleine largeur': 'Full width', '1 colonne': '1 column', '2 colonnes': '2 columns', '3 colonnes': '3 columns',
   'Tout marquer comme lu': 'Mark all as read', 'Mettre à jour maintenant': 'Update now',
   'Mettre à jour la section {0} maintenant': 'Update the {0} section now', 'Mettre à jour maintenant (données de {0})': 'Update now (data from {0})', 'Largeur': 'Width', 'Configurer…': 'Configure…', 'Masquer': 'Hide',
   'Source': 'Source', 'Déplacer vers le début': 'Move toward the start', 'Déplacer vers la fin': 'Move toward the end',

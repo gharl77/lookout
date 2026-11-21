@@ -329,7 +329,9 @@ function moveInColumn(id, direction) {
   });
 }
 
-const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [99, 'Pleine largeur']];
+const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
+/** Largeur suivante quand on appuie sur le bouton du mode « Organiser » : 1 → 2 → 3 → pleine largeur → 1. */
+const nextSpan = (span) => SPANS[(SPANS.findIndex(([value]) => value === span) + 1) % SPANS.length][0];
 
 function cardMenu(anchor, s) {
   const payload = state.data.get(s.id);
@@ -369,8 +371,8 @@ function buildCard(s) {
     ? h('div', { class: 'edit-controls' },
       h('button', { class: 'icon-btn', title: 'Monter', 'aria-label': 'Monter', onClick: () => moveInColumn(s.id, -1) }, icon('up')),
       h('button', { class: 'icon-btn', title: 'Descendre', 'aria-label': 'Descendre', onClick: () => moveInColumn(s.id, 1) }, icon('down')),
-      h('button', { class: 'icon-btn', title: s.span === 1 ? 'Élargir' : s.span === 2 ? 'Pleine largeur' : 'Réduire', 'aria-label': 'Changer la largeur',
-        onClick: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = x.span === 1 ? 2 : x.span === 2 ? 99 : 1; }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
+      h('button', { class: 'icon-btn', title: s.span === 99 ? 'Réduire' : 'Élargir', 'aria-label': 'Changer la largeur',
+        onClick: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = nextSpan(x.span); }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
       h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, 'Section masquée', (x) => { x.enabled = false; }) }, icon('hide')))
     : [
       !loading && errors && h('span', { class: 'warn', title: errors, role: 'img', 'aria-label': 'Certaines sources sont en erreur' }, icon('warning')),

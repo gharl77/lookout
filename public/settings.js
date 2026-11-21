@@ -61,7 +61,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   };
 
   // --- Éditeur de section ---
-  const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [99, 'Pleine largeur']];
+  const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
   const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
   const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
   const ITEMS_LABEL = { feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets' };
