@@ -1,5 +1,5 @@
 // Génère l'icône « Hublot » de Lookout (macOS requis) : swift scripts/make-icon.swift
-//   public/icon-512.png, public/icon-180.png
+//   public/lookout-512.png, public/lookout-180.png (le logo vectoriel est public/logo.svg)
 import AppKit
 
 func rgb(_ hex: UInt32, _ a: CGFloat = 1) -> NSColor {
@@ -51,6 +51,6 @@ func write(_ rep: NSBitmapImageRep, _ path: String) {
 }
 
 // Carré plein, sans marge ni coins : iOS et Android appliquent leur propre masque.
-write(render(size: 512, margin: 0, radius: 0), "public/icon-512.png")
-write(render(size: 180, margin: 0, radius: 0), "public/icon-180.png")
+write(render(size: 512, margin: 0, radius: 0), "public/lookout-512.png")
+write(render(size: 180, margin: 0, radius: 0), "public/lookout-180.png")
 print("✅ icônes générées")

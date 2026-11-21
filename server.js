@@ -203,7 +203,8 @@ function serveStatic(req, res, url) {
   fs.readFile(file, (error, data) => {
     if (error) return send(res, 404, 'Introuvable');
     send(res, 200, data, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream',
-      'Cache-Control': path.extname(file) === '.png' ? 'public, max-age=86400' : 'no-cache' });
+      // Toujours revalider : une icône ou un script mis à jour apparaît dès le prochain chargement.
+      'Cache-Control': 'no-cache' });
   });
 }
 

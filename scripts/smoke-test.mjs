@@ -21,7 +21,7 @@ console.log(`Lookout — test de fumée sur ${base}`);
 
 await check('le serveur répond', async () => expect((await request('/healthz')).status === 200, 'healthz ne répond pas 200'));
 await check("la page d'accueil et ses fichiers sont servis", async () => {
-  for (const path of ['/', '/app.js', '/app.css', '/i18n.js', '/icon-180.png', '/manifest.webmanifest']) {
+  for (const path of ['/', '/app.js', '/app.css', '/i18n.js', '/logo.svg', '/lookout-180.png', '/lookout-512.png', '/manifest.webmanifest']) {
     expect((await request(path)).status === 200, `${path} introuvable`);
   }
 });
