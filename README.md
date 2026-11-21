@@ -1,73 +1,167 @@
 # Lookout
 
-**Version 0.1.0-beta**
+[![Docker image](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
+![Version](https://img.shields.io/badge/version-0.1.0--beta-blue)
+![Platforms](https://img.shields.io/badge/platforms-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
-*[English below](#english)*
+*[Français](README.fr.md)*
 
-Lookout est un tableau de bord personnel : actualités, météo, trajets, pointages sportifs et nouvelles techno
-sur une seule page, à consulter à n'importe quelle heure. Tout est configurable — les sections, leur ordre,
-leur taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
+Lookout is a self-hosted personal dashboard: news, weather, commute times, sports scores and tech headlines
+on a single page. Everything is configured from the web UI — sections, their order, size and sources — and
+every source is either an RSS feed or an API.
 
-Deux versions partagent le même format de configuration :
-
-| | Dossier | Pour |
-|---|---|---|
-| **Web** | [`web/`](web) | N'importe quel navigateur, iPhone compris (s'ajoute à l'écran d'accueil). Auto-hébergée dans Docker. Bilingue français / anglais. |
-| **macOS** | [`mac/`](mac) | App native SwiftUI. En français pour le moment. |
+- One small container, no database, no external dependency
+- Works in any browser; on iPhone it can be added to the Home Screen like an app
+- Light and dark themes, accent colour, adjustable density and column count
+- Bilingual interface (English / French)
 
 ## Sections
 
-- **Fils RSS** — un ou plusieurs fils par section, avec filtres par mots-clés, âge maximal et trois présentations.
-- **Météo** — conditions, prévisions horaires et quotidiennes ([Open-Meteo](https://open-meteo.com), sans clé).
-- **Trajets** — temps de parcours : OSRM (sans clé), TomTom (clé, circulation en direct) ou capteur Home Assistant ; Plans d'Apple dans l'app Mac.
-- **Pointages** — ESPN (LNH, NFL, NBA, MLB, MLS…), HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH) et API-Sports (clé). Choix des équipes par ligue.
-- **API JSON** — n'importe quelle API qui renvoie une liste, en indiquant le chemin des champs.
-
-## Installation de la version web
-
-Collez [`web/compose.yaml`](web/compose.yaml) dans un stack Portainer, ou lancez `docker compose up -d` dans `web/`.
-L'image est publiée sur `ghcr.io/gharl77/lookout`. Ouvrez ensuite `http://<serveur>:8765`.
-
-Lookout est prévu pour un réseau domestique : ne l'exposez pas directement sur Internet. Passez par un VPN
-ou un proxy inverse avec HTTPS, et activez `LOOKOUT_PASSWORD` au besoin.
-
-## Avertissement
-
-Projet personnel en version bêta. Les sources ESPN et HockeyTech sont des API publiques non documentées,
-qui peuvent changer sans préavis. Respectez les conditions d'utilisation de chaque service.
-
----
-
-## English
-
-Lookout is a personal dashboard: news, weather, commute times, sports scores and tech headlines on a single
-page, readable at any time of day. Everything is configurable — sections, their order, size and sources —
-and every source is either an RSS feed or an API.
-
-Two versions share the same configuration format:
-
-| | Folder | For |
+| Section | Source | Key required |
 |---|---|---|
-| **Web** | [`web/`](web) | Any browser, including iPhone (can be added to the Home Screen). Self-hosted in Docker. Bilingual French / English. |
-| **macOS** | [`mac/`](mac) | Native SwiftUI app. French only for now. |
+| RSS feeds | Any RSS or Atom feed, with keyword filters and three layouts | No |
+| Weather | [Open-Meteo](https://open-meteo.com) | No |
+| Commute | OSRM, TomTom (live traffic) or a Home Assistant sensor | TomTom only |
+| Sports scores | ESPN, HockeyTech (QMJHL, PWHL, OHL, WHL, AHL), API-Sports — pick teams per league | API-Sports only |
+| JSON API | Any API returning a list, mapped by field path | Depends on the API |
 
-### Sections
+## Quick start
 
-- **RSS feeds** — one or more feeds per section, with keyword filters, maximum age and three layouts.
-- **Weather** — current conditions, hourly and daily forecast ([Open-Meteo](https://open-meteo.com), no key).
-- **Commute** — travel times: OSRM (no key), TomTom (key, live traffic) or a Home Assistant sensor; Apple Maps in the Mac app.
-- **Scores** — ESPN (NHL, NFL, NBA, MLB, MLS…), HockeyTech (QMJHL, PWHL, OHL, WHL, AHL) and API-Sports (key). Pick teams per league.
-- **JSON API** — any API that returns a list, by giving the path of each field.
+### Docker Compose (recommended)
 
-### Installing the web version
+```yaml
+services:
+  lookout:
+    image: ghcr.io/gharl77/lookout:latest
+    container_name: lookout
+    restart: unless-stopped
+    ports:
+      - "8765:8080"
+    environment:
+      TZ: America/Toronto
+      # LOOKOUT_PASSWORD: change-me   # optional: require a password (user "lookout")
+    volumes:
+      - ./data:/data
+```
 
-Paste [`web/compose.yaml`](web/compose.yaml) into a Portainer stack, or run `docker compose up -d` in `web/`.
-The image is published at `ghcr.io/gharl77/lookout`. Then open `http://<server>:8765`.
+```bash
+mkdir -p data && sudo chown 1000:1000 data
+docker compose up -d
+```
 
-Lookout is meant for a home network: do not expose it directly to the Internet. Use a VPN or an HTTPS
-reverse proxy, and set `LOOKOUT_PASSWORD` if needed.
+### Docker CLI
 
-### Disclaimer
+```bash
+docker run -d \
+  --name lookout \
+  --restart unless-stopped \
+  -p 8765:8080 \
+  -e TZ=America/Toronto \
+  -v /path/to/lookout/data:/data \
+  ghcr.io/gharl77/lookout:latest
+```
+
+Then open `http://<server-ip>:8765` and click the gear icon to set up your sections.
+
+## Parameters
+
+### Ports
+
+| Container | Description |
+|---|---|
+| `8080` | Web interface and API |
+
+### Volumes
+
+| Container path | Description |
+|---|---|
+| `/data` | Configuration (`config.json`), read state (`read.json`) and geocoding cache (`geocode.json`) |
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `TZ` | `Etc/UTC` | Time zone, used to decide what "today" means for scores (e.g. `America/Toronto`) |
+| `LOOKOUT_PASSWORD` | *(none)* | When set, the interface asks for this password (HTTP Basic authentication) |
+| `LOOKOUT_USER` | `lookout` | User name that goes with `LOOKOUT_PASSWORD` |
+| `PORT` | `8080` | Port the server listens on inside the container |
+
+## User and permissions
+
+The container runs as UID/GID `1000:1000` and must be able to write to `/data`.
+
+- **Bind mount** (as above): make the host folder writable by that user — `sudo chown 1000:1000 /path/to/lookout/data`.
+- **Another user**: add `user: "UID:GID"` to the compose file (or `--user UID:GID`) and give that user the folder.
+- **Named volume**: works without any change.
+
+## Image tags
+
+| Tag | Description |
+|---|---|
+| `latest` | Latest build of the `main` branch |
+| `v0.1.0-beta` | A specific release |
+
+Images are built for `linux/amd64` and `linux/arm64`.
+
+## Updating
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+In Portainer: open the stack and choose **Re-pull image and redeploy**.
+
+## Backup
+
+Everything lives in the `/data` volume. Copy that folder, or use **Settings → Data → Export** to download
+the configuration as a JSON file that can be imported into another instance.
+
+## Security
+
+Lookout is meant for a home network. Anyone who can reach it can read the dashboard and change its settings,
+and API keys you enter are stored in plain text in `config.json`.
+
+- Do not expose it directly to the Internet; use a VPN or a reverse proxy with HTTPS.
+- Set `LOOKOUT_PASSWORD` if other people share your network.
+
+## Hardened example
+
+The container needs no extra privileges and can run with a read-only root filesystem:
+
+```yaml
+services:
+  lookout:
+    image: ghcr.io/gharl77/lookout:latest
+    container_name: lookout
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "8765:8080"
+    environment:
+      TZ: America/Toronto
+    volumes:
+      - ./data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+```
+
+## Building from source
+
+Node.js 22 or later, no dependencies to install.
+
+```bash
+git clone https://github.com/gharl77/lookout.git
+cd lookout
+PORT=8080 node server.js        # run locally, data in ./data
+docker build -t lookout .       # or build the image
+```
+
+Interface strings are written in French in the code; `public/i18n.js` holds their English translation.
+
+## Disclaimer
 
 Personal project, beta quality. The ESPN and HockeyTech sources are undocumented public APIs that may change
-without notice. Respect each service's terms of use.
+without notice. Respect the terms of use of each service you connect.

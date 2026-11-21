@@ -424,7 +424,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
           note.textContent = t('Configuration exportée.');
         } }, icon('download'), 'Exporter…')),
         line('Importer une configuration', h('button', { class: 'btn', onClick: () => fileInput.click() }, icon('upload'), 'Importer…'), fileInput),
-      ], "Le fichier JSON contient toutes vos sections, sources et préférences. Il est compatible avec celui de l'app Mac (sauf le service de trajets)."),
+      ], 'Le fichier JSON contient toutes vos sections, sources et préférences.'),
       group('Fichier de configuration', [line('Emplacement', h('span', { class: 'mono' }, 'data/config.json')),
         line('Version', h('span', { class: 'mono' }, `Lookout ${app.version ?? ''}`))],
       'Dans le dossier de données du conteneur, sur le serveur.'),

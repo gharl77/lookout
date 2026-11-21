@@ -3,7 +3,7 @@
 Usage : python3 scripts/build-icons.py <dossier package/assets>"""
 import re, sys, json, os
 assets = sys.argv[1]
-# Symbole SF (nom enregistré dans la configuration, partagé avec l'app Mac) -> icône Phosphor « fill »
+# Symbole SF (nom enregistré dans la configuration) -> icône Phosphor « fill »
 SF = {
  "newspaper.fill":"newspaper","globe.americas.fill":"globe-hemisphere-west","globe.europe.africa.fill":"globe-hemisphere-east",
  "building.columns.fill":"bank","megaphone.fill":"megaphone","cpu.fill":"cpu","desktopcomputer":"desktop","iphone":"device-mobile",

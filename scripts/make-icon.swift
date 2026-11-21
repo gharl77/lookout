@@ -1,6 +1,5 @@
-// Génère l'icône « Hublot » de Lookout : swift Scripts/make-icon.swift (depuis le dossier mac/)
-//   Resources/AppIcon.icns, Resources/AppIcon-1024.png  — app Mac (plaque arrondie avec marge)
-//   ../web/public/icon-512.png, icon-180.png             — app web (carré plein, arrondi par le système)
+// Génère l'icône « Hublot » de Lookout (macOS requis) : swift scripts/make-icon.swift
+//   public/icon-512.png, public/icon-180.png
 import AppKit
 
 func rgb(_ hex: UInt32, _ a: CGFloat = 1) -> NSColor {
@@ -51,28 +50,7 @@ func write(_ rep: NSBitmapImageRep, _ path: String) {
     try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
 }
 
-func run(_ tool: String, _ args: [String]) {
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: tool)
-    p.arguments = args
-    p.standardOutput = FileHandle.nullDevice
-    try! p.run()
-    p.waitUntilExit()
-}
-
-// App Mac : plaque de 824 px dans un carré de 1024, comme les icônes du système.
-write(render(size: 1024, margin: 100, radius: 185), "Resources/AppIcon-1024.png")
-let iconset = "Resources/AppIcon.iconset"
-try? FileManager.default.removeItem(atPath: iconset)
-try! FileManager.default.createDirectory(atPath: iconset, withIntermediateDirectories: true)
-for (name, px) in [("16x16", 16), ("16x16@2x", 32), ("32x32", 32), ("32x32@2x", 64), ("128x128", 128),
-                   ("128x128@2x", 256), ("256x256", 256), ("256x256@2x", 512), ("512x512", 512), ("512x512@2x", 1024)] {
-    run("/usr/bin/sips", ["-z", "\(px)", "\(px)", "Resources/AppIcon-1024.png", "--out", "\(iconset)/icon_\(name).png"])
-}
-run("/usr/bin/iconutil", ["-c", "icns", iconset, "-o", "Resources/AppIcon.icns"])
-try? FileManager.default.removeItem(atPath: iconset)
-
-// App web : carré plein, sans marge ni coins (iOS applique son propre masque).
-write(render(size: 512, margin: 0, radius: 0), "../web/public/icon-512.png")
-write(render(size: 180, margin: 0, radius: 0), "../web/public/icon-180.png")
+// Carré plein, sans marge ni coins : iOS et Android appliquent leur propre masque.
+write(render(size: 512, margin: 0, radius: 0), "public/icon-512.png")
+write(render(size: 180, margin: 0, radius: 0), "public/icon-180.png")
 print("✅ icônes générées")

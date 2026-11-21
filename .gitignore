@@ -1,9 +1,4 @@
 .DS_Store
-# App Mac
-mac/.build/
-mac/build/
-mac/Resources/AppIcon.iconset/
-# App web
-web/data/
-web/.env
+data/
+.env
 node_modules/

@@ -1,5 +1,4 @@
 // Modèle de configuration partagé par le serveur et le navigateur.
-// Le format est celui de l'app Mac : un fichier exporté de l'une s'importe dans l'autre.
 
 import { t } from './i18n.js';
 
@@ -124,7 +123,7 @@ export function defaultConfig() {
     sections: [newSection('weather'), news, commute, scores, tech, sportsNews, world, economy, hn] };
 }
 
-/** Complète une configuration (importée, ancienne ou venant de l'app Mac) avec les valeurs par défaut manquantes. */
+/** Complète une configuration (importée ou ancienne) avec les valeurs par défaut manquantes. */
 export function normalize(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.sections)) throw new Error(t("Ce fichier n'est pas une configuration Lookout valide."));
   const config = { version: 1, general: { ...GENERAL, ...(input.general ?? {}) }, sections: [] };
@@ -136,7 +135,7 @@ export function normalize(input) {
     s.feed.sources = (s.feed.sources ?? []).map((x) => ({ ...feedSource('', ''), ...x }));
     s.weather = { ...WEATHER, ...(raw.weather ?? {}) };
     s.commute = { ...COMMUTE, ...(raw.commute ?? {}) };
-    // « apple » (Plans) n'existe que dans l'app Mac.
+    // Service inconnu ou retiré : on revient au service sans clé.
     if (!['osrm', 'tomtom', 'hass'].includes(s.commute.provider)) s.commute.provider = 'osrm';
     s.commute.routes = (s.commute.routes ?? []).map((x) => ({ ...commuteRoute(), ...x }));
     s.sports = { ...SPORTS, ...(raw.sports ?? {}) };

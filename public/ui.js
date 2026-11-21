@@ -27,7 +27,7 @@ function svg(inner, cls = '') {
   return t.content.firstChild;
 }
 export const icon = (name, cls) => svg(ICONS.ui[name] ?? '', cls);
-/** Icône de section : le nom enregistré est celui du symbole SF de l'app Mac. */
+/** Icône de section. Les noms enregistrés dans la configuration sont des noms de symboles SF (voir scripts/build-icons.py). */
 export const sfIcon = (name) => svg(ICONS.sf[name] ?? ICONS.sf['newspaper.fill']);
 export const SF_NAMES = Object.keys(ICONS.sf);
 export const badge = (section, small) => h('span', { class: `badge${small ? ' small' : ''}`, style: { '--c': section.colorHex } }, sfIcon(section.icon));

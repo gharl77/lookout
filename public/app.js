@@ -318,7 +318,7 @@ function renderAll() {
   scheduleLayout();
 }
 
-// --- Grille « maçonnerie » adaptative (même algorithme que l'app Mac) ---
+// --- Grille « maçonnerie » adaptative ---
 let layoutFrame = 0;
 function scheduleLayout() {
   cancelAnimationFrame(layoutFrame);

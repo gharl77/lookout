@@ -149,7 +149,7 @@ export const EN = {
   'Importer': 'Import', 'Configuration importée.': 'Configuration imported.', "Ce fichier n'est pas du JSON valide.": 'This file is not valid JSON.',
   'Sauvegarde': 'Backup', 'Exporter la configuration': 'Export the configuration', 'Configuration exportée.': 'Configuration exported.',
   'Exporter…': 'Export…', 'Importer une configuration': 'Import a configuration', 'Importer…': 'Import…',
-  "Le fichier JSON contient toutes vos sections, sources et préférences. Il est compatible avec celui de l'app Mac (sauf le service de trajets).": 'The JSON file contains all your sections, sources and preferences. It is compatible with the Mac app’s file (except the commute service).',
+  'Le fichier JSON contient toutes vos sections, sources et préférences.': 'The JSON file contains all your sections, sources and preferences.',
   'Fichier de configuration': 'Configuration file', 'Emplacement': 'Location', 'Dans le dossier de données du conteneur, sur le serveur.': 'In the container’s data folder, on the server.',
   'Revenir à la configuration de départ': 'Restore the default configuration', 'Réinitialiser toute la configuration ?': 'Reset the whole configuration?',
   "Toutes vos sections et sources seront remplacées par celles de départ. Exportez d'abord votre configuration si vous voulez la conserver.": 'All your sections and sources will be replaced by the defaults. Export your configuration first if you want to keep it.',
