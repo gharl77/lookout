@@ -28,6 +28,14 @@ await check("la page d'accueil et ses fichiers sont servis", async () => {
 await check('la version est annoncée', async () => {
   const about = await (await request('/api/about')).json();
   expect(about.name === 'Lookout' && /^\d+\.\d+\.\d+/.test(about.version), `réponse inattendue : ${JSON.stringify(about)}`);
+  expect(/^[0-9a-f]{12}$/.test(about.build ?? ''), "empreinte de l'interface absente");
+});
+await check('les fichiers sont revalidés par ETag (pas de vieille version en cache)', async () => {
+  const first = await request('/app.js');
+  const etag = first.headers.get('etag');
+  expect(etag && first.headers.get('cache-control') === 'no-cache', 'ETag ou Cache-Control manquant');
+  expect((await request('/app.js', { headers: { 'If-None-Match': etag } })).status === 304, 'pas de réponse 304 pour un fichier inchangé');
+  expect((await request('/app.js', { headers: { 'If-None-Match': '"autre"' } })).status === 200, 'un fichier modifié doit être renvoyé');
 });
 
 let config;

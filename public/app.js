@@ -126,11 +126,12 @@ function restartTimer() {
     const due = visible().filter((s) => (state.data.get(s.id)?.nextUpdateAt ?? 0) <= Date.now() && !state.loading.has(s.id));
     for (const s of due) loadSection(s.id);
     updateToolbar();
+    checkVersion();
   }, 30e3);
 }
 // Au retour dans l'app (iPhone réveillé, onglet réaffiché), rattrape une actualisation manquée.
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && state.config) refreshAll();
+  if (!document.hidden && state.config) { refreshAll(); checkVersion(); }
 });
 
 // --- Lecture des articles ---
@@ -268,14 +269,34 @@ function withUndo(message, change) {
   change();
   if (JSON.stringify(state.config.sections) === snapshot) return;
   commit();
-  toast.replaceChildren(h('span', {}, message), h('button', { class: 'btn small', onClick: () => {
-    hideToast();
+  showToast(message, 'Annuler', () => {
     state.config.sections = JSON.parse(snapshot);
     commit();
-  } }, 'Annuler'));
+  });
+}
+
+/** Bandeau en bas de l'écran : un message et une action. Il disparaît seul, sauf s'il est persistant. */
+function showToast(message, actionLabel, action, { persistent = false } = {}) {
+  toast.replaceChildren(h('span', {}, message), h('button', { class: 'btn small', onClick: () => { hideToast(); action(); } }, actionLabel));
   toast.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, 8000);
+  if (!persistent) toastTimer = setTimeout(hideToast, 8000);
+}
+
+// --- Nouvelle version installée sur le serveur ---
+// Une page peut rester ouverte des jours (onglet oublié, app sur l'écran d'accueil de l'iPhone). Elle vérifie
+// donc régulièrement si le serveur a été mis à jour ; si oui elle se recharge, sauf si vous êtes en train de
+// faire quelque chose, auquel cas elle vous le propose.
+let versionChecked = 0;
+async function checkVersion() {
+  if (!app.build || Date.now() - versionChecked < 60e3) return;
+  versionChecked = Date.now();
+  let about;
+  try { about = await api('/api/about'); } catch { return; }
+  if (!about.build || about.build === app.build) return;
+  const busy = hasOverlay() || state.editing || drag || document.activeElement?.matches?.('input, textarea, select');
+  if (!busy) return location.reload();
+  showToast('Nouvelle version de Lookout disponible', 'Recharger', () => location.reload(), { persistent: true });
 }
 
 // --- Cartes ---
@@ -590,6 +611,7 @@ new ResizeObserver(scheduleLayout).observe($('grid'));
 // --- Démarrage ---
 const app = {
   version: '',
+  build: '',
   state, commit, saveNow, loadSection, refreshAll, restartTimer, renderAll, currentPage,
   async replaceConfig(config) {
     state.config = config;
@@ -617,6 +639,7 @@ document.addEventListener('keydown', (e) => {
   try {
     const [config, read, about] = await Promise.all([api('/api/config'), api('/api/read'), api('/api/about')]);
     app.version = about.version;
+    app.build = about.build;
     state.config = config;
     state.readIDs = new Set(read);
     renderAll();

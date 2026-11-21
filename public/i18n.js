@@ -26,6 +26,7 @@ export const EN = {
   'Ouvrir les réglages': 'Open Settings',
 
   // Annuler, nouveautés, pages
+  'Nouvelle version de Lookout disponible': 'A new version of Lookout is available', 'Recharger': 'Reload',
   'Carte déplacée': 'Card moved', 'Section masquée': 'Section hidden', 'Largeur modifiée': 'Width changed',
   'Disposition réorganisée': 'Layout rearranged', 'Section déplacée': 'Section moved',
   'Réorganiser automatiquement': 'Auto-arrange',

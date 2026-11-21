@@ -24,6 +24,13 @@ const PORT = Number(process.env.PORT || 8080);
 const USER = process.env.LOOKOUT_USER || 'lookout';
 const PASSWORD = process.env.LOOKOUT_PASSWORD || '';
 const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
+// Empreinte de l'interface : change dès qu'un fichier de public/ change. Une page restée ouverte la compare
+// à la sienne pour savoir qu'une nouvelle version est installée, et se recharge.
+const BUILD = (() => {
+  const hash = crypto.createHash('sha1');
+  for (const name of fs.readdirSync(PUBLIC).sort()) hash.update(name).update(fs.readFileSync(path.join(PUBLIC, name)));
+  return hash.digest('hex').slice(0, 12);
+})();
 
 // Langue de la requête en cours (en-tête X-Lang envoyé par l'interface) : sert à traduire les messages.
 const requestLang = new AsyncLocalStorage();
@@ -204,7 +211,7 @@ async function api(req, res, url) {
 
   // Le navigateur ne reçoit jamais les clés ni les jetons : seulement un masque.
   if (route === 'GET /api/config') return send(res, 200, redact(config));
-  if (route === 'GET /api/about') return send(res, 200, { name: 'Lookout', version: VERSION, dns: dnsStats() });
+  if (route === 'GET /api/about') return send(res, 200, { name: 'Lookout', version: VERSION, build: BUILD, dns: dnsStats() });
   if (route === 'PUT /api/config') {
     let next;
     try { next = restoreSecrets(normalize(await readBody(req)), config); } catch (e) { return send(res, 400, { error: e.message }); }
@@ -253,9 +260,12 @@ function serveStatic(req, res, url) {
   if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, 'Interdit');
   fs.readFile(file, (error, data) => {
     if (error) return send(res, 404, 'Introuvable');
-    send(res, 200, data, { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream',
-      // Toujours revalider : une icône ou un script mis à jour apparaît dès le prochain chargement.
-      'Cache-Control': 'no-cache' });
+    // Toujours revalider : une icône ou un script mis à jour apparaît dès le prochain chargement. L'ETag
+    // permet au navigateur de vérifier sans tout retélécharger, et lui interdit de deviner à notre place.
+    const etag = `"${crypto.createHash('sha1').update(data).digest('hex').slice(0, 16)}"`;
+    const headers = { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-cache', ETag: etag };
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
+    send(res, 200, data, headers);
   });
 }
 
