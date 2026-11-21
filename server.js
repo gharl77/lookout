@@ -12,6 +12,9 @@ import { fetchFeeds, fetchJSONAPI } from './lib/feeds.js';
 import { fetchWeather, searchPlaces } from './lib/weather.js';
 import { fetchSports, fetchTeams, searchAPISportsLeagues } from './lib/sports.js';
 import { fetchCommute, initGeocodeCache } from './lib/commute.js';
+import { installDnsCache, dnsStats } from './lib/dns-cache.js';
+
+installDnsCache();
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
@@ -162,7 +165,7 @@ async function api(req, res, url) {
   const q = url.searchParams;
 
   if (route === 'GET /api/config') return send(res, 200, config);
-  if (route === 'GET /api/about') return send(res, 200, { name: 'Lookout', version: VERSION });
+  if (route === 'GET /api/about') return send(res, 200, { name: 'Lookout', version: VERSION, dns: dnsStats() });
   if (route === 'PUT /api/config') {
     let next;
     try { next = normalize(await readBody(req)); } catch (e) { return send(res, 400, { error: e.message }); }
