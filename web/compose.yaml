@@ -1,0 +1,22 @@
+# Lookout — stack Docker (Portainer : Stacks → Add stack → Web editor, puis coller ce fichier).
+services:
+  lookout:
+    image: ghcr.io/gharl77/lookout:latest
+    container_name: lookout
+    restart: unless-stopped
+    # Doit pouvoir écrire dans le dossier de données ci-dessous (propriétaire du dossier).
+    user: "1000:1000"
+    ports:
+      - "8765:8080"
+    environment:
+      TZ: America/Toronto
+      # Facultatif : exiger un mot de passe (utilisateur « lookout » par défaut).
+      # LOOKOUT_USER: lookout
+      # LOOKOUT_PASSWORD: changez-moi
+    volumes:
+      - /opt/stacks/lookout/data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

@@ -1,0 +1,10 @@
+{
+  "name": "lookout",
+  "version": "0.1.0-beta",
+  "private": true,
+  "type": "module",
+  "description": "Lookout — self-hosted personal dashboard: news, weather, commute, sports scores.",
+  "license": "UNLICENSED",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=22" }
+}

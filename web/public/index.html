@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Lookout</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Lookout">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" type="image/png" href="icon-180.png">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div id="backdrop" aria-hidden="true"></div>
+  <header id="topbar">
+    <div class="topbar-title">
+      <strong>Lookout</strong>
+      <span id="subtitle" aria-live="polite"></span>
+    </div>
+    <div class="toolbar" role="toolbar" aria-label="Actions">
+      <button id="btn-refresh" class="tool" title="Actualiser toutes les sections" aria-label="Actualiser"></button>
+      <button id="btn-edit" class="tool" title="Réorganiser, redimensionner ou masquer les sections" aria-label="Organiser" aria-pressed="false"></button>
+      <button id="btn-settings" class="tool" title="Configurer les sections et les sources" aria-label="Réglages"></button>
+    </div>
+  </header>
+  <main id="main">
+    <section id="hero"></section>
+    <div id="edit-banner" hidden></div>
+    <div id="grid"></div>
+    <div id="empty" hidden></div>
+  </main>
+  <div id="layer"></div>
+  <noscript>Lookout a besoin de JavaScript. / Lookout needs JavaScript.</noscript>
+</body>
+</html>
