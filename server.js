@@ -77,6 +77,12 @@ const CACHE_MS = 3 * 60e3;
 const cache = new Map();   // id de section -> { signature, time, payload }
 const pending = new Map();
 
+/** Journalise les sources en échec (visible avec « docker logs lookout »), pour comprendre une alerte après coup. */
+function logSourceErrors(section, sourceErrors = {}) {
+  const names = new Map([...section.feed.sources, ...section.sports.leagues].map((x) => [x.id, x.name]));
+  for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
+}
+
 async function loadSection(section, force) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
@@ -94,9 +100,12 @@ async function loadSection(section, force) {
         : section.kind === 'sports' ? await fetchSports(section.sports)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
+      logSourceErrors(section, data.sourceErrors);
+      for (const route of data.routes ?? []) if (route.error) console.warn(`[${section.title}] ${route.name || 'trajet'} : ${route.error}`);
       cache.set(section.id, { signature, time: Date.now(), payload });
     } catch (error) {
       if (!(error instanceof BriefingError)) console.error(`Section « ${section.title} » :`, error);
+      else console.warn(`[${section.title}] ${error.message}`);
       const message = error instanceof BriefingError ? error.message : t('Erreur interne du serveur');
       // En cas d'échec, on renvoie les dernières données connues avec l'erreur.
       const stale = cached?.signature === signature ? cached.payload : null;
