@@ -97,6 +97,19 @@ svg.icon { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
   border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 14px; }
 #edit-banner .grow { flex: 1 1 220px; }
 
+/* --- Onglets des pages --- */
+#pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: calc(var(--grid-gap) + 2px); }
+.page-tab { padding: 6px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--text2); background: var(--card);
+  border: 0.5px solid var(--sep); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.page-tab:hover { color: var(--text); }
+.page-tab[aria-current="page"] { background: var(--accent); border-color: transparent; color: #fff; }
+
+/* --- Bandeau « Annuler » --- */
+.toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 14px; padding: 9px 10px 9px 16px; border-radius: 999px; font-size: 14px; font-weight: 500; white-space: nowrap;
+  color: #fff; background: rgba(40, 40, 44, 0.94); box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.toast .btn { background: rgba(255, 255, 255, 0.18); color: #fff; border-radius: 999px; }
+
 /* --- Grille « maçonnerie » --- */
 #grid { position: relative; }
 .card { position: absolute; top: 0; left: 0; padding: var(--card-pad); border-radius: var(--radius);
@@ -140,6 +153,12 @@ body.is-dragging .card:not(.dragging) { pointer-events: none; }
 .skeleton i { display: block; height: 12px; border-radius: 4px; background: var(--fill); }
 .skeleton i:nth-child(even) { height: 10px; width: 45%; margin-top: -8px; }
 @keyframes pulse { 50% { opacity: 0.45; } }
+
+/* --- Nouveautés --- */
+.new-count { display: inline-block; margin-left: 7px; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; line-height: 1.5;
+  vertical-align: 1px; color: #fff; background: var(--accent); font-variant-numeric: tabular-nums; }
+.new-pill { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 1.6;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); flex: none; }
 
 /* --- Lignes cliquables --- */
 .row { display: block; margin: 0 -8px; padding: 6px 8px; border-radius: 10px; }
@@ -194,6 +213,20 @@ body.is-dragging .card:not(.dragging) { pointer-events: none; }
 .wi-sun { color: #facc15; } .wi-moon { color: #c4b5fd; } .wi-cloud { color: #94a3b8; } .wi-rain { color: #38bdf8; }
 .wi-snow { color: #93c5fd; } .wi-storm { color: #a78bfa; } .wi-mix { color: #fbbf24; }
 
+/* --- Alertes météo --- */
+.alerts { display: flex; flex-direction: column; gap: 6px; }
+.alert { --a: #f59e0b; border-radius: 12px; background: color-mix(in srgb, var(--a) 16%, transparent); border: 0.5px solid color-mix(in srgb, var(--a) 45%, transparent); }
+.alert.warning { --a: #ef4444; } .alert.watch { --a: #f97316; } .alert.statement { --a: #64748b; }
+.alert summary { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; list-style: none; }
+.alert summary::-webkit-details-marker { display: none; }
+.alert summary > svg:first-child { color: var(--a); font-size: 18px; }
+.alert summary span { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.alert summary b { font-weight: 600; font-size: 14px; }
+.alert summary small { font-size: 12px; color: var(--text2); }
+.alert .chevron { color: var(--text2); font-size: 12px; transition: transform 0.2s; }
+.alert[open] .chevron { transform: rotate(180deg); }
+.alert p { margin: 0; padding: 0 12px 10px 37px; font-size: 13px; color: var(--text2); white-space: pre-line; }
+
 /* --- Sports --- */
 .day-label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; margin: 6px 0 2px; }
 .day-label:first-child { margin-top: 0; }
@@ -212,6 +245,16 @@ body.is-dragging .card:not(.dragging) { pointer-events: none; }
 .g-status .live::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ef4444; margin-right: 4px; vertical-align: 1px; }
 .g-status .other { color: #f59e0b; font-weight: 500; }
 .g-status small { color: var(--text3); font-size: 11px; }
+
+/* Classement des équipes suivies */
+.standings { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 10px; border-top: 0.5px solid var(--sep); }
+.standing { display: flex; align-items: center; gap: 8px; }
+.standing .text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.standing .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standing small { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standing .figures { text-align: right; display: flex; flex-direction: column; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.standing .figures b { font-weight: 600; font-size: 14px; }
+.rank-chip { display: grid; place-items: center; background: var(--fill) !important; font-size: 13px; font-weight: 600; color: var(--text2); }
 
 /* --- Trajets --- */
 .route { display: flex; align-items: center; gap: 12px; }

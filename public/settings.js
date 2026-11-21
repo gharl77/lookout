@@ -1,6 +1,6 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, uuid } from './shared.js';
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid } from './shared.js';
 
 let closeCurrent = null;
 
@@ -80,6 +80,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       line('Couleur', swatches(s, 'colorHex')),
       line('Afficher dans le tableau de bord', toggle(s, 'enabled', { label: 'Afficher dans le tableau de bord' })),
       line('Largeur', select(s, 'span', SPANS, { label: 'Largeur' })),
+      config().pages.length > 1 && line('Page', select(s, 'page', config().pages.map((p) => [p.id, p.name || t('Sans titre')]), { label: 'Page', rerender: true })),
       s.kind !== 'weather' && line(ITEMS_LABEL[s.kind], stepper(s, 'maxItems', 1, 40)),
       // Après le changement, on redemande la section : le serveur applique tout de suite le nouvel intervalle.
       line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.loadSection(s.id)) }, select(s, 'refreshMinutes',
@@ -146,6 +147,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         results,
       ]),
       group('Affichage', [
+        line('Alertes météo (Environnement Canada)', toggle(o, 'showAlerts', { label: 'Alertes météo' })),
         line('Ressenti, vent, humidité et soleil', toggle(o, 'showDetails', { label: 'Détails' })),
         line('Prévisions horaires', toggle(o, 'showHourly', { label: 'Prévisions horaires', rerender: true })),
         o.showHourly && line('Heures affichées', stepper(o, 'hourlyCount', 4, 24)),
@@ -278,6 +280,8 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line("Résultats d'hier", toggle(o, 'showYesterday', { label: "Résultats d'hier" })),
         line('Matchs de demain', toggle(o, 'showUpcoming', { label: 'Matchs de demain' })),
         line('Logos des équipes', toggle(o, 'showLogos', { label: 'Logos des équipes' })),
+        line('Classement de mes équipes', toggle(o, 'showStandings', { label: 'Classement de mes équipes' })),
+        line('Suivre les matchs en direct (mise à jour chaque minute)', toggle(o, 'liveRefresh', { label: 'Suivre les matchs en direct' })),
       ]),
     ];
   }
@@ -316,7 +320,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     return config().sections.map((s) => {
       const item = h('button', { class: `s-item${s.enabled ? '' : ' off'}`, role: 'option', 'aria-selected': String(s.id === ui.selected), draggable: 'true',
         onClick: () => { ui.selected = s.id; ui.detail = true; render(); } },
-      badge(s, true), h('span', { class: 'names' }, h('span', {}, s.title || 'Sans titre'), h('small', {}, KINDS[s.kind].label)),
+      badge(s, true), h('span', { class: 'names' }, h('span', {}, s.title || 'Sans titre'), h('small', {}, t(KINDS[s.kind].label), config().pages.length > 1 && ` · ${config().pages.find((p) => p.id === s.page)?.name ?? ''}`)),
       !s.enabled && h('span', { title: 'Section masquée' }, icon('hide')));
       item.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; });
       item.addEventListener('dragover', (e) => { e.preventDefault(); item.classList.add('drop-target'); });
@@ -347,7 +351,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     const foot = h('div', { class: 's-list-foot' },
       h('button', { class: 'icon-btn', title: 'Ajouter une section', 'aria-label': 'Ajouter une section', onClick: (e) => openMenu(e.currentTarget,
         Object.entries(KINDS).map(([kind, k]) => ({ label: k.label, detail: k.detail, action: () => {
-          const s = template(kind); s.title = t(s.title); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); } }))) }, icon('plus')),
+          const s = template(kind); s.title = t(s.title); s.page = app.currentPage(); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); } }))) }, icon('plus')),
       h('button', { class: 'icon-btn', title: 'Supprimer la section sélectionnée', 'aria-label': 'Supprimer la section', disabled: !selected, onClick: async () => {
         if (!await confirmDialog('Supprimer cette section ?', 'La section et ses sources seront supprimées. Pour la retirer temporairement, désactivez-la plutôt.', 'Supprimer')) return;
         const i = list.indexOf(selected);
@@ -373,11 +377,35 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     return h('div', { class: `settings-body sections${ui.detail && selected ? ' detail' : ''}` }, h('div', { class: 's-list' }, listEl, foot), pane);
   }
 
+  // --- Pages ---
+  function pagesGroup() {
+    const list = config().pages, sections = config().sections;
+    return group('Pages', [
+      list.map((p) => h('div', { class: 'item' },
+        h('div', { class: 'fields' }, h('input', { value: p.name, placeholder: t('Nom de la page'), 'aria-label': 'Nom de la page', maxlength: '40',
+          onInput: (e) => { p.name = e.target.value; commit(); } }),
+        h('div', { class: 'sub-line' }, t('{0} sections', sections.filter((s) => s.page === p.id).length))),
+        h('div', { class: 'ctrls' },
+          h('button', { class: 'icon-btn', title: 'Monter', 'aria-label': 'Monter', disabled: list.indexOf(p) === 0,
+            onClick: () => { const i = list.indexOf(p); [list[i - 1], list[i]] = [list[i], list[i - 1]]; commit(); render(); } }, icon('up')),
+          h('button', { class: 'icon-btn', title: 'Descendre', 'aria-label': 'Descendre', disabled: list.indexOf(p) === list.length - 1,
+            onClick: () => { const i = list.indexOf(p); [list[i + 1], list[i]] = [list[i], list[i + 1]]; commit(); render(); } }, icon('down')),
+          h('button', { class: 'icon-btn', title: 'Supprimer', 'aria-label': 'Supprimer', disabled: list.length < 2, onClick: async () => {
+            const count = sections.filter((s) => s.page === p.id).length;
+            if (count && !await confirmDialog('Supprimer cette page ?', t('Ses {0} sections seront déplacées vers une autre page, pas supprimées.', count), 'Supprimer')) return;
+            list.splice(list.indexOf(p), 1);
+            for (const s of sections) if (s.page === p.id) { s.page = list[0].id; s.column = -1; }
+            commit(); render();
+          } }, icon('trash'))))),
+      h('div', { class: 'line' }, h('button', { class: 'btn', onClick: () => { list.push(newPage(t('Nouvelle page'))); commit(); render(); } }, icon('plus'), 'Ajouter une page')),
+    ], "Avec plusieurs pages, des onglets apparaissent en haut du tableau de bord. Chaque section appartient à une page, qui se choisit dans ses réglages ou dans le menu de sa carte.");
+  }
+
   // --- Général ---
   function generalTab() {
     const g = config().general;
     return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '640px', margin: '0 auto' } },
-      group('Accueil', [
+      group("Message d'accueil", [
         line("Afficher le message d'accueil", toggle(g, 'showGreeting', { label: "Message d'accueil" })),
         line('Votre prénom', text(g, 'displayName', { placeholder: 'Facultatif', label: 'Votre prénom' })),
         line("Afficher le coup d'œil (météo et premier trajet)", toggle(g, 'showGlance', { label: "Coup d'œil" })),
@@ -400,6 +428,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       group('Unités', [
         line('Unités', select(g, 'units', [['metric', 'Métrique (°C, km)'], ['imperial', 'Impérial (°F, mi)']], { label: 'Unités' })),
       ]),
+      pagesGroup(),
       group('Lecture', [
         line('Atténuer les articles déjà lus', toggle(g, 'dimReadArticles', { label: 'Atténuer les articles lus' })),
       ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."))));

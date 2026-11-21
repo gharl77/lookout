@@ -1,11 +1,16 @@
 // Briefing — tableau de bord.
 import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay } from './ui.js';
 import { setLangProvider, resolveLang } from './i18n.js';
-import { cardBody, shownArticles, WMO } from './cards.js';
+import { cardBody, shownArticles, countNew, WMO } from './cards.js';
 import { KINDS, template, fetchSignature } from './shared.js';
 import { openSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Préférences propres à cet appareil (page affichée, heure de la dernière visite). Le stockage peut être
+// refusé par le navigateur (navigation privée) : dans ce cas on s'en passe.
+function remembered(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function remember(key, value) { try { localStorage.setItem(key, String(value)); } catch { /* stockage indisponible */ } }
 const state = {
   config: null,
   data: new Map(),        // id de section -> réponse du serveur
@@ -13,12 +18,20 @@ const state = {
   signatures: new Map(),  // id de section -> empreinte des dernières données demandées
   readIDs: new Set(),
   editing: false,
+  page: remembered('lookout.page'),
   lastRefresh: null,
 };
 const cards = new Map();  // id de section -> élément de carte
 
 const general = () => state.config.general;
-const visible = () => state.config.sections.filter((s) => s.enabled);
+const pages = () => state.config.pages;
+/** Page affichée : celle retenue sur cet appareil, sinon la première. */
+function currentPage() {
+  const list = pages();
+  return (list.find((p) => p.id === state.page) ?? list[0]).id;
+}
+/** Sections affichées : celles de la page courante qui ne sont pas masquées. */
+const visible = () => { const page = currentPage(); return state.config.sections.filter((s) => s.enabled && s.page === page); };
 const section = (id) => state.config.sections.find((s) => s.id === id);
 
 // --- Langue ---
@@ -107,13 +120,13 @@ function refreshAll() {
 let refreshTimer = null;
 function restartTimer() {
   clearInterval(refreshTimer);
-  // Vérifie chaque minute : le serveur ne réinterroge une source que lorsque son intervalle est écoulé.
+  // Vérifie toutes les 30 secondes : le serveur ne réinterroge une source que lorsque son intervalle est écoulé.
   refreshTimer = setInterval(() => {
     if (document.hidden) return;
     const due = visible().filter((s) => (state.data.get(s.id)?.nextUpdateAt ?? 0) <= Date.now() && !state.loading.has(s.id));
     for (const s of due) loadSection(s.id);
     updateToolbar();
-  }, 60e3);
+  }, 30e3);
 }
 // Au retour dans l'app (iPhone réveillé, onglet réaffiché), rattrape une actualisation manquée.
 document.addEventListener('visibilitychange', () => {
@@ -126,7 +139,28 @@ function setRead(ids, read) {
   api('/api/read', { method: 'POST', body: read ? { add: ids } : { remove: ids } }).catch(() => {});
   for (const s of visible()) if (state.data.get(s.id)?.articles) renderCard(s.id);
 }
-const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs.has(id), setRead };
+// --- Nouveautés depuis la dernière visite ---
+// Un article est « nouveau » s'il est paru après votre départ précédent de cette page, sur cet appareil.
+// Le repère n'avance que si vous êtes parti au moins 10 minutes : un aller-retour rapide ne l'efface pas.
+let newSince = Number(remembered('lookout.newSince')) || 0;
+function noteDeparture() { remember('lookout.leftAt', Date.now()); }
+/** Au retour (ouverture de la page ou onglet réaffiché) : avance le repère si l'absence a duré. */
+function noteReturn() {
+  const leftAt = Number(remembered('lookout.leftAt')) || 0;
+  if (!leftAt || Date.now() - leftAt < 10 * 60e3 || leftAt <= newSince) return false;
+  newSince = leftAt;
+  remember('lookout.newSince', newSince);
+  return true;
+}
+noteReturn();
+window.addEventListener('pagehide', noteDeparture);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) noteDeparture();
+  else if (noteReturn() && state.config) renderAll();
+});
+
+const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs.has(id), setRead,
+  isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 
 // --- Barre supérieure et en-tête ---
 function showSubtitle(text) { $('subtitle').textContent = text; }
@@ -172,11 +206,31 @@ function addSectionMenu(anchor) {
     label: k.label, detail: k.detail, action: () => {
       const s = template(kind);
       s.title = t(s.title);
+      s.page = currentPage();
       state.config.sections.push(s);
       commit();
       openSettings(app, { sectionID: s.id });
     },
   })));
+}
+
+/** Onglets des pages, affichés seulement s'il y en a plus d'une. */
+function renderPages() {
+  const nav = $('pages'), list = pages(), current = currentPage();
+  nav.hidden = list.length < 2;
+  if (nav.hidden) return;
+  nav.replaceChildren(...list.map((p) => h('button', { class: 'page-tab', 'aria-current': p.id === current ? 'page' : null,
+    onClick: () => showPage(p.id) }, p.name || 'Sans titre')));
+}
+
+function showPage(id) {
+  if (id === currentPage()) return;
+  state.page = id;
+  remember('lookout.page', id);
+  hideToast();
+  renderAll();
+  refreshAll();   // les sections de la page sont demandées au serveur (qui respecte leurs intervalles)
+  window.scrollTo({ top: 0 });
 }
 
 function renderBanner() {
@@ -185,6 +239,8 @@ function renderBanner() {
   if (!state.editing) return;
   banner.replaceChildren(
     h('span', { class: 'grow' }, icon('drag'), ' ', "Glissez une carte par son en-tête et déposez-la où vous voulez : les autres cartes restent à leur place."),
+    h('button', { class: 'btn', title: 'Replace toutes les cartes de cette page dans les colonnes les moins remplies',
+      onClick: () => withUndo('Disposition réorganisée', () => { for (const s of visible()) s.column = -1; }) }, icon('grid'), 'Réorganiser automatiquement'),
     h('button', { class: 'btn', onClick: (e) => addSectionMenu(e.currentTarget) }, icon('plus'), 'Ajouter une section'),
     h('button', { class: 'btn primary', onClick: () => setEditing(false) }, 'Terminé'));
 }
@@ -194,12 +250,37 @@ function setEditing(on) {
   renderAll();
 }
 
-// --- Cartes ---
-function updateSection(id, change) {
-  const s = section(id);
-  if (!s) return;
-  change(s);
+// --- Annuler ---
+// Après un déplacement, un masquage ou un changement de largeur, un bandeau propose d'annuler pendant
+// quelques secondes : il remet les sections exactement comme elles étaient.
+let toastTimer = null;
+const toast = h('div', { class: 'toast', role: 'status', hidden: true });
+document.body.append(toast);
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  toast.hidden = true;
+}
+
+/** Applique un changement de disposition et propose de l'annuler. */
+function withUndo(message, change) {
+  const snapshot = JSON.stringify(state.config.sections);
+  change();
+  if (JSON.stringify(state.config.sections) === snapshot) return;
   commit();
+  toast.replaceChildren(h('span', {}, message), h('button', { class: 'btn small', onClick: () => {
+    hideToast();
+    state.config.sections = JSON.parse(snapshot);
+    commit();
+  } }, 'Annuler'));
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 8000);
+}
+
+// --- Cartes ---
+function updateSection(id, message, change) {
+  withUndo(message, () => { const s = section(id); if (s) change(s); });
 }
 
 /** Monte ou descend une carte d'un cran dans sa colonne (boutons du mode « Organiser »). */
@@ -210,10 +291,12 @@ function moveInColumn(id, direction) {
     .map(([other, f]) => ({ id: other, y: f.y })).sort((x, y) => x.y - y.y);
   const target = direction < 0 ? neighbours.filter((n) => n.y < mine.y).at(-1) : neighbours.find((n) => n.y > mine.y);
   if (!target) return;
-  const list = state.config.sections, moved = list.splice(list.findIndex((x) => x.id === id), 1)[0];
-  const at = list.findIndex((x) => x.id === target.id);
-  list.splice(direction < 0 ? at : at + 1, 0, moved);
-  commit();
+  const list = state.config.sections;
+  withUndo('Carte déplacée', () => {
+    const moved = list.splice(list.findIndex((x) => x.id === id), 1)[0];
+    const at = list.findIndex((x) => x.id === target.id);
+    list.splice(direction < 0 ? at : at + 1, 0, moved);
+  });
 }
 
 const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [99, 'Pleine largeur']];
@@ -225,16 +308,26 @@ function cardMenu(anchor, s) {
     payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles).map((a) => a.id), true) },
     '-',
     { heading: 'Largeur' },
-    ...SPANS.map(([value, label]) => ({ label, checked: s.span === value, action: () => updateSection(s.id, (x) => { x.span = value; }) })),
+    ...SPANS.map(([value, label]) => ({ label, checked: s.span === value, action: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = value; }) })),
     '-',
     { label: 'Configurer…', icon: icon('gear'), action: () => openSettings(app, { sectionID: s.id }) },
-    { label: 'Masquer', icon: icon('hide'), action: () => updateSection(s.id, (x) => { x.enabled = false; }) },
+    // Avec plusieurs pages : envoyer la carte sur une autre.
+    ...(pages().length > 1 ? ['-', { heading: 'Déplacer vers la page' }, ...pages().filter((p) => p.id !== s.page).map((p) => ({
+      label: p.name || 'Sans titre', action: () => updateSection(s.id, 'Section déplacée', (x) => { x.page = p.id; x.column = -1; }) }))] : []),
+    '-',
+    { label: 'Masquer', icon: icon('hide'), action: () => updateSection(s.id, 'Section masquée', (x) => { x.enabled = false; }) },
   ]);
 }
 
 function sourceErrorText(s, payload) {
   const names = new Map([...s.feed.sources, ...s.sports.leagues].map((x) => [x.id, x.name]));
   return Object.entries(payload.sourceErrors ?? {}).map(([id, message]) => `${names.get(id) ?? t('Source')} : ${message}`).sort().join('\n');
+}
+
+/** Pastille « n nouveaux » dans l'en-tête d'une carte d'articles. */
+function newBadge(s, payload) {
+  const count = payload?.articles ? countNew(s, payload.articles, ctx) : 0;
+  return count > 0 && h('span', { class: 'new-count', title: t('{0} nouveaux depuis votre dernière visite', count) }, String(count));
 }
 
 function buildCard(s) {
@@ -247,8 +340,8 @@ function buildCard(s) {
       h('button', { class: 'icon-btn', title: 'Monter', 'aria-label': 'Monter', onClick: () => moveInColumn(s.id, -1) }, icon('up')),
       h('button', { class: 'icon-btn', title: 'Descendre', 'aria-label': 'Descendre', onClick: () => moveInColumn(s.id, 1) }, icon('down')),
       h('button', { class: 'icon-btn', title: s.span === 1 ? 'Élargir' : s.span === 2 ? 'Pleine largeur' : 'Réduire', 'aria-label': 'Changer la largeur',
-        onClick: () => updateSection(s.id, (x) => { x.span = x.span === 1 ? 2 : x.span === 2 ? 99 : 1; }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
-      h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, (x) => { x.enabled = false; }) }, icon('hide')))
+        onClick: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = x.span === 1 ? 2 : x.span === 2 ? 99 : 1; }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
+      h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, 'Section masquée', (x) => { x.enabled = false; }) }, icon('hide')))
     : [
       !loading && errors && h('span', { class: 'warn', title: errors, role: 'img', 'aria-label': 'Certaines sources sont en erreur' }, icon('warning')),
       h('button', { class: `icon-btn reload${loading ? ' spinning' : ''}`, disabled: loading, 'aria-busy': String(loading),
@@ -274,7 +367,7 @@ function buildCard(s) {
 
   const card = h('article', { class: `card${state.editing ? ' editing' : ''}`, 'aria-label': s.title },
     h('header', { class: 'card-head' }, badge(s),
-      h('div', { class: 'card-title' }, h('h2', {}, s.title), s.kind === 'weather' && h('small', {}, s.weather.locationName)), controls),
+      h('div', { class: 'card-title' }, h('h2', {}, s.title, newBadge(s, payload)), s.kind === 'weather' && h('small', {}, s.weather.locationName)), controls),
     h('div', { class: 'card-body' }, body));
   card.dataset.id = s.id;
 
@@ -302,6 +395,7 @@ function renderAll() {
   if (applyLanguage() && state.data.size) refreshAll();
   applyTheme();
   renderHero();
+  renderPages();
   renderBanner();
   updateToolbar();
   const grid = $('grid'), list = visible();
@@ -421,10 +515,9 @@ function endDrag(cancelled) {
   document.body.classList.remove('is-dragging');
   dropLine.hidden = true;
   dropLine.remove();
-  let changed = false;
-  if (active && !cancelled && target) changed = placeCard(id, target);
+  if (active && !cancelled && target) withUndo('Carte déplacée', () => placeCard(id, target));
   if (active) layout();   // la carte glisse jusqu'à son emplacement
-  if (changed) commit(); else if (stale) renderAll();
+  if (stale) renderAll();
 }
 
 /** Dépose une carte : fixe sa colonne et l'insère à l'endroit visé dans l'ordre des sections. */
@@ -497,7 +590,7 @@ new ResizeObserver(scheduleLayout).observe($('grid'));
 // --- Démarrage ---
 const app = {
   version: '',
-  state, commit, saveNow, loadSection, refreshAll, restartTimer, renderAll,
+  state, commit, saveNow, loadSection, refreshAll, restartTimer, renderAll, currentPage,
   async replaceConfig(config) {
     state.config = config;
     state.data.clear();

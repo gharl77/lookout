@@ -55,7 +55,7 @@ function loadConfig() {
       fs.renameSync(CONFIG_FILE, path.join(DATA, 'config-illisible.json'));
       console.error('Configuration illisible, mise de côté :', error.message);
     }
-    return saveConfig(defaultConfig());
+    return saveConfig(normalize(defaultConfig()));
   }
 }
 
@@ -80,18 +80,38 @@ function saveRead() {
 // celui des réglages généraux (« refreshMinutes », 30 minutes par défaut), peu importe combien de fois la page est ouverte ou actualisée : les sites qui limitent les
 // accès ne voient donc jamais plus de requêtes que prévu. Seule exception : après un échec, une nouvelle
 // tentative est permise au bout de 2 minutes. L'utilisateur peut aussi demander la mise à jour immédiate
-// d'une seule section (icône de rechargement de la carte), au plus une fois par minute.
+// d'une seule section (icône de rechargement de la carte), au plus une fois par minute. Enfin, pendant
+// qu'un match d'une équipe suivie est en cours, les pointages sont rafraîchis chaque minute.
 
 const RETRY_MS = 2 * 60e3;
 const FORCE_MS = 60e3;
+const LIVE_MS = 60e3;
 const cache = new Map();   // id de section -> { signature, time, payload }
 const pending = new Map();
 
 const intervalMs = (section) => Math.max(1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
   || (payload.routes ?? []).some((route) => route.error);
+/** Un match d'une équipe suivie est-il en cours ? (Toute la ligue compte si aucune équipe n'est choisie.) */
+function hasLiveGame(payload, section) {
+  if (section?.kind !== 'sports' || section.sports.liveRefresh === false) return false;
+  const chosen = new Map(section.sports.leagues.map((l) => [l.id, new Set((l.teams ?? []).map((x) => x.id))]));
+  // Les ligues API-Sports sont exclues : leur quota gratuit ne permet pas une requête par minute.
+  const paced = new Set(section.sports.leagues.filter((l) => l.provider === 'apisports').map((l) => l.id));
+  return (payload.games ?? []).some((g) => {
+    if (g.state !== 'live' || paced.has(g.leagueID)) return false;
+    const teams = chosen.get(g.leagueID);
+    return !teams?.size || teams.has(g.home.id) || teams.has(g.away.id);
+  });
+}
+
 /** Moment à partir duquel les sources d'une section pourront être réinterrogées. */
-const nextUpdate = (entry, section) => entry.time + (hasErrors(entry.payload) ? Math.min(RETRY_MS, intervalMs(section)) : intervalMs(section));
+function nextUpdate(entry, section) {
+  let wait = intervalMs(section);
+  if (hasErrors(entry.payload)) wait = Math.min(wait, RETRY_MS);
+  if (hasLiveGame(entry.payload, section)) wait = Math.min(wait, LIVE_MS);   // pendant un match : chaque minute
+  return entry.time + wait;
+}
 
 /** Journalise les sources en échec (visible avec « docker logs lookout »), pour comprendre une alerte après coup. */
 function logSourceErrors(section, sourceErrors = {}) {
@@ -194,7 +214,7 @@ async function api(req, res, url) {
     return send(res, 200, redact(config));
   }
   if (route === 'POST /api/config/reset') {
-    config = saveConfig(defaultConfig());
+    config = saveConfig(normalize(defaultConfig()));
     cache.clear();
     return send(res, 200, redact(config));
   }

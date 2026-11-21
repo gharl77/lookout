@@ -66,6 +66,10 @@ export const fmt = {
     const s = new Intl.DateTimeFormat(locale(), { weekday: style, timeZone }).format(ms);
     return s.charAt(0).toUpperCase() + s.slice(1);
   },
+  /** « dim. 17 h 00 » : jour et heure, pour la fin d'une alerte. */
+  dayTime(ms, timeZone) {
+    return `${new Intl.DateTimeFormat(locale(), { weekday: 'short', timeZone }).format(ms)} ${fmt.time(ms, timeZone)}`;
+  },
   longDate(ms) {
     const s = new Intl.DateTimeFormat(locale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(ms);
     return s.charAt(0).toUpperCase() + s.slice(1);

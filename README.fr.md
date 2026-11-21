@@ -14,6 +14,7 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 - Un seul petit conteneur, sans base de données ni dépendance externe
 - Fonctionne dans n'importe quel navigateur ; sur iPhone, s'ajoute à l'écran d'accueil comme une app
 - Thèmes clair et sombre, couleur d'accent, densité et nombre de colonnes réglables
+- Plusieurs pages (onglets), disposition par glisser-déposer avec annulation, et pastille sur les articles parus depuis votre dernière visite
 - Interface bilingue (français / anglais)
 - Respectueux des sources : chacune est interrogée au plus une fois par intervalle, peu importe le nombre de rechargements (30 minutes par défaut, 5 pour les pointages et les trajets, réglable par section)
 
@@ -22,9 +23,9 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 | Section | Source | Clé requise |
 |---|---|---|
 | Fils RSS | N'importe quel fil RSS ou Atom, avec filtres par mots-clés et trois présentations | Non |
-| Météo | [Open-Meteo](https://open-meteo.com) | Non |
+| Météo | [Open-Meteo](https://open-meteo.com), avec les alertes d'Environnement Canada | Non |
 | Trajets | OSRM, TomTom (circulation en direct) ou capteur Home Assistant | TomTom seulement |
-| Pointages | ESPN, HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH), API-Sports — choix des équipes par ligue | API-Sports seulement |
+| Pointages | ESPN, HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH), API-Sports — choix des équipes par ligue, classement, matchs en direct mis à jour chaque minute | API-Sports seulement |
 | API JSON | N'importe quelle API qui renvoie une liste, par chemin de champs | Selon l'API |
 
 ## Démarrage rapide

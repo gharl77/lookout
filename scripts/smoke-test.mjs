@@ -35,6 +35,7 @@ await check('une configuration de départ valide est créée', async () => {
   config = await (await request('/api/config')).json();
   expect(Array.isArray(config.sections) && config.sections.length > 0, 'aucune section par défaut');
   expect(config.sections.every((s) => s.id && s.kind && s.title), 'section incomplète');
+  expect(Array.isArray(config.pages) && config.pages.length === 1 && config.sections.every((s) => s.page === config.pages[0].id), 'pages par défaut incorrectes');
   expect(config.general.refreshMinutes === 30, `intervalle par défaut inattendu : ${config.general.refreshMinutes}`);
   expect(config.sections.every((s) => [0, 5, 10, 15, 30, 60, 120].includes(s.refreshMinutes)), 'intervalle de section invalide');
 });

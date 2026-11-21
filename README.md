@@ -14,6 +14,7 @@ every source is either an RSS feed or an API.
 - One small container, no database, no external dependency
 - Works in any browser; on iPhone it can be added to the Home Screen like an app
 - Light and dark themes, accent colour, adjustable density and column count
+- Several pages (tabs), drag-and-drop layout with undo, and a badge on articles published since your last visit
 - Bilingual interface (English / French)
 - Polite to its sources: each one is queried at most once per interval, however often you reload (30 minutes by default, 5 for scores and commute, adjustable per section)
 
@@ -22,9 +23,9 @@ every source is either an RSS feed or an API.
 | Section | Source | Key required |
 |---|---|---|
 | RSS feeds | Any RSS or Atom feed, with keyword filters and three layouts | No |
-| Weather | [Open-Meteo](https://open-meteo.com) | No |
+| Weather | [Open-Meteo](https://open-meteo.com), with Environment Canada alerts | No |
 | Commute | OSRM, TomTom (live traffic) or a Home Assistant sensor | TomTom only |
-| Sports scores | ESPN, HockeyTech (QMJHL, PWHL, OHL, WHL, AHL), API-Sports — pick teams per league | API-Sports only |
+| Sports scores | ESPN, HockeyTech (QMJHL, PWHL, OHL, WHL, AHL), API-Sports — pick teams per league, standings, live games refreshed every minute | API-Sports only |
 | JSON API | Any API returning a list, mapped by field path | Depends on the API |
 
 ## Quick start

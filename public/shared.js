@@ -79,9 +79,10 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '' };
 const WEATHER = { locationName: 'Montréal, Québec', latitude: 45.5019, longitude: -73.5674, showDetails: true,
-  showHourly: true, hourlyCount: 12, showDaily: true, dailyCount: 7 };
+  showHourly: true, hourlyCount: 12, showDaily: true, dailyCount: 7, showAlerts: true };
 const COMMUTE = { routes: [], provider: 'osrm', showAlternates: true, tomtomKey: '', hassURL: '', hassToken: '' };
-const SPORTS = { leagues: [], showYesterday: true, showUpcoming: true, showLogos: true, apiSportsKey: '' };
+const SPORTS = { leagues: [], showYesterday: true, showUpcoming: true, showLogos: true, apiSportsKey: '',
+  showStandings: true, liveRefresh: true };
 const API = { url: '', headers: '', itemsPath: '', titlePath: 'title', subtitlePath: '', linkPath: 'url', datePath: '', imagePath: '' };
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -94,6 +95,7 @@ export function newSection(kind, overrides = {}) {
   const k = KINDS[kind];
   return { id: uuid(), kind, title: k.label, icon: k.icon, colorHex: k.color, enabled: true, span: 1, maxItems: k.maxItems,
     refreshMinutes: KIND_REFRESH[kind],
+    page: '',     // page du tableau de bord (vide = première page)
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API), ...overrides };
 }
@@ -133,14 +135,21 @@ export function defaultConfig() {
   economy.feed.layout = 'compact';
   const hn = template('api');
   hn.feed.layout = 'compact';
-  return { version: 1, general: clone(GENERAL),
+  return { version: 1, general: clone(GENERAL), pages: [newPage('Accueil')],
     sections: [newSection('weather'), news, commute, scores, tech, sportsNews, world, economy, hn] };
 }
+
+export const newPage = (name) => ({ id: uuid(), name });
 
 /** Complète une configuration (importée ou ancienne) avec les valeurs par défaut manquantes. */
 export function normalize(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.sections)) throw new Error(t("Ce fichier n'est pas une configuration Lookout valide."));
-  const config = { version: 1, general: { ...GENERAL, ...(input.general ?? {}) }, sections: [] };
+  const config = { version: 1, general: { ...GENERAL, ...(input.general ?? {}) }, pages: [], sections: [] };
+  // Pages : au moins une, chacune avec un identifiant et un nom.
+  for (const p of Array.isArray(input.pages) ? input.pages : []) {
+    if (p && typeof p.id === 'string' && p.id && !config.pages.some((x) => x.id === p.id)) config.pages.push({ id: p.id, name: String(p.name ?? '').slice(0, 40) });
+  }
+  if (!config.pages.length) config.pages.push(newPage('Accueil'));
   // Intervalle de mise à jour : toujours une valeur offerte dans les réglages (30 minutes sinon).
   if (!REFRESH_CHOICES.includes(config.general.refreshMinutes)) config.general.refreshMinutes = 30;
   for (const raw of input.sections) {
@@ -160,6 +169,7 @@ export function normalize(input) {
     s.sports = { ...SPORTS, ...(raw.sports ?? {}) };
     s.sports.leagues = (s.sports.leagues ?? []).map((x) => ({ ...league('', ''), ...x, teams: Array.isArray(x.teams) ? x.teams : [] }));
     s.api = { ...API, ...(raw.api ?? {}) };
+    if (!config.pages.some((p) => p.id === s.page)) s.page = config.pages[0].id;   // page inconnue ou supprimée
     config.sections.push(s);
   }
   return config;
@@ -167,9 +177,10 @@ export function normalize(input) {
 
 /** Empreinte des réglages qui exigent de retélécharger les données (pas la présentation). */
 export function fetchSignature(s, units) {
-  const data = s.kind === 'feed' ? s.feed.sources : s.kind === 'weather' ? [s.weather.latitude, s.weather.longitude]
+  const data = s.kind === 'feed' ? s.feed.sources : s.kind === 'weather' ? [s.weather.latitude, s.weather.longitude, s.weather.showAlerts]
     : s.kind === 'commute' ? s.commute
-    : s.kind === 'sports' ? [s.sports.leagues.map((l) => [l.id, l.path, l.enabled, l.provider, l.key]), s.sports.showYesterday, s.sports.showUpcoming, s.sports.apiSportsKey]
+    : s.kind === 'sports' ? [s.sports.leagues.map((l) => [l.id, l.path, l.enabled, l.provider, l.key]), s.sports.showYesterday, s.sports.showUpcoming, s.sports.apiSportsKey,
+      s.sports.showStandings, s.sports.leagues.map((l) => l.teams.map((x) => x.id))]
     : [s.api, s.title];
   return JSON.stringify([s.kind, units, data]);
 }

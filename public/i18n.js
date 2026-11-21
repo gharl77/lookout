@@ -25,6 +25,17 @@ export const EN = {
   'Ajoutez ou réactivez des sections dans les réglages.': 'Add or re-enable sections in Settings.',
   'Ouvrir les réglages': 'Open Settings',
 
+  // Annuler, nouveautés, pages
+  'Carte déplacée': 'Card moved', 'Section masquée': 'Section hidden', 'Largeur modifiée': 'Width changed',
+  'Disposition réorganisée': 'Layout rearranged', 'Section déplacée': 'Section moved',
+  'Réorganiser automatiquement': 'Auto-arrange',
+  'Replace toutes les cartes de cette page dans les colonnes les moins remplies': 'Puts every card on this page back into the least-filled columns',
+  'Nouveau': 'New', '{0} nouveaux depuis votre dernière visite': '{0} new since your last visit',
+  'Pages': 'Pages', 'Page': 'Page', 'Nom de la page': 'Page name', 'Nouvelle page': 'New page', 'Ajouter une page': 'Add a page',
+  '{0} sections': '{0} sections', 'Déplacer vers la page': 'Move to page', 'Supprimer cette page ?': 'Delete this page?',
+  'Ses {0} sections seront déplacées vers une autre page, pas supprimées.': 'Its {0} sections will be moved to another page, not deleted.',
+  "Avec plusieurs pages, des onglets apparaissent en haut du tableau de bord. Chaque section appartient à une page, qui se choisit dans ses réglages ou dans le menu de sa carte.": 'With several pages, tabs appear at the top of the dashboard. Each section belongs to one page, chosen in its settings or from its card menu.',
+
   // Articles
   'Ouvrir': 'Open', 'Copier le lien': 'Copy link', 'Marquer comme non lu': 'Mark as unread', 'Marquer comme lu': 'Mark as read',
   'Aucun article ne correspond aux filtres.': 'No articles match the filters.',
@@ -36,11 +47,14 @@ export const EN = {
   'Neige forte': 'Heavy snow', 'Grains de neige': 'Snow grains', 'Averses': 'Showers', 'Averses fortes': 'Heavy showers',
   'Averses de neige': 'Snow showers', 'Orage': 'Thunderstorm', 'Orage et grêle': 'Thunderstorm with hail',
   'Ressenti': 'Feels like', 'Vent': 'Wind', 'Humidité': 'Humidity', 'Coucher': 'Sunset', 'Lever': 'Sunrise',
+  'Alertes météo (Environnement Canada)': 'Weather alerts (Environment Canada)', 'Alertes météo': 'Weather alerts', "jusqu'à {0}": 'until {0}',
   'Maint.': 'Now', 'Auj.': 'Today', '{0} : {1}, minimum {2}, maximum {3}': '{0}: {1}, low {2}, high {3}',
 
   // Sports
   'Aucun match pour vos équipes ces jours-ci.': 'No games for your teams these days.', 'Aucun match pour le moment.': 'No games right now.',
   "Aujourd'hui": 'Today', 'Hier': 'Yesterday', 'Demain': 'Tomorrow',
+  'Classement': 'Standings', '{0} pts': '{0} pts', 'Classement de mes équipes': 'Standings for my teams',
+  'Suivre les matchs en direct (mise à jour chaque minute)': 'Follow live games (updated every minute)', 'Suivre les matchs en direct': 'Follow live games',
   'Final (TB)': 'Final (SO)', 'Final (Prol.)': 'Final (OT)', 'Final': 'Final', 'Entracte {0}': 'Intermission {0}',
 
   // Trajets
@@ -132,7 +146,7 @@ export const EN = {
   'Retour à la liste des sections': 'Back to the section list',
 
   // Réglages — général
-  'Général': 'General', 'Données': 'Data', 'Accueil': 'Welcome', "Afficher le message d'accueil": 'Show the greeting', "Message d'accueil": 'Greeting',
+  'Général': 'General', 'Données': 'Data', 'Accueil': 'Home', "Afficher le message d'accueil": 'Show the greeting', "Message d'accueil": 'Greeting',
   'Votre prénom': 'Your first name', "Afficher le coup d'œil (météo et premier trajet)": 'Show the at-a-glance summary (weather and first route)',
   "Coup d'œil": 'At a glance', 'Apparence': 'Appearance', 'Thème': 'Theme', 'Automatique': 'Automatic', 'Clair': 'Light', 'Sombre': 'Dark',
   "Couleur d'accent": 'Accent colour', 'Arrière-plan teinté': 'Tinted background', 'Densité': 'Density', 'Compacte': 'Compact',

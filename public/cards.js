@@ -38,10 +38,11 @@ export function present(articles, options, sourceOrder, limit) {
 
 function articleRow(article, style, section, ctx) {
   const o = section.feed;
-  const read = ctx.isRead(article.id);
+  const read = ctx.isRead(article.id), fresh = ctx.isNew(article);
+  const pill = fresh && h('span', { class: 'new-pill' }, 'Nouveau');
   const showSource = o.showSource && section.kind === 'feed' && o.sources.filter((s) => s.enabled).length > 1;
   const meta = [showSource && article.source, o.showTime && article.date && fmt.ago(article.date)].filter(Boolean).join(' · ');
-  const metaLine = meta && h('span', { class: 'a-meta' }, meta);
+  const metaLine = (meta || pill) && h('span', { class: 'a-meta' }, pill, meta);
   const img = (cls) => o.showImages && article.image
     && h('img', { class: cls, src: article.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
 
@@ -51,7 +52,7 @@ function articleRow(article, style, section, ctx) {
       article.summary && h('span', { class: 'a-summary' }, article.summary), metaLine);
   } else if (style === 'compact') {
     inner = h('div', { class: 'compact row-main' }, h('i', { class: 'dot' }), h('span', { class: 'a-title' }, article.title),
-      o.showTime && article.date && h('time', {}, fmt.ago(article.date)));
+      pill, o.showTime && article.date && h('time', {}, fmt.ago(article.date)));
   } else {
     inner = h('div', { class: 'article row-main' },
       h('div', { class: 'text' }, h('span', { class: 'a-title' }, article.title),
@@ -76,6 +77,11 @@ function articleRow(article, style, section, ctx) {
     },
   }, inner);
   return row;
+}
+
+/** Nombre d'articles affichés parus depuis la dernière visite. */
+export function countNew(section, articles, ctx) {
+  return shownArticles(section, articles).filter(ctx.isNew).length;
 }
 
 export function shownArticles(section, articles) {
@@ -116,6 +122,12 @@ const deg = (v) => `${Math.round(v)}°`;
 function weatherView(section, w) {
   const o = section.weather, tz = w.timeZone;
   const parts = [];
+  // Alertes en vigueur (Environnement Canada), les plus graves d'abord ; un clic déplie le texte complet.
+  if (o.showAlerts !== false && w.alerts?.length) {
+    parts.push(h('div', { class: 'alerts' }, w.alerts.map((a) => h('details', { class: `alert ${a.type}` },
+      h('summary', {}, icon('warning'), h('span', {}, h('b', {}, a.name), a.until && h('small', {}, t("jusqu'à {0}", fmt.dayTime(a.until, tz)))), icon('down', 'chevron')),
+      h('p', {}, a.text || a.summary)))));
+  }
   const today = w.days[0];
   parts.push(h('div', { class: 'w-now' }, WMO.icon(w.code, w.isDay),
     h('div', {}, h('div', { class: 'w-temp' }, deg(w.temperature)), h('div', { class: 'w-label' }, WMO.label(w.code))),
@@ -154,7 +166,22 @@ function weatherView(section, w) {
 
 const dayStart = (ms) => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
 
-function sportsView(section, games, ctx) {
+const ordinal = (n) => (document.documentElement.lang === 'en'
+  ? `${n}${['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4) % 4]}` : `${n}${n === 1 ? 'er' : 'e'}`);
+
+/** Classement des équipes suivies, sous les matchs. */
+function standingsView(section, standings) {
+  if (section.sports.showStandings === false || !standings?.length) return null;
+  const showLeague = section.sports.leagues.filter((l) => l.enabled && l.teams.length).length > 1;
+  return h('div', { class: 'standings' }, h('div', { class: 'day-label' }, 'Classement'), standings.map((r) => h('div', { class: 'standing' },
+    section.sports.showLogos && (r.logo ? h('img', { class: 'logo', src: r.logo, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => { e.target.style.visibility = 'hidden'; } })
+      : h('span', { class: 'logo rank-chip' }, String(r.rank ?? '–'))),
+    h('div', { class: 'text' }, h('span', { class: 'name' }, r.name),
+      h('small', {}, [r.rank && ordinal(r.rank), r.group, showLeague && r.league].filter(Boolean).join(' · '))),
+    h('div', { class: 'figures' }, h('b', {}, r.record), r.points != null && h('small', {}, t('{0} pts', r.points))))));
+}
+
+function sportsView(section, games, ctx, standings) {
   // Pour chaque ligue : les équipes choisies, ou toutes si aucune n'est choisie.
   const chosen = new Map(section.sports.leagues.map((l) => [l.id, new Set(l.teams.map((t) => t.id))]));
   const filtered = games.filter((g) => {
@@ -165,7 +192,8 @@ function sportsView(section, games, ctx) {
   const today = dayStart(Date.now());
   const rank = (ms) => { const d = Math.round((dayStart(ms) - today) / 864e5); return d === 0 ? 0 : (d === -1 ? 1 : 2); };
   const limited = filtered.sort((a, b) => rank(a.date) - rank(b.date) || a.date - b.date).slice(0, Math.max(1, section.maxItems));
-  if (!limited.length) return h('div', { class: 'hint' }, games.length ? 'Aucun match pour vos équipes ces jours-ci.' : 'Aucun match pour le moment.');
+  const table = standingsView(section, standings);
+  if (!limited.length) return h('div', { class: 'rows' }, h('div', { class: 'hint' }, games.length ? 'Aucun match pour vos équipes ces jours-ci.' : 'Aucun match pour le moment.'), table);
 
   const showLeague = section.sports.leagues.filter((l) => l.enabled).length > 1;
   const out = [];
@@ -188,7 +216,7 @@ function sportsView(section, games, ctx) {
       h('div', { class: 'game' }, h('div', { class: 'teams' }, team(game.away, game.home), team(game.home, game.away)),
         h('div', { class: 'g-status' }, status, showLeague && h('small', {}, game.league)))));
   }
-  return h('div', { class: 'rows' }, out);
+  return h('div', { class: 'rows' }, out, table);
 }
 
 // --- Trajets ---
@@ -223,7 +251,7 @@ function commuteView(section, results, ctx) {
 export function cardBody(section, payload, ctx) {
   if (payload.articles) return articleList(section, payload.articles, ctx);
   if (payload.weather) return weatherView(section, payload.weather);
-  if (payload.games) return sportsView(section, payload.games, ctx);
+  if (payload.games) return sportsView(section, payload.games, ctx, payload.standings);
   if (payload.routes) return commuteView(section, payload.routes, ctx);
   return null;
 }
