@@ -12,7 +12,7 @@ export const EN = {
   'Recharger les sections (les sources sont interrogées selon leur intervalle)': 'Reload sections (sources are queried on their interval)',
   'Réorganiser, redimensionner ou masquer les sections': 'Rearrange, resize or hide sections',
   'Configurer les sections et les sources': 'Configure sections and sources',
-  'Glissez une section pour la déplacer, ou utilisez les boutons de chaque carte.': 'Drag a section to move it, or use the buttons on each card.',
+  'Glissez une carte par son en-tête pour la déplacer, ou utilisez les boutons de chaque carte.': 'Drag a card by its header to move it, or use the buttons on each card.',
   'Ajouter une section': 'Add a section', 'Pleine largeur': 'Full width', '1 colonne': '1 column', '2 colonnes': '2 columns',
   'Tout marquer comme lu': 'Mark all as read', 'Mettre à jour maintenant': 'Update now',
   'Mettre à jour la section {0} maintenant': 'Update the {0} section now', 'Mettre à jour maintenant (données de {0})': 'Update now (data from {0})', 'Largeur': 'Width', 'Configurer…': 'Configure…', 'Masquer': 'Hide',

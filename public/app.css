@@ -104,8 +104,11 @@ svg.icon { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
   -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
   display: flex; flex-direction: column; gap: calc(var(--row-gap) + 10px); }
 #grid.ready .card { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.card.drop-target { outline: 2px solid var(--accent); outline-offset: -1px; }
-.card.dragging { opacity: 0.45; }
+/* Carte tenue par le pointeur : au-dessus des autres, sans animation, pour suivre le geste au plus près. */
+.card.dragging, #grid.ready .card.dragging { z-index: 10; transition: none; cursor: grabbing; opacity: 0.96;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); outline: 2px solid var(--accent); outline-offset: -1px; }
+body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+body.is-dragging .card:not(.dragging) { pointer-events: none; }
 .card-head { display: flex; align-items: center; gap: 10px; min-height: 28px; }
 .badge { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-size: 16px; flex: none;
   background: linear-gradient(180deg, color-mix(in srgb, var(--c) 82%, #fff), var(--c)); }
@@ -124,7 +127,8 @@ svg.icon { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 .warn { color: #f59e0b; font-size: 16px; }
 .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--sep); border-top-color: var(--text2); animation: spin 0.8s linear infinite; flex: none; }
 .card.editing .card-body { opacity: 0.55; pointer-events: none; }
-.card.editing { cursor: grab; }
+.card.editing .card-head { cursor: grab; touch-action: none; }
+@media (hover: hover) and (pointer: fine) { .card-head { cursor: grab; } .card-head button { cursor: pointer; } }
 .note { font-size: 12px; color: #f59e0b; display: flex; gap: 6px; align-items: baseline; }
 .hint { color: var(--text2); text-align: center; padding: 12px 0; font-size: 14px; }
 .error-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 0; color: var(--text2); text-align: center; font-size: 14px; }

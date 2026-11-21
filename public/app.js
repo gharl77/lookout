@@ -184,7 +184,7 @@ function renderBanner() {
   banner.hidden = !state.editing;
   if (!state.editing) return;
   banner.replaceChildren(
-    h('span', { class: 'grow' }, icon('drag'), ' ', 'Glissez une section pour la déplacer, ou utilisez les boutons de chaque carte.'),
+    h('span', { class: 'grow' }, icon('drag'), ' ', "Glissez une carte par son en-tête pour la déplacer, ou utilisez les boutons de chaque carte."),
     h('button', { class: 'btn', onClick: (e) => addSectionMenu(e.currentTarget) }, icon('plus'), 'Ajouter une section'),
     h('button', { class: 'btn primary', onClick: () => setEditing(false) }, 'Terminé'));
 }
@@ -209,15 +209,6 @@ function move(id, offset) {
   while (list[to] && !list[to].enabled) to += offset;
   if (from < 0 || !list[to]) return;
   [list[from], list[to]] = [list[to], list[from]];
-  commit();
-}
-
-function moveBefore(id, targetID) {
-  const list = state.config.sections, from = list.findIndex((s) => s.id === id);
-  if (from < 0 || id === targetID) return;
-  const [moved] = list.splice(from, 1);
-  const to = list.findIndex((s) => s.id === targetID);
-  list.splice(to < 0 ? list.length : to, 0, moved);
   commit();
 }
 
@@ -277,25 +268,21 @@ function buildCard(s) {
       Array.from({ length: (s.kind === 'weather' ? 3 : Math.min(s.maxItems, 5)) * 2 }, () => h('i')));
   }
 
-  const card = h('article', { class: `card${state.editing ? ' editing' : ''}`, 'aria-label': s.title, draggable: state.editing ? 'true' : null },
+  const card = h('article', { class: `card${state.editing ? ' editing' : ''}`, 'aria-label': s.title },
     h('header', { class: 'card-head' }, badge(s),
       h('div', { class: 'card-title' }, h('h2', {}, s.title), s.kind === 'weather' && h('small', {}, s.weather.locationName)), controls),
     h('div', { class: 'card-body' }, body));
   card.dataset.id = s.id;
 
-  if (state.editing) {
-    card.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; card.classList.add('dragging'); });
-    card.addEventListener('dragend', () => card.classList.remove('dragging'));
-    card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drop-target'); });
-    card.addEventListener('dragleave', () => card.classList.remove('drop-target'));
-    card.addEventListener('drop', (e) => { e.preventDefault(); card.classList.remove('drop-target'); moveBefore(e.dataTransfer.getData('text/plain'), s.id); });
-  }
+  enableDrag(card, s.id);
   return card;
 }
 
 function renderCard(id) {
   const s = section(id), old = cards.get(id);
   if (!s || !s.enabled || !old) return;
+  // Pendant un déplacement, les cartes ne sont pas reconstruites : tout est redessiné au dépôt.
+  if (drag) { drag.stale = true; return; }
   const card = buildCard(s);
   card.style.cssText = old.style.cssText;
   observer.unobserve(old);
@@ -306,6 +293,7 @@ function renderCard(id) {
 }
 
 function renderAll() {
+  if (drag) { drag.stale = true; return; }
   // Un changement de langue touche aussi les textes fournis par le serveur (erreurs, états des matchs).
   if (applyLanguage() && state.data.size) refreshAll();
   applyTheme();
@@ -335,6 +323,100 @@ function renderAll() {
   scheduleLayout();
 }
 
+// --- Déplacement des cartes par glisser-déposer ---
+// À la souris, on saisit une carte par son en-tête à tout moment. Au doigt, seulement en mode « Organiser »,
+// pour que le défilement de la page reste naturel le reste du temps. Les autres cartes se replacent en direct.
+const frames = new Map();   // id de section -> emplacement { x, y, w, h } calculé par layout()
+let drag = null;
+
+function dragTransform() {
+  const rect = $('grid').getBoundingClientRect();
+  return `translate(${drag.x - rect.left - drag.offsetX}px, ${drag.y - rect.top - drag.offsetY}px) scale(1.02)`;
+}
+
+function enableDrag(card, id) {
+  const head = card.querySelector('.card-head');
+  head.addEventListener('pointerdown', (e) => {
+    if (drag || e.target.closest('button, a, input')) return;
+    if (e.pointerType === 'mouse' ? e.button !== 0 : !state.editing) return;
+    if (!frames.has(id)) layout();   // mise en page pas encore calculée (onglet resté en arrière-plan)
+    const frame = frames.get(id), rect = $('grid').getBoundingClientRect();
+    if (!frame) return;
+    drag = { id, card, head, pointerId: e.pointerId, active: false, stale: false, lastTarget: null,
+      startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
+      offsetX: e.clientX - rect.left - frame.x, offsetY: e.clientY - rect.top - frame.y,
+      original: state.config.sections.map((s) => s.id) };
+    // La capture garantit qu'on reçoit la suite du geste même si le pointeur sort de l'en-tête.
+    try { head.setPointerCapture(e.pointerId); } catch { /* pointeur déjà relâché */ }
+  });
+  head.addEventListener('pointermove', (e) => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    if (!drag.active) {
+      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 6) return;   // simple clic : on ne déplace rien
+      drag.active = true;
+      card.classList.add('dragging');
+      document.body.classList.add('is-dragging');
+      autoScroll();
+    }
+    e.preventDefault();
+    updateDrag();
+  });
+  const finish = (cancelled) => (e) => {
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    endDrag(cancelled);
+  };
+  head.addEventListener('pointerup', finish(false));
+  head.addEventListener('pointercancel', finish(true));
+}
+
+function updateDrag() {
+  drag.card.style.transform = dragTransform();
+  // Carte survolée par le pointeur (autre que celle qu'on tient) : on prend sa place.
+  const rect = $('grid').getBoundingClientRect(), px = drag.x - rect.left, py = drag.y - rect.top;
+  let target = null;
+  for (const [id, f] of frames) {
+    if (id !== drag.id && px >= f.x && px <= f.x + f.w && py >= f.y && py <= f.y + f.h) { target = id; break; }
+  }
+  if (!target) { drag.lastTarget = null; return; }
+  if (target === drag.lastTarget) return;   // évite les allers-retours tant que le pointeur reste sur la même carte
+  drag.lastTarget = target;
+  const list = state.config.sections, from = list.findIndex((s) => s.id === drag.id), to = list.findIndex((s) => s.id === target);
+  if (from < 0 || to < 0) return;
+  list.splice(to, 0, list.splice(from, 1)[0]);
+  layout();
+}
+
+/** Fait défiler la page quand on approche du haut ou du bas de l'écran en tenant une carte. */
+function autoScroll() {
+  if (!drag?.active) return;
+  const edge = 70, speed = 14;
+  if (drag.y < edge) window.scrollBy(0, -speed * (1 - Math.max(0, drag.y) / edge));
+  else if (drag.y > innerHeight - edge) window.scrollBy(0, speed * (1 - Math.max(0, innerHeight - drag.y) / edge));
+  updateDrag();
+  requestAnimationFrame(autoScroll);
+}
+
+function endDrag(cancelled) {
+  const { card, head, pointerId, active, original, stale } = drag;
+  try { if (head.hasPointerCapture(pointerId)) head.releasePointerCapture(pointerId); } catch { /* déjà relâché */ }
+  if (cancelled && active) {
+    // Geste annulé (Échap, appel entrant…) : on remet l'ordre de départ.
+    const byID = new Map(state.config.sections.map((s) => [s.id, s]));
+    state.config.sections = original.map((id) => byID.get(id)).filter(Boolean);
+  }
+  drag = null;
+  card.classList.remove('dragging');
+  document.body.classList.remove('is-dragging');
+  if (!active) { if (stale) renderAll(); return; }
+  layout();   // la carte glisse jusqu'à son nouvel emplacement
+  const changed = state.config.sections.some((s, i) => s.id !== original[i]);
+  if (changed && !cancelled) commit(); else if (stale) renderAll();
+}
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag?.active) endDrag(true); });
+
 // --- Grille « maçonnerie » adaptative ---
 let layoutFrame = 0;
 function scheduleLayout() {
@@ -352,6 +434,7 @@ function layout() {
     : Math.min(4, Math.max(1, Math.floor((width + gap) / (330 + gap))));
   const columnWidth = (width - (columns - 1) * gap) / columns;
   const heights = new Array(columns).fill(0);
+  frames.clear();
   const items = visible().map((s) => ({ card: cards.get(s.id), span: Math.min(Math.max(1, s.span), columns) })).filter((x) => x.card);
   for (const item of items) item.card.style.width = `${columnWidth * item.span + gap * (item.span - 1)}px`;
   for (const { card, span } of items) {
@@ -360,8 +443,10 @@ function layout() {
       const y = Math.max(...heights.slice(start, start + span));
       if (y < bestY - 0.5) { bestY = y; best = start; }
     }
-    card.style.transform = `translate(${best * (columnWidth + gap)}px, ${bestY}px)`;
-    const height = card.offsetHeight;
+    const x = best * (columnWidth + gap), height = card.offsetHeight;
+    frames.set(card.dataset.id, { x, y: bestY, w: card.offsetWidth, h: height });
+    if (drag?.active && drag.id === card.dataset.id) card.style.transform = dragTransform();   // elle suit le pointeur
+    else card.style.transform = `translate(${x}px, ${bestY}px)`;
     for (let i = best; i < best + span; i++) heights[i] = bestY + height + gap;
   }
   grid.style.height = `${Math.max(0, Math.max(...heights) - gap)}px`;
