@@ -115,6 +115,10 @@ svg.icon { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 .card-title small { display: block; font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .icon-btn { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 16px; color: var(--text2); flex: none; }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn.reload { font-size: 15px; }
+.icon-btn.reload:disabled { cursor: default; opacity: 1; }
+.icon-btn.spinning svg { animation: spin 0.9s linear infinite; }
+.card-head > .icon-btn + .icon-btn { margin-left: -6px; }
 .edit-controls { display: flex; gap: 3px; }
 .edit-controls .icon-btn { background: var(--fill); color: var(--text); }
 .warn { color: #f59e0b; font-size: 16px; }

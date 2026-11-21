@@ -78,7 +78,7 @@ function commit() {
 }
 
 // --- Données ---
-async function loadSection(id) {
+async function loadSection(id, force = false) {
   const s = section(id);
   if (!s) return;
   const signature = fetchSignature(s, general().units);
@@ -87,7 +87,8 @@ async function loadSection(id) {
   renderCard(id);
   updateToolbar();
   let payload;
-  try { payload = await api(`/api/section/${encodeURIComponent(id)}`); }
+  // « force » : mise à jour immédiate demandée pour cette section seulement (le serveur la limite à une par minute).
+  try { payload = await api(`/api/section/${encodeURIComponent(id)}${force ? '?force=1' : ''}`); }
   catch (error) { payload = { ...(state.data.get(id) ?? {}), error: error.message, sourceErrors: {} }; }
   if (state.signatures.get(id) !== signature) return;   // une demande plus récente est en cours
   state.data.set(id, payload);
@@ -225,7 +226,7 @@ const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [99, 'Pleine largeur']];
 function cardMenu(anchor, s) {
   const payload = state.data.get(s.id);
   openMenu(anchor, [
-    { label: 'Actualiser', icon: icon('refresh'), action: () => loadSection(s.id) },
+    { label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) },
     payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles).map((a) => a.id), true) },
     '-',
     { heading: 'Largeur' },
@@ -254,8 +255,11 @@ function buildCard(s) {
         onClick: () => updateSection(s.id, (x) => { x.span = x.span === 1 ? 2 : x.span === 2 ? 99 : 1; }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
       h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, (x) => { x.enabled = false; }) }, icon('hide')))
     : [
-      loading ? h('span', { class: 'spinner', role: 'status', 'aria-label': 'Chargement' })
-        : errors && h('span', { class: 'warn', title: errors, role: 'img', 'aria-label': 'Certaines sources sont en erreur' }, icon('warning')),
+      !loading && errors && h('span', { class: 'warn', title: errors, role: 'img', 'aria-label': 'Certaines sources sont en erreur' }, icon('warning')),
+      h('button', { class: `icon-btn reload${loading ? ' spinning' : ''}`, disabled: loading, 'aria-busy': String(loading),
+        'aria-label': t('Mettre à jour la section {0} maintenant', s.title),
+        title: payload?.updatedAt ? t('Mettre à jour maintenant (données de {0})', fmt.time(payload.updatedAt)) : 'Mettre à jour maintenant',
+        onClick: () => loadSection(s.id, true) }, icon('refresh')),
       h('button', { class: 'icon-btn', 'aria-label': t('Options de la section {0}', s.title),
         title: payload?.updatedAt ? t('Mis à jour {0}', fmt.ago(payload.updatedAt)) : 'Options', onClick: (e) => cardMenu(e.currentTarget, s) }, icon('more')),
     ];
@@ -266,7 +270,7 @@ function buildCard(s) {
       payload.error && h('div', { class: 'note' }, icon('offline'), t('Actualisation impossible : {0}', payload.error))];
   } else if (payload?.error && !loading) {
     body = h('div', { class: 'error-state' }, icon('warning'), h('span', {}, payload.error),
-      h('div', {}, h('button', { class: 'btn small', onClick: () => loadSection(s.id) }, 'Réessayer'), ' ',
+      h('div', {}, h('button', { class: 'btn small', onClick: () => loadSection(s.id, true) }, 'Réessayer'), ' ',
         h('button', { class: 'btn small', onClick: () => openSettings(app, { sectionID: s.id }) }, 'Configurer…')));
   } else {
     body = h('div', { class: 'skeleton', role: 'status', 'aria-label': 'Chargement' },

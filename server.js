@@ -78,9 +78,11 @@ function saveRead() {
 // Chaque source n'est interrogée qu'une fois par intervalle (réglage « refreshMinutes », 30 minutes par
 // défaut), peu importe combien de fois la page est ouverte ou actualisée : les sites qui limitent les
 // accès ne voient donc jamais plus de requêtes que prévu. Seule exception : après un échec, une nouvelle
-// tentative est permise au bout de 2 minutes.
+// tentative est permise au bout de 2 minutes. L'utilisateur peut aussi demander la mise à jour immédiate
+// d'une seule section (icône de rechargement de la carte), au plus une fois par minute.
 
 const RETRY_MS = 2 * 60e3;
+const FORCE_MS = 60e3;
 const cache = new Map();   // id de section -> { signature, time, payload }
 const pending = new Map();
 
@@ -96,11 +98,12 @@ function logSourceErrors(section, sourceErrors = {}) {
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
 
-async function loadSection(section) {
+async function loadSection(section, force = false) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
   const cached = cache.get(section.id);
-  if (cached && cached.signature === signature && Date.now() < nextUpdate(cached)) {
+  const due = cached && (force ? cached.time + FORCE_MS : nextUpdate(cached));
+  if (cached && cached.signature === signature && Date.now() < due) {
     return { ...cached.payload, nextUpdateAt: nextUpdate(cached) };
   }
   const key = section.id + signature;
@@ -197,7 +200,7 @@ async function api(req, res, url) {
     let id;
     try { id = decodeURIComponent(url.pathname.slice('/api/section/'.length)); } catch { throw new BriefingError('Section introuvable'); }
     const section = findSection(id);
-    return send(res, 200, await loadSection(section));
+    return send(res, 200, await loadSection(section, q.get('force') === '1'));
   }
   if (route === 'GET /api/read') return send(res, 200, [...readIDs]);
   if (route === 'POST /api/read') {

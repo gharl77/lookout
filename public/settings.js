@@ -391,7 +391,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         // Après le changement, on redemande les sections : le serveur applique tout de suite le nouvel intervalle.
         line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.refreshAll()) }, select(g, 'refreshMinutes',
           [[5, 'Toutes les 5 minutes'], [10, 'Toutes les 10 minutes'], [15, 'Toutes les 15 minutes'], [30, 'Toutes les 30 minutes'], [60, 'Toutes les heures'], [120, 'Toutes les 2 heures']], { label: 'Interroger les sources' }))),
-      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Un intervalle court donne des pointages et des trajets plus à jour."),
+      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Un intervalle court donne des pointages et des trajets plus à jour. L'icône de rechargement d'une carte met cette section à jour tout de suite."),
       group('Unités', [
         line('Unités', select(g, 'units', [['metric', 'Métrique (°C, km)'], ['imperial', 'Impérial (°F, mi)']], { label: 'Unités' })),
       ]),
