@@ -2,6 +2,7 @@
 
 [![Docker image](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
 ![Version](https://img.shields.io/badge/version-0.1.0--beta-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
 *[Français](README.fr.md)*
@@ -168,6 +169,10 @@ Interface strings are written in French in the code; `public/i18n.js` holds thei
 Every build is tested before the image is published: a fresh install with default settings, a hardened
 read-only install, and an unwritable data folder. Run the same checks against any instance with
 `node scripts/smoke-test.mjs http://localhost:8080`.
+
+## License
+
+[MIT](LICENSE). The icons in `public/icons.js` come from [Phosphor Icons](https://phosphoricons.com), also MIT.
 
 ## Disclaimer
 

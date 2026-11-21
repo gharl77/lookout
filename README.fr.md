@@ -2,6 +2,7 @@
 
 [![Image Docker](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
 ![Version](https://img.shields.io/badge/version-0.1.0--beta-blue)
+![Licence](https://img.shields.io/badge/licence-MIT-green)
 ![Plateformes](https://img.shields.io/badge/plateformes-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
 *[English](README.md)*
@@ -169,6 +170,10 @@ Les textes de l'interface sont en français dans le code ; `public/i18n.js` cont
 Chaque construction est testée avant la publication de l'image : installation neuve avec les réglages par
 défaut, installation renforcée en lecture seule, et dossier de données inaccessible. Les mêmes vérifications
 se lancent sur n'importe quelle instance avec `node scripts/smoke-test.mjs http://localhost:8080`.
+
+## Licence
+
+[MIT](LICENSE). Les icônes de `public/icons.js` viennent de [Phosphor Icons](https://phosphoricons.com), aussi sous licence MIT.
 
 ## Avertissement
 

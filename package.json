@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Lookout — self-hosted personal dashboard: news, weather, commute, sports scores.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": { "start": "node server.js" },
   "engines": { "node": ">=22" }
 }

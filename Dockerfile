@@ -1,7 +1,8 @@
 FROM node:22-alpine
 LABEL org.opencontainers.image.title="Lookout" \
       org.opencontainers.image.description="Self-hosted personal dashboard: news, weather, commute, sports scores" \
-      org.opencontainers.image.source="https://github.com/gharl77/lookout"
+      org.opencontainers.image.source="https://github.com/gharl77/lookout" \
+      org.opencontainers.image.licenses="MIT"
 # /data appartient à l'utilisateur du conteneur : un volume nommé fonctionne sans réglage.
 RUN apk add --no-cache tzdata && mkdir -p /data && chown node:node /data
 WORKDIR /app
