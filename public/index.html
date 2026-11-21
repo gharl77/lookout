@@ -13,16 +13,17 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="lookout-180.png">
-  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="icon" type="image/svg+xml" href="{{v}}/logo.svg">
   <link rel="icon" type="image/png" sizes="180x180" href="lookout-180.png">
-  <link rel="stylesheet" href="app.css">
-  <script type="module" src="app.js"></script>
+  <!-- {{v}} est remplacé par le serveur : l'adresse des fichiers change à chaque version (voir server.js). -->
+  <link rel="stylesheet" href="{{v}}/app.css">
+  <script type="module" src="{{v}}/app.js"></script>
 </head>
 <body>
   <div id="backdrop" aria-hidden="true"></div>
   <header id="topbar">
     <div class="brand">
-      <img class="brand-logo" src="logo.svg" alt="" width="36" height="36">
+      <img class="brand-logo" src="{{v}}/logo.svg" alt="" width="36" height="36">
       <div class="topbar-title">
         <span class="wordmark" aria-label="Lookout">Look<b>out</b></span>
         <span id="subtitle" aria-live="polite"></span>

@@ -288,15 +288,24 @@ function showToast(message, actionLabel, action, { persistent = false } = {}) {
 // donc régulièrement si le serveur a été mis à jour ; si oui elle se recharge, sauf si vous êtes en train de
 // faire quelque chose, auquel cas elle vous le propose.
 let versionChecked = 0;
-async function checkVersion() {
-  if (!app.build || Date.now() - versionChecked < 60e3) return;
+async function checkVersion(now = false) {
+  if (!app.build || (!now && Date.now() - versionChecked < 60e3)) return;
   versionChecked = Date.now();
   let about;
   try { about = await api('/api/about'); } catch { return; }
   if (!about.build || about.build === app.build) return;
+  // Recharge en changeant l'adresse de la page, pour contourner un éventuel cache de la page elle-même.
+  const reload = () => {
+    try { sessionStorage.setItem('lookout.reloadedFor', about.build); } catch { /* stockage indisponible */ }
+    location.replace(`${location.pathname}?v=${about.build}`);
+  };
+  // Déjà rechargée pour cette version sans succès (un cache sert encore l'ancienne page) : on n'insiste pas,
+  // pour ne jamais recharger en boucle. On le signale seulement.
+  let alreadyTried = false;
+  try { alreadyTried = sessionStorage.getItem('lookout.reloadedFor') === about.build; } catch { /* stockage indisponible */ }
   const busy = hasOverlay() || state.editing || drag || document.activeElement?.matches?.('input, textarea, select');
-  if (!busy) return location.reload();
-  showToast('Nouvelle version de Lookout disponible', 'Recharger', () => location.reload(), { persistent: true });
+  if (!busy && !alreadyTried) return reload();
+  showToast('Nouvelle version de Lookout disponible', 'Recharger', reload, { persistent: true });
 }
 
 // --- Cartes ---
@@ -639,7 +648,9 @@ document.addEventListener('keydown', (e) => {
   try {
     const [config, read, about] = await Promise.all([api('/api/config'), api('/api/read'), api('/api/about')]);
     app.version = about.version;
-    app.build = about.build;
+    // Version de l'interface réellement chargée : elle est dans l'adresse de ce script (« /v/<empreinte>/app.js »).
+    app.build = /\/v\/([0-9a-f]{12})\//.exec(import.meta.url)?.[1] ?? about.build;
+    if (app.build !== about.build) checkVersion(true);   // page plus ancienne que le serveur : on se met à jour
     state.config = config;
     state.readIDs = new Set(read);
     renderAll();

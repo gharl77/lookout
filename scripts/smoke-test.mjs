@@ -25,6 +25,20 @@ await check("la page d'accueil et ses fichiers sont servis", async () => {
     expect((await request(path)).status === 200, `${path} introuvable`);
   }
 });
+await check("la page pointe vers des fichiers à l'adresse versionnée, conservables indéfiniment", async () => {
+  const page = await request('/');
+  const html = await page.text(), about = await (await request('/api/about')).json();
+  expect(page.headers.get('cache-control') === 'no-store', 'la page HTML ne doit jamais être mise en cache');
+  expect(html.includes(`v/${about.build}/app.js`) && html.includes(`v/${about.build}/app.css`) && !html.includes('{{v}}'), 'adresses versionnées absentes de la page');
+  for (const file of ['app.js', 'cards.js', 'settings.js', 'ui.js', 'shared.js', 'i18n.js', 'icons.js', 'app.css', 'logo.svg']) {
+    const response = await request(`/v/${about.build}/${file}`);
+    expect(response.status === 200, `/v/${about.build}/${file} introuvable`);
+    expect(/immutable/.test(response.headers.get('cache-control') ?? ''), `${file} : en-tête de cache inattendu`);
+  }
+  // Une ancienne adresse reste servie (page ouverte avant la mise à jour), mais sans conservation.
+  const old = await request('/v/000000000000/app.js');
+  expect(old.status === 200 && old.headers.get('cache-control') === 'no-cache', "une ancienne adresse doit être revalidée");
+});
 await check('la version est annoncée', async () => {
   const about = await (await request('/api/about')).json();
   expect(about.name === 'Lookout' && /^\d+\.\d+\.\d+/.test(about.version), `réponse inattendue : ${JSON.stringify(about)}`);

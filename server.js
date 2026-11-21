@@ -254,16 +254,28 @@ async function api(req, res, url) {
   return send(res, 404, { error: t('Introuvable') });
 }
 
+// Les fichiers de l'interface sont servis sous une adresse qui contient l'empreinte de la version
+// (« /v/<empreinte>/app.js »). Un cache intermédiaire qui impose sa propre durée de conservation (par exemple
+// l'option « Cache Assets » de Nginx Proxy Manager) ne peut donc jamais resservir un ancien fichier : après
+// une mise à jour, la page demande de nouvelles adresses. Seule la page HTML, jamais mise en cache, les connaît.
+const INDEX = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8').replaceAll('{{v}}', `v/${BUILD}`);
+
 function serveStatic(req, res, url) {
-  const name = url.pathname === '/' ? '/index.html' : url.pathname;
+  if (url.pathname === '/' || url.pathname === '/index.html') {
+    return send(res, 200, INDEX, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store' });
+  }
+  const versioned = /^\/v\/([0-9a-f]{12})(\/.+)$/.exec(url.pathname);
+  const name = versioned ? versioned[2] : url.pathname;
   const file = path.normalize(path.join(PUBLIC, name));
   if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, 'Interdit');
   fs.readFile(file, (error, data) => {
     if (error) return send(res, 404, 'Introuvable');
-    // Toujours revalider : une icône ou un script mis à jour apparaît dès le prochain chargement. L'ETag
-    // permet au navigateur de vérifier sans tout retélécharger, et lui interdit de deviner à notre place.
     const etag = `"${crypto.createHash('sha1').update(data).digest('hex').slice(0, 16)}"`;
-    const headers = { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', 'Cache-Control': 'no-cache', ETag: etag };
+    // Adresse de la version courante : le contenu n'y changera jamais, le navigateur peut le garder.
+    // Toute autre adresse (ancienne version, fichier à la racine) est revalidée à chaque chargement.
+    const current = versioned?.[1] === BUILD;
+    const headers = { 'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream', ETag: etag,
+      'Cache-Control': current ? 'public, max-age=31536000, immutable' : 'no-cache' };
     if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
     send(res, 200, data, headers);
   });

@@ -129,6 +129,7 @@ navigateur (l'interface affiche un masque à la place) et ils sont absents des f
 enregistrés en clair dans `config.json` : protégez le dossier `/data` comme tout fichier contenant des secrets.
 
 - Ne l'exposez pas directement sur Internet ; passez par un VPN ou un proxy inverse avec HTTPS.
+- Les proxys qui mettent les fichiers statiques en cache (comme l'option « Cache Assets » de Nginx Proxy Manager) ne posent pas de problème : les fichiers de l'interface sont servis à une adresse qui change à chaque version.
 - Définissez `LOOKOUT_PASSWORD` si d'autres personnes partagent votre réseau.
 
 ## Exemple renforcé

@@ -128,6 +128,7 @@ shows a mask instead) and they are left out of exported files. They are stored i
 `config.json`, so protect the `/data` folder like any file holding secrets.
 
 - Do not expose it directly to the Internet; use a VPN or a reverse proxy with HTTPS.
+- Reverse proxies that cache static files (such as the "Cache Assets" option of Nginx Proxy Manager) are safe to use: interface files are served from an address that changes with every version.
 - Set `LOOKOUT_PASSWORD` if other people share your network.
 
 ## Hardened example
