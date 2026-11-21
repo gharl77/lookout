@@ -90,7 +90,7 @@ Then open `http://<server-ip>:8765` and click the gear icon to set up your secti
 
 The container runs as UID/GID `1000:1000` and must be able to write to `/data`.
 
-- **Bind mount** (as above): make the host folder writable by that user — `sudo chown 1000:1000 /path/to/lookout/data`.
+- **Bind mount** (as above): create the host folder first and make it writable by that user — `sudo chown 1000:1000 /path/to/lookout/data`. If the folder does not exist, Docker creates it as `root` and the container stops with a "cannot write to /data" message.
 - **Another user**: add `user: "UID:GID"` to the compose file (or `--user UID:GID`) and give that user the folder.
 - **Named volume**: works without any change.
 

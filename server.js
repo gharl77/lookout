@@ -27,7 +27,17 @@ setLangProvider(() => requestLang.getStore() ?? 'fr');
 const CONFIG_FILE = path.join(DATA, 'config.json');
 const READ_FILE = path.join(DATA, 'read.json');
 
-fs.mkdirSync(DATA, { recursive: true });
+// Le dossier de données doit être accessible en écriture : on le vérifie tout de suite, avec un message clair.
+try {
+  fs.mkdirSync(DATA, { recursive: true });
+  fs.accessSync(DATA, fs.constants.W_OK);
+} catch {
+  const who = typeof process.getuid === 'function' ? `${process.getuid()}:${process.getgid()}` : '?';
+  console.error(`Lookout ne peut pas écrire dans ${DATA} (utilisateur ${who}).`);
+  console.error(`Lookout cannot write to ${DATA} (running as ${who}).`);
+  console.error(`→ Sur l'hôte / On the host: sudo chown -R ${who} <dossier monté sur ${DATA} / folder mounted at ${DATA}>`);
+  process.exit(1);
+}
 initGeocodeCache(DATA);
 
 // --- Configuration et état de lecture (fichiers JSON dans le volume de données) ---

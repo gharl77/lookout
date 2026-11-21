@@ -90,7 +90,7 @@ Ouvrez ensuite `http://<ip-du-serveur>:8765` et cliquez sur l'engrenage pour con
 
 Le conteneur tourne avec l'UID/GID `1000:1000` et doit pouvoir écrire dans `/data`.
 
-- **Dossier de l'hôte** (comme ci-dessus) : rendez-le accessible à cet utilisateur — `sudo chown 1000:1000 /chemin/vers/lookout/data`.
+- **Dossier de l'hôte** (comme ci-dessus) : créez-le d'abord et rendez-le accessible à cet utilisateur — `sudo chown 1000:1000 /chemin/vers/lookout/data`. Si le dossier n'existe pas, Docker le crée au nom de `root` et le conteneur s'arrête avec un message « ne peut pas écrire dans /data ».
 - **Autre utilisateur** : ajoutez `user: "UID:GID"` au fichier compose (ou `--user UID:GID`) et donnez-lui le dossier.
 - **Volume nommé** : fonctionne sans réglage.
 
