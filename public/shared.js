@@ -65,6 +65,12 @@ export const SECRET_MASK = '••••••••';
 /** Intervalles de mise à jour offerts, en minutes. */
 export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
 
+/**
+ * Intervalle propre à un type de section, en minutes ; 0 = suivre l'intervalle par défaut des réglages.
+ * Les pointages et les trajets changent vite : ils sont interrogés plus souvent que les nouvelles.
+ */
+export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5 };
+
 export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apisports: 'API-Sports' };
 
 const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appearance: 'system', accentHex: '#3B82F6',
@@ -87,6 +93,7 @@ export const commuteRoute = (name = '', from = '', to = '') => ({ id: uuid(), na
 export function newSection(kind, overrides = {}) {
   const k = KINDS[kind];
   return { id: uuid(), kind, title: k.label, icon: k.icon, colorHex: k.color, enabled: true, span: 1, maxItems: k.maxItems,
+    refreshMinutes: KIND_REFRESH[kind],
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API), ...overrides };
 }
 
@@ -139,6 +146,8 @@ export function normalize(input) {
     if (!raw || !KINDS[raw.kind]) continue;
     const s = newSection(raw.kind, { ...raw });
     s.id = raw.id || uuid();
+    // Intervalle absent (configuration d'avant cette option) ou invalide : celui du type de section.
+    if (s.refreshMinutes !== 0 && !REFRESH_CHOICES.includes(s.refreshMinutes)) s.refreshMinutes = KIND_REFRESH[s.kind];
     s.feed = { ...FEED, ...(raw.feed ?? {}) };
     s.feed.sources = (s.feed.sources ?? []).map((x) => ({ ...feedSource('', ''), ...x }));
     s.weather = { ...WEATHER, ...(raw.weather ?? {}) };

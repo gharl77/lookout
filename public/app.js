@@ -344,7 +344,7 @@ function scheduleLayout() {
 
 function layout() {
   const grid = $('grid'), width = grid.clientWidth;
-  if (!width) return;
+  if (!width || !state.config) return;   // rien à placer tant que la configuration n'est pas chargée
   const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--grid-gap')) || 16;
   const fixed = general().columns;
   // Même avec un nombre fixe, une colonne ne descend jamais sous 260 px.

@@ -1,6 +1,6 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, template, feedSource, league as newLeague, commuteRoute, uuid } from './shared.js';
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, uuid } from './shared.js';
 
 let closeCurrent = null;
 
@@ -62,6 +62,8 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
 
   // --- Éditeur de section ---
   const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [99, 'Pleine largeur']];
+  const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
+  const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
   const ITEMS_LABEL = { feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets' };
 
   function iconPicker(s) {
@@ -79,6 +81,9 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       line('Afficher dans le tableau de bord', toggle(s, 'enabled', { label: 'Afficher dans le tableau de bord' })),
       line('Largeur', select(s, 'span', SPANS, { label: 'Largeur' })),
       s.kind !== 'weather' && line(ITEMS_LABEL[s.kind], stepper(s, 'maxItems', 1, 40)),
+      // Après le changement, on redemande la section : le serveur applique tout de suite le nouvel intervalle.
+      line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.loadSection(s.id)) }, select(s, 'refreshMinutes',
+        [[0, t('Par défaut ({0} min)', config().general.refreshMinutes)], ...REFRESH_CHOICES.map((m) => [m, intervalLabel(m)])], { label: 'Interroger les sources' }))),
     ], KINDS[s.kind].detail);
   }
 
@@ -389,9 +394,9 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       ], "Automatique suit la langue de l'appareil. Les titres de vos sections et le contenu des sources ne sont pas traduits."),
       group('Mise à jour des sources', [
         // Après le changement, on redemande les sections : le serveur applique tout de suite le nouvel intervalle.
-        line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.refreshAll()) }, select(g, 'refreshMinutes',
-          [[5, 'Toutes les 5 minutes'], [10, 'Toutes les 10 minutes'], [15, 'Toutes les 15 minutes'], [30, 'Toutes les 30 minutes'], [60, 'Toutes les heures'], [120, 'Toutes les 2 heures']], { label: 'Interroger les sources' }))),
-      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Un intervalle court donne des pointages et des trajets plus à jour. L'icône de rechargement d'une carte met cette section à jour tout de suite."),
+        line('Intervalle par défaut', h('span', { onChange: () => app.saveNow().then(() => app.refreshAll()) }, select(g, 'refreshMinutes',
+          REFRESH_CHOICES.map((m) => [m, INTERVAL_LABELS[m]]), { label: 'Intervalle par défaut' }))),
+      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Chaque section peut avoir son propre intervalle, dans ses réglages : par défaut, les pointages et les trajets sont interrogés toutes les 5 minutes. L'icône de rechargement d'une carte met cette section à jour tout de suite."),
       group('Unités', [
         line('Unités', select(g, 'units', [['metric', 'Métrique (°C, km)'], ['imperial', 'Impérial (°F, mi)']], { label: 'Unités' })),
       ]),

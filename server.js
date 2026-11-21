@@ -76,8 +76,8 @@ function saveRead() {
 }
 
 // --- Données des sections ---
-// Chaque source n'est interrogée qu'une fois par intervalle (réglage « refreshMinutes », 30 minutes par
-// défaut), peu importe combien de fois la page est ouverte ou actualisée : les sites qui limitent les
+// Chaque source n'est interrogée qu'une fois par intervalle : celui de sa section s'il est défini, sinon
+// celui des réglages généraux (« refreshMinutes », 30 minutes par défaut), peu importe combien de fois la page est ouverte ou actualisée : les sites qui limitent les
 // accès ne voient donc jamais plus de requêtes que prévu. Seule exception : après un échec, une nouvelle
 // tentative est permise au bout de 2 minutes. L'utilisateur peut aussi demander la mise à jour immédiate
 // d'une seule section (icône de rechargement de la carte), au plus une fois par minute.
@@ -87,11 +87,11 @@ const FORCE_MS = 60e3;
 const cache = new Map();   // id de section -> { signature, time, payload }
 const pending = new Map();
 
-const intervalMs = () => Math.max(1, Number(config.general.refreshMinutes) || 30) * 60e3;
+const intervalMs = (section) => Math.max(1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
   || (payload.routes ?? []).some((route) => route.error);
 /** Moment à partir duquel les sources d'une section pourront être réinterrogées. */
-const nextUpdate = (entry) => entry.time + (hasErrors(entry.payload) ? Math.min(RETRY_MS, intervalMs()) : intervalMs());
+const nextUpdate = (entry, section) => entry.time + (hasErrors(entry.payload) ? Math.min(RETRY_MS, intervalMs(section)) : intervalMs(section));
 
 /** Journalise les sources en échec (visible avec « docker logs lookout »), pour comprendre une alerte après coup. */
 function logSourceErrors(section, sourceErrors = {}) {
@@ -103,9 +103,9 @@ async function loadSection(section, force = false) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
   const cached = cache.get(section.id);
-  const due = cached && (force ? cached.time + FORCE_MS : nextUpdate(cached));
+  const due = cached && (force ? cached.time + FORCE_MS : nextUpdate(cached, section));
   if (cached && cached.signature === signature && Date.now() < due) {
-    return { ...cached.payload, nextUpdateAt: nextUpdate(cached) };
+    return { ...cached.payload, nextUpdateAt: nextUpdate(cached, section) };
   }
   const key = section.id + signature;
   if (pending.has(key)) return pending.get(key);
@@ -132,7 +132,7 @@ async function loadSection(section, force = false) {
     // Les échecs sont mémorisés aussi : une source en panne n'est pas redemandée à chaque chargement de page.
     const entry = { signature, time: Date.now(), payload };
     cache.set(section.id, entry);
-    return { ...payload, nextUpdateAt: nextUpdate(entry) };
+    return { ...payload, nextUpdateAt: nextUpdate(entry, section) };
   })().finally(() => pending.delete(key));
   pending.set(key, job);
   return job;

@@ -35,6 +35,8 @@ await check('une configuration de départ valide est créée', async () => {
   config = await (await request('/api/config')).json();
   expect(Array.isArray(config.sections) && config.sections.length > 0, 'aucune section par défaut');
   expect(config.sections.every((s) => s.id && s.kind && s.title), 'section incomplète');
+  expect(config.general.refreshMinutes === 30, `intervalle par défaut inattendu : ${config.general.refreshMinutes}`);
+  expect(config.sections.every((s) => [0, 5, 10, 15, 30, 60, 120].includes(s.refreshMinutes)), 'intervalle de section invalide');
 });
 await check('la configuration de départ ne contient ni nom ni clé', async () => {
   expect(config.general.displayName === '', 'un prénom est préenregistré');

@@ -15,7 +15,7 @@ every source is either an RSS feed or an API.
 - Works in any browser; on iPhone it can be added to the Home Screen like an app
 - Light and dark themes, accent colour, adjustable density and column count
 - Bilingual interface (English / French)
-- Polite to its sources: each one is queried at most once per interval (30 minutes by default), however often you reload
+- Polite to its sources: each one is queried at most once per interval, however often you reload (30 minutes by default, 5 for scores and commute, adjustable per section)
 
 ## Sections
 
