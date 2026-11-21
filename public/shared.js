@@ -59,10 +59,13 @@ export const LEAGUES = {
     ['Football américain', 'american-football'], ['Rugby', 'rugby'], ['Handball', 'handball'], ['Volleyball', 'volleyball']],
 };
 
+/** Intervalles de mise à jour offerts, en minutes. */
+export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
+
 export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apisports: 'API-Sports' };
 
 const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appearance: 'system', accentHex: '#3B82F6',
-  tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 15, openLinksInBackground: false,
+  tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
   dimReadArticles: true, units: 'metric' };
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '' };
@@ -127,6 +130,8 @@ export function defaultConfig() {
 export function normalize(input) {
   if (!input || typeof input !== 'object' || !Array.isArray(input.sections)) throw new Error(t("Ce fichier n'est pas une configuration Lookout valide."));
   const config = { version: 1, general: { ...GENERAL, ...(input.general ?? {}) }, sections: [] };
+  // Intervalle de mise à jour : toujours une valeur offerte dans les réglages (30 minutes sinon).
+  if (!REFRESH_CHOICES.includes(config.general.refreshMinutes)) config.general.refreshMinutes = 30;
   for (const raw of input.sections) {
     if (!raw || !KINDS[raw.kind]) continue;
     const s = newSection(raw.kind, { ...raw });

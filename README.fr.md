@@ -14,6 +14,7 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 - Fonctionne dans n'importe quel navigateur ; sur iPhone, s'ajoute à l'écran d'accueil comme une app
 - Thèmes clair et sombre, couleur d'accent, densité et nombre de colonnes réglables
 - Interface bilingue (français / anglais)
+- Respectueux des sources : chacune est interrogée au plus une fois par intervalle (30 minutes par défaut), peu importe le nombre de rechargements
 
 ## Sections
 

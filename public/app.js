@@ -30,7 +30,7 @@ function applyLanguage() {
   language = next;
   document.documentElement.lang = language;
   for (const [id, label] of [['btn-refresh', 'Actualiser'], ['btn-edit', 'Organiser'], ['btn-settings', 'Réglages']]) $(id).setAttribute('aria-label', t(label));
-  $('btn-refresh').title = t('Actualiser toutes les sections');
+  $('btn-refresh').title = t('Recharger les sections (les sources sont interrogées selon leur intervalle)');
   $('btn-edit').title = t('Réorganiser, redimensionner ou masquer les sections');
   $('btn-settings').title = t('Configurer les sections et les sources');
   return changed;
@@ -78,7 +78,7 @@ function commit() {
 }
 
 // --- Données ---
-async function loadSection(id, force = false) {
+async function loadSection(id) {
   const s = section(id);
   if (!s) return;
   const signature = fetchSignature(s, general().units);
@@ -87,7 +87,7 @@ async function loadSection(id, force = false) {
   renderCard(id);
   updateToolbar();
   let payload;
-  try { payload = await api(`/api/section/${encodeURIComponent(id)}${force ? '?force=1' : ''}`); }
+  try { payload = await api(`/api/section/${encodeURIComponent(id)}`); }
   catch (error) { payload = { ...(state.data.get(id) ?? {}), error: error.message, sourceErrors: {} }; }
   if (state.signatures.get(id) !== signature) return;   // une demande plus récente est en cours
   state.data.set(id, payload);
@@ -97,22 +97,26 @@ async function loadSection(id, force = false) {
   updateToolbar();
 }
 
-function refreshAll(force = false) {
+function refreshAll() {
   state.lastRefresh = Date.now();
-  for (const s of visible()) loadSection(s.id, force);
+  for (const s of visible()) loadSection(s.id);
   updateToolbar();
 }
 
 let refreshTimer = null;
 function restartTimer() {
   clearInterval(refreshTimer);
-  const minutes = general().refreshMinutes;
-  if (minutes > 0) refreshTimer = setInterval(() => { if (!document.hidden) refreshAll(); }, minutes * 60e3);
+  // Vérifie chaque minute : le serveur ne réinterroge une source que lorsque son intervalle est écoulé.
+  refreshTimer = setInterval(() => {
+    if (document.hidden) return;
+    const due = visible().filter((s) => (state.data.get(s.id)?.nextUpdateAt ?? 0) <= Date.now() && !state.loading.has(s.id));
+    for (const s of due) loadSection(s.id);
+    updateToolbar();
+  }, 60e3);
 }
 // Au retour dans l'app (iPhone réveillé, onglet réaffiché), rattrape une actualisation manquée.
 document.addEventListener('visibilitychange', () => {
-  const minutes = state.config ? general().refreshMinutes : 0;
-  if (!document.hidden && minutes > 0 && state.lastRefresh && Date.now() - state.lastRefresh > minutes * 60e3) refreshAll();
+  if (!document.hidden && state.config) refreshAll();
 });
 
 // --- Lecture des articles ---
@@ -125,10 +129,19 @@ const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs
 
 // --- Barre supérieure et en-tête ---
 function showSubtitle(text) { $('subtitle').textContent = text; }
+/** « Mis à jour à 14 h 05 · prochaine à 14 h 35 » : l'heure réelle des données, pas celle du dernier clic. */
+function freshness() {
+  const payloads = visible().map((s) => state.data.get(s.id)).filter(Boolean);
+  const updated = Math.max(0, ...payloads.map((p) => p.updatedAt ?? 0));
+  const next = Math.min(...payloads.map((p) => p.nextUpdateAt ?? Infinity));
+  if (!updated) return '';
+  return Number.isFinite(next) && next > Date.now() ? t('Mis à jour à {0} · prochaine à {1}', fmt.time(updated), fmt.time(next)) : t('Mis à jour à {0}', fmt.time(updated));
+}
+
 function updateToolbar() {
   const busy = state.loading.size > 0;
   $('btn-refresh').classList.toggle('spinning', busy);
-  showSubtitle(busy ? t('Actualisation…') : (state.lastRefresh ? t('Mis à jour à {0}', fmt.time(state.lastRefresh)) : ''));
+  showSubtitle(busy ? t('Actualisation…') : freshness());
   $('btn-edit').setAttribute('aria-pressed', String(state.editing));
 }
 
@@ -212,7 +225,7 @@ const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [99, 'Pleine largeur']];
 function cardMenu(anchor, s) {
   const payload = state.data.get(s.id);
   openMenu(anchor, [
-    { label: 'Actualiser', icon: icon('refresh'), action: () => loadSection(s.id, true) },
+    { label: 'Actualiser', icon: icon('refresh'), action: () => loadSection(s.id) },
     payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles).map((a) => a.id), true) },
     '-',
     { heading: 'Largeur' },
@@ -253,7 +266,7 @@ function buildCard(s) {
       payload.error && h('div', { class: 'note' }, icon('offline'), t('Actualisation impossible : {0}', payload.error))];
   } else if (payload?.error && !loading) {
     body = h('div', { class: 'error-state' }, icon('warning'), h('span', {}, payload.error),
-      h('div', {}, h('button', { class: 'btn small', onClick: () => loadSection(s.id, true) }, 'Réessayer'), ' ',
+      h('div', {}, h('button', { class: 'btn small', onClick: () => loadSection(s.id) }, 'Réessayer'), ' ',
         h('button', { class: 'btn small', onClick: () => openSettings(app, { sectionID: s.id }) }, 'Configurer…')));
   } else {
     body = h('div', { class: 'skeleton', role: 'status', 'aria-label': 'Chargement' },
@@ -290,7 +303,7 @@ function renderCard(id) {
 
 function renderAll() {
   // Un changement de langue touche aussi les textes fournis par le serveur (erreurs, états des matchs).
-  if (applyLanguage() && state.data.size) refreshAll(true);
+  if (applyLanguage() && state.data.size) refreshAll();
   applyTheme();
   renderHero();
   renderBanner();
@@ -370,12 +383,12 @@ const app = {
 $('btn-refresh').append(icon('refresh'));
 $('btn-edit').append(icon('grid'));
 $('btn-settings').append(icon('gear-bold'));
-$('btn-refresh').addEventListener('click', () => refreshAll(true));
+$('btn-refresh').addEventListener('click', () => refreshAll());
 $('btn-edit').addEventListener('click', () => setEditing(!state.editing));
 $('btn-settings').addEventListener('click', () => openSettings(app));
 document.addEventListener('keydown', (e) => {
   if (hasOverlay() || e.target.matches('input, textarea, select')) return;
-  if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) refreshAll(true);
+  if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) refreshAll();
   if (e.key === ',' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSettings(app); }
 });
 

@@ -74,11 +74,21 @@ function saveRead() {
   fs.promises.writeFile(READ_FILE, JSON.stringify([...readIDs])).catch(() => {});
 }
 
-// --- Données des sections, avec cache court et requêtes en cours partagées ---
+// --- Données des sections ---
+// Chaque source n'est interrogée qu'une fois par intervalle (réglage « refreshMinutes », 30 minutes par
+// défaut), peu importe combien de fois la page est ouverte ou actualisée : les sites qui limitent les
+// accès ne voient donc jamais plus de requêtes que prévu. Seule exception : après un échec, une nouvelle
+// tentative est permise au bout de 2 minutes.
 
-const CACHE_MS = 3 * 60e3;
+const RETRY_MS = 2 * 60e3;
 const cache = new Map();   // id de section -> { signature, time, payload }
 const pending = new Map();
+
+const intervalMs = () => Math.max(1, Number(config.general.refreshMinutes) || 30) * 60e3;
+const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
+  || (payload.routes ?? []).some((route) => route.error);
+/** Moment à partir duquel les sources d'une section pourront être réinterrogées. */
+const nextUpdate = (entry) => entry.time + (hasErrors(entry.payload) ? Math.min(RETRY_MS, intervalMs()) : intervalMs());
 
 /** Journalise les sources en échec (visible avec « docker logs lookout »), pour comprendre une alerte après coup. */
 function logSourceErrors(section, sourceErrors = {}) {
@@ -86,11 +96,13 @@ function logSourceErrors(section, sourceErrors = {}) {
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
 
-async function loadSection(section, force) {
+async function loadSection(section) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
   const cached = cache.get(section.id);
-  if (!force && cached && cached.signature === signature && Date.now() - cached.time < CACHE_MS) return cached.payload;
+  if (cached && cached.signature === signature && Date.now() < nextUpdate(cached)) {
+    return { ...cached.payload, nextUpdateAt: nextUpdate(cached) };
+  }
   const key = section.id + signature;
   if (pending.has(key)) return pending.get(key);
 
@@ -105,7 +117,6 @@ async function loadSection(section, force) {
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
       logSourceErrors(section, data.sourceErrors);
       for (const route of data.routes ?? []) if (route.error) console.warn(`[${section.title}] ${route.name || 'trajet'} : ${route.error}`);
-      cache.set(section.id, { signature, time: Date.now(), payload });
     } catch (error) {
       if (!(error instanceof BriefingError)) console.error(`Section « ${section.title} » :`, error);
       else console.warn(`[${section.title}] ${error.message}`);
@@ -114,7 +125,10 @@ async function loadSection(section, force) {
       const stale = cached?.signature === signature ? cached.payload : null;
       payload = stale ? { ...stale, error: message } : { kind: section.kind, error: message, sourceErrors: {}, updatedAt: null };
     }
-    return payload;
+    // Les échecs sont mémorisés aussi : une source en panne n'est pas redemandée à chaque chargement de page.
+    const entry = { signature, time: Date.now(), payload };
+    cache.set(section.id, entry);
+    return { ...payload, nextUpdateAt: nextUpdate(entry) };
   })().finally(() => pending.delete(key));
   pending.set(key, job);
   return job;
@@ -183,7 +197,7 @@ async function api(req, res, url) {
     let id;
     try { id = decodeURIComponent(url.pathname.slice('/api/section/'.length)); } catch { throw new BriefingError('Section introuvable'); }
     const section = findSection(id);
-    return send(res, 200, await loadSection(section, q.get('force') === '1'));
+    return send(res, 200, await loadSection(section));
   }
   if (route === 'GET /api/read') return send(res, 200, [...readIDs]);
   if (route === 'POST /api/read') {

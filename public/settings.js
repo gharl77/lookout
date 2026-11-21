@@ -387,9 +387,12 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       group('Langue', [
         line('Langue', h('span', { onChange: () => { app.renderAll(); render(); } }, select(g, 'language', [['auto', 'Automatique'], ['fr', 'Français'], ['en', 'English']], { label: 'Langue' }))),
       ], "Automatique suit la langue de l'appareil. Les titres de vos sections et le contenu des sources ne sont pas traduits."),
-      group('Actualisation et unités', [
-        line('Actualiser automatiquement', h('span', { onChange: () => app.restartTimer() }, select(g, 'refreshMinutes',
-          [[0, 'Jamais (manuel)'], [5, 'Toutes les 5 minutes'], [15, 'Toutes les 15 minutes'], [30, 'Toutes les 30 minutes'], [60, 'Toutes les heures']], { label: 'Actualiser automatiquement' }))),
+      group('Mise à jour des sources', [
+        // Après le changement, on redemande les sections : le serveur applique tout de suite le nouvel intervalle.
+        line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.refreshAll()) }, select(g, 'refreshMinutes',
+          [[5, 'Toutes les 5 minutes'], [10, 'Toutes les 10 minutes'], [15, 'Toutes les 15 minutes'], [30, 'Toutes les 30 minutes'], [60, 'Toutes les heures'], [120, 'Toutes les 2 heures']], { label: 'Interroger les sources' }))),
+      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Un intervalle court donne des pointages et des trajets plus à jour."),
+      group('Unités', [
         line('Unités', select(g, 'units', [['metric', 'Métrique (°C, km)'], ['imperial', 'Impérial (°F, mi)']], { label: 'Unités' })),
       ]),
       group('Lecture', [
