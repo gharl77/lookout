@@ -94,6 +94,7 @@ export function newSection(kind, overrides = {}) {
   const k = KINDS[kind];
   return { id: uuid(), kind, title: k.label, icon: k.icon, colorHex: k.color, enabled: true, span: 1, maxItems: k.maxItems,
     refreshMinutes: KIND_REFRESH[kind],
+    column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API), ...overrides };
 }
 
@@ -148,6 +149,7 @@ export function normalize(input) {
     s.id = raw.id || uuid();
     // Intervalle absent (configuration d'avant cette option) ou invalide : celui du type de section.
     if (s.refreshMinutes !== 0 && !REFRESH_CHOICES.includes(s.refreshMinutes)) s.refreshMinutes = KIND_REFRESH[s.kind];
+    if (!Number.isInteger(s.column) || s.column < -1 || s.column > 3) s.column = -1;
     s.feed = { ...FEED, ...(raw.feed ?? {}) };
     s.feed.sources = (s.feed.sources ?? []).map((x) => ({ ...feedSource('', ''), ...x }));
     s.weather = { ...WEATHER, ...(raw.weather ?? {}) };

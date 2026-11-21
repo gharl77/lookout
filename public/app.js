@@ -184,7 +184,7 @@ function renderBanner() {
   banner.hidden = !state.editing;
   if (!state.editing) return;
   banner.replaceChildren(
-    h('span', { class: 'grow' }, icon('drag'), ' ', "Glissez une carte par son en-tête pour la déplacer, ou utilisez les boutons de chaque carte."),
+    h('span', { class: 'grow' }, icon('drag'), ' ', "Glissez une carte par son en-tête et déposez-la où vous voulez : les autres cartes restent à leur place."),
     h('button', { class: 'btn', onClick: (e) => addSectionMenu(e.currentTarget) }, icon('plus'), 'Ajouter une section'),
     h('button', { class: 'btn primary', onClick: () => setEditing(false) }, 'Terminé'));
 }
@@ -202,13 +202,17 @@ function updateSection(id, change) {
   commit();
 }
 
-function move(id, offset) {
-  // Déplace parmi les sections visibles.
-  const list = state.config.sections, from = list.findIndex((s) => s.id === id);
-  let to = from + offset;
-  while (list[to] && !list[to].enabled) to += offset;
-  if (from < 0 || !list[to]) return;
-  [list[from], list[to]] = [list[to], list[from]];
+/** Monte ou descend une carte d'un cran dans sa colonne (boutons du mode « Organiser »). */
+function moveInColumn(id, direction) {
+  const mine = frames.get(id);
+  if (!mine) return;
+  const neighbours = [...frames].filter(([other, f]) => other !== id && f.col < mine.col + mine.span && mine.col < f.col + f.span)
+    .map(([other, f]) => ({ id: other, y: f.y })).sort((x, y) => x.y - y.y);
+  const target = direction < 0 ? neighbours.filter((n) => n.y < mine.y).at(-1) : neighbours.find((n) => n.y > mine.y);
+  if (!target) return;
+  const list = state.config.sections, moved = list.splice(list.findIndex((x) => x.id === id), 1)[0];
+  const at = list.findIndex((x) => x.id === target.id);
+  list.splice(direction < 0 ? at : at + 1, 0, moved);
   commit();
 }
 
@@ -240,8 +244,8 @@ function buildCard(s) {
 
   const controls = state.editing
     ? h('div', { class: 'edit-controls' },
-      h('button', { class: 'icon-btn', title: 'Déplacer vers le début', 'aria-label': 'Déplacer vers le début', onClick: () => move(s.id, -1) }, icon('left')),
-      h('button', { class: 'icon-btn', title: 'Déplacer vers la fin', 'aria-label': 'Déplacer vers la fin', onClick: () => move(s.id, 1) }, icon('right')),
+      h('button', { class: 'icon-btn', title: 'Monter', 'aria-label': 'Monter', onClick: () => moveInColumn(s.id, -1) }, icon('up')),
+      h('button', { class: 'icon-btn', title: 'Descendre', 'aria-label': 'Descendre', onClick: () => moveInColumn(s.id, 1) }, icon('down')),
       h('button', { class: 'icon-btn', title: s.span === 1 ? 'Élargir' : s.span === 2 ? 'Pleine largeur' : 'Réduire', 'aria-label': 'Changer la largeur',
         onClick: () => updateSection(s.id, (x) => { x.span = x.span === 1 ? 2 : x.span === 2 ? 99 : 1; }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
       h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, (x) => { x.enabled = false; }) }, icon('hide')))
@@ -324,10 +328,16 @@ function renderAll() {
 }
 
 // --- Déplacement des cartes par glisser-déposer ---
+// Chaque carte a une colonne à elle (« column » dans la configuration). Déposer une carte quelque part ne
+// touche donc qu'à la colonne d'arrivée et à celle de départ : le reste du tableau de bord ne bouge pas.
+// Pendant le geste, rien ne se réorganise ; un trait indique seulement où la carte va atterrir.
+//
 // À la souris, on saisit une carte par son en-tête à tout moment. Au doigt, seulement en mode « Organiser »,
-// pour que le défilement de la page reste naturel le reste du temps. Les autres cartes se replacent en direct.
-const frames = new Map();   // id de section -> emplacement { x, y, w, h } calculé par layout()
+// pour que le défilement de la page reste naturel le reste du temps.
+const frames = new Map();   // id de section -> emplacement { x, y, w, h, col, span } calculé par layout()
+const metrics = { columns: 1, columnWidth: 0, gap: 16 };
 let drag = null;
+const dropLine = h('div', { class: 'drop-line', hidden: true });
 
 function dragTransform() {
   const rect = $('grid').getBoundingClientRect();
@@ -342,10 +352,9 @@ function enableDrag(card, id) {
     if (!frames.has(id)) layout();   // mise en page pas encore calculée (onglet resté en arrière-plan)
     const frame = frames.get(id), rect = $('grid').getBoundingClientRect();
     if (!frame) return;
-    drag = { id, card, head, pointerId: e.pointerId, active: false, stale: false, lastTarget: null,
+    drag = { id, card, head, pointerId: e.pointerId, active: false, stale: false, target: null,
       startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
-      offsetX: e.clientX - rect.left - frame.x, offsetY: e.clientY - rect.top - frame.y,
-      original: state.config.sections.map((s) => s.id) };
+      offsetX: e.clientX - rect.left - frame.x, offsetY: e.clientY - rect.top - frame.y };
     // La capture garantit qu'on reçoit la suite du geste même si le pointeur sort de l'en-tête.
     try { head.setPointerCapture(e.pointerId); } catch { /* pointeur déjà relâché */ }
   });
@@ -358,6 +367,7 @@ function enableDrag(card, id) {
       drag.active = true;
       card.classList.add('dragging');
       document.body.classList.add('is-dragging');
+      $('grid').append(dropLine);
       autoScroll();
     }
     e.preventDefault();
@@ -371,21 +381,26 @@ function enableDrag(card, id) {
   head.addEventListener('pointercancel', finish(true));
 }
 
+/** Où la carte atterrirait si on la lâchait maintenant : colonne, carte devant laquelle s'insérer, hauteur du trait. */
+function dropTarget() {
+  const rect = $('grid').getBoundingClientRect(), px = drag.x - rect.left, py = drag.y - rect.top;
+  const { columns, columnWidth, gap } = metrics, mine = frames.get(drag.id);
+  const col = Math.min(Math.max(0, Math.floor(px / (columnWidth + gap))), columns - mine.span);
+  // Les cartes déjà présentes dans la ou les colonnes visées, de haut en bas.
+  const others = [...frames].filter(([id, f]) => id !== drag.id && f.col < col + mine.span && col < f.col + f.span)
+    .map(([id, f]) => ({ id, ...f })).sort((a, b) => a.y - b.y);
+  const before = others.find((f) => py < f.y + f.h / 2) ?? null;
+  const last = others.at(-1);
+  const y = before ? before.y - gap / 2 : (last ? last.y + last.h + gap / 2 : 0);
+  return { col, before: before?.id ?? null, after: before ? null : (last?.id ?? null), y };
+}
+
 function updateDrag() {
   drag.card.style.transform = dragTransform();
-  // Carte survolée par le pointeur (autre que celle qu'on tient) : on prend sa place.
-  const rect = $('grid').getBoundingClientRect(), px = drag.x - rect.left, py = drag.y - rect.top;
-  let target = null;
-  for (const [id, f] of frames) {
-    if (id !== drag.id && px >= f.x && px <= f.x + f.w && py >= f.y && py <= f.y + f.h) { target = id; break; }
-  }
-  if (!target) { drag.lastTarget = null; return; }
-  if (target === drag.lastTarget) return;   // évite les allers-retours tant que le pointeur reste sur la même carte
-  drag.lastTarget = target;
-  const list = state.config.sections, from = list.findIndex((s) => s.id === drag.id), to = list.findIndex((s) => s.id === target);
-  if (from < 0 || to < 0) return;
-  list.splice(to, 0, list.splice(from, 1)[0]);
-  layout();
+  const target = drag.target = dropTarget(), mine = frames.get(drag.id), { columnWidth, gap } = metrics;
+  dropLine.hidden = false;
+  dropLine.style.width = `${columnWidth * mine.span + gap * (mine.span - 1)}px`;
+  dropLine.style.transform = `translate(${target.col * (columnWidth + gap)}px, ${Math.max(0, target.y - 2)}px)`;
 }
 
 /** Fait défiler la page quand on approche du haut ou du bas de l'écran en tenant une carte. */
@@ -399,25 +414,39 @@ function autoScroll() {
 }
 
 function endDrag(cancelled) {
-  const { card, head, pointerId, active, original, stale } = drag;
+  const { id, card, head, pointerId, active, target, stale } = drag;
   try { if (head.hasPointerCapture(pointerId)) head.releasePointerCapture(pointerId); } catch { /* déjà relâché */ }
-  if (cancelled && active) {
-    // Geste annulé (Échap, appel entrant…) : on remet l'ordre de départ.
-    const byID = new Map(state.config.sections.map((s) => [s.id, s]));
-    state.config.sections = original.map((id) => byID.get(id)).filter(Boolean);
-  }
   drag = null;
   card.classList.remove('dragging');
   document.body.classList.remove('is-dragging');
-  if (!active) { if (stale) renderAll(); return; }
-  layout();   // la carte glisse jusqu'à son nouvel emplacement
-  const changed = state.config.sections.some((s, i) => s.id !== original[i]);
-  if (changed && !cancelled) commit(); else if (stale) renderAll();
+  dropLine.hidden = true;
+  dropLine.remove();
+  let changed = false;
+  if (active && !cancelled && target) changed = placeCard(id, target);
+  if (active) layout();   // la carte glisse jusqu'à son emplacement
+  if (changed) commit(); else if (stale) renderAll();
+}
+
+/** Dépose une carte : fixe sa colonne et l'insère à l'endroit visé dans l'ordre des sections. */
+function placeCard(id, target) {
+  const list = state.config.sections, before = JSON.stringify(list.map((s) => [s.id, s.column]));
+  if (metrics.columns > 1) {
+    // Au premier déplacement, chaque carte garde la colonne où elle se trouve : plus rien ne se replace tout seul.
+    for (const s of list) if (s.column < 0 && frames.has(s.id)) s.column = frames.get(s.id).col;
+    list.find((s) => s.id === id).column = target.col;
+  }
+  const anchor = target.before ?? target.after;
+  if (anchor && anchor !== id) {
+    const moved = list.splice(list.findIndex((s) => s.id === id), 1)[0];
+    const at = list.findIndex((s) => s.id === anchor);
+    list.splice(target.before ? at : at + 1, 0, moved);
+  }
+  return JSON.stringify(list.map((s) => [s.id, s.column])) !== before;
 }
 
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag?.active) endDrag(true); });
 
-// --- Grille « maçonnerie » adaptative ---
+// --- Grille en colonnes ---
 let layoutFrame = 0;
 function scheduleLayout() {
   cancelAnimationFrame(layoutFrame);
@@ -433,21 +462,31 @@ function layout() {
   const columns = fixed > 0 ? Math.min(fixed, Math.max(1, Math.floor((width + gap) / (260 + gap))))
     : Math.min(4, Math.max(1, Math.floor((width + gap) / (330 + gap))));
   const columnWidth = (width - (columns - 1) * gap) / columns;
+  Object.assign(metrics, { columns, columnWidth, gap });
   const heights = new Array(columns).fill(0);
   frames.clear();
-  const items = visible().map((s) => ({ card: cards.get(s.id), span: Math.min(Math.max(1, s.span), columns) })).filter((x) => x.card);
+  const items = visible().map((s) => ({ s, card: cards.get(s.id), span: Math.min(Math.max(1, s.span), columns) })).filter((x) => x.card);
   for (const item of items) item.card.style.width = `${columnWidth * item.span + gap * (item.span - 1)}px`;
-  for (const { card, span } of items) {
-    let best = 0, bestY = Infinity;
-    for (let start = 0; start <= columns - span; start++) {
-      const y = Math.max(...heights.slice(start, start + span));
-      if (y < bestY - 0.5) { bestY = y; best = start; }
+  for (const { s, card, span } of items) {
+    let col, y;
+    if (s.column >= 0) {
+      // Colonne choisie par l'utilisateur (ramenée dans la grille si l'écran a moins de colonnes).
+      col = Math.min(s.column, columns - span);
+      y = Math.max(...heights.slice(col, col + span));
+    } else {
+      // Pas encore placée à la main : la colonne la moins remplie.
+      col = 0;
+      y = Infinity;
+      for (let start = 0; start <= columns - span; start++) {
+        const top = Math.max(...heights.slice(start, start + span));
+        if (top < y - 0.5) { y = top; col = start; }
+      }
     }
-    const x = best * (columnWidth + gap), height = card.offsetHeight;
-    frames.set(card.dataset.id, { x, y: bestY, w: card.offsetWidth, h: height });
-    if (drag?.active && drag.id === card.dataset.id) card.style.transform = dragTransform();   // elle suit le pointeur
-    else card.style.transform = `translate(${x}px, ${bestY}px)`;
-    for (let i = best; i < best + span; i++) heights[i] = bestY + height + gap;
+    const x = col * (columnWidth + gap), height = card.offsetHeight;
+    frames.set(s.id, { x, y, w: card.offsetWidth, h: height, col, span });
+    if (drag?.active && drag.id === s.id) card.style.transform = dragTransform();   // elle suit le pointeur
+    else card.style.transform = `translate(${x}px, ${y}px)`;
+    for (let i = col; i < col + span; i++) heights[i] = y + height + gap;
   }
   grid.style.height = `${Math.max(0, Math.max(...heights) - gap)}px`;
   requestAnimationFrame(() => grid.classList.add('ready'));

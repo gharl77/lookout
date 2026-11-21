@@ -107,6 +107,9 @@ svg.icon { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 /* Carte tenue par le pointeur : au-dessus des autres, sans animation, pour suivre le geste au plus près. */
 .card.dragging, #grid.ready .card.dragging { z-index: 10; transition: none; cursor: grabbing; opacity: 0.96;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); outline: 2px solid var(--accent); outline-offset: -1px; }
+/* Trait qui montre où la carte va atterrir. */
+.drop-line { position: absolute; top: 0; left: 0; height: 4px; border-radius: 2px; background: var(--accent); z-index: 9; pointer-events: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); transition: transform 0.12s ease, width 0.12s ease; }
 body.is-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
 body.is-dragging .card:not(.dragging) { pointer-events: none; }
 .card-head { display: flex; align-items: center; gap: 10px; min-height: 28px; }
