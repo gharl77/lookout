@@ -1,7 +1,7 @@
 # Lookout
 
 [![Image Docker](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-0.1.0--beta-blue)
+![Version](https://img.shields.io/badge/version-2026.11.1-blue)
 ![Licence](https://img.shields.io/badge/licence-MIT-green)
 ![Plateformes](https://img.shields.io/badge/plateformes-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
@@ -102,9 +102,12 @@ Le conteneur tourne avec l'UID/GID `1000:1000` et doit pouvoir écrire dans `/da
 | Étiquette | Description |
 |---|---|
 | `latest` | Dernière construction de la branche `main` |
-| `v0.1.0-beta` | Une version précise |
+| `2026.11.1` | Une version précise |
 
 Les images sont construites pour `linux/amd64` et `linux/arm64`.
+
+Les versions sont numérotées `année.mois.numéro` : `2026.11.1` est la première version de novembre 2026.
+Voir les [notes de version](CHANGELOG.md).
 
 ## Mise à jour
 
@@ -179,5 +182,5 @@ se lancent sur n'importe quelle instance avec `node scripts/smoke-test.mjs http:
 
 ## Avertissement
 
-Projet personnel en version bêta. Les sources ESPN et HockeyTech sont des API publiques non documentées,
+Projet personnel. Les sources ESPN et HockeyTech sont des API publiques non documentées,
 qui peuvent changer sans préavis. Respectez les conditions d'utilisation de chaque service que vous branchez.

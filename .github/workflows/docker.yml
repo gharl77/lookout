@@ -3,7 +3,8 @@ name: Image Docker
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    # Versions officielles au format année.mois.numéro (ex. 2026.11.1).
+    tags: ['20[0-9][0-9].*']
     paths-ignore: ['**.md', 'compose.yaml']
   pull_request:
   workflow_dispatch:

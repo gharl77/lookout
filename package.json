@@ -1,6 +1,6 @@
 {
   "name": "lookout",
-  "version": "0.1.0-beta",
+  "version": "2026.11.1",
   "private": true,
   "type": "module",
   "description": "Lookout — self-hosted personal dashboard: news, weather, commute, sports scores.",

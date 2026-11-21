@@ -1,7 +1,7 @@
 # Lookout
 
 [![Docker image](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-0.1.0--beta-blue)
+![Version](https://img.shields.io/badge/version-2026.11.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
@@ -102,9 +102,12 @@ The container runs as UID/GID `1000:1000` and must be able to write to `/data`.
 | Tag | Description |
 |---|---|
 | `latest` | Latest build of the `main` branch |
-| `v0.1.0-beta` | A specific release |
+| `2026.11.1` | A specific release |
 
 Images are built for `linux/amd64` and `linux/arm64`.
+
+Releases are numbered `year.month.number`: `2026.11.1` is the first release of November 2026. See the
+[release notes](CHANGELOG.md).
 
 ## Updating
 
@@ -178,5 +181,5 @@ read-only install, and an unwritable data folder. Run the same checks against an
 
 ## Disclaimer
 
-Personal project, beta quality. The ESPN and HockeyTech sources are undocumented public APIs that may change
+Personal project. The ESPN and HockeyTech sources are undocumented public APIs that may change
 without notice. Respect the terms of use of each service you connect.
