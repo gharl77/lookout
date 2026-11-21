@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore: ['**.md', 'scripts/**', 'compose.yaml']
+    paths-ignore: ['**.md', 'compose.yaml']
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -16,9 +17,66 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Aucune donnée personnelle ne doit se retrouver dans le dépôt ni dans l'image.
+      - name: Vérifier qu'aucune donnée n'est suivie par git
+        run: |
+          if git ls-files | grep -E '(^|/)data/|(^|/)\.env$|config\.json$|read\.json$|geocode\.json$'; then
+            echo "::error::Des fichiers de données ou de secrets sont suivis par git."
+            exit 1
+          fi
+
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+
+      - name: Construire l'image de test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: lookout:test
+
+      - name: Vérifier le contenu de l'image
+        run: |
+          docker run --rm --entrypoint sh lookout:test -c 'find /app /data -type f | sort' | tee files.txt
+          if grep -E '/data/.|\.env$|config\.json$|/scripts/|\.git' files.txt; then
+            echo "::error::L'image contient des fichiers qui ne devraient pas y être."
+            exit 1
+          fi
+
+      # Installation neuve, comme le ferait un nouvel utilisateur avec les réglages par défaut.
+      - name: Installation neuve (réglages par défaut)
+        run: |
+          docker run -d --name fresh -p 8080:8080 lookout:test
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:8080/healthz && break; sleep 1; done
+          node scripts/smoke-test.mjs http://127.0.0.1:8080
+          docker logs fresh
+          docker rm -f fresh
+
+      - name: Installation renforcée (lecture seule, dossier de l'hôte)
+        run: |
+          mkdir -p "$RUNNER_TEMP/data" && sudo chown 1000:1000 "$RUNNER_TEMP/data"
+          docker run -d --name hardened -p 8081:8080 --user 1000:1000 --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true -v "$RUNNER_TEMP/data:/data" lookout:test
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:8081/healthz && break; sleep 1; done
+          node scripts/smoke-test.mjs http://127.0.0.1:8081
+          docker rm -f hardened
+
+      # Erreur d'installation la plus courante : le dossier monté appartient à root.
+      - name: Dossier de données inaccessible → message clair, pas de plantage obscur
+        run: |
+          mkdir -p "$RUNNER_TEMP/locked" && sudo chown root:root "$RUNNER_TEMP/locked" && sudo chmod 755 "$RUNNER_TEMP/locked"
+          set +e
+          docker run --name locked -v "$RUNNER_TEMP/locked:/data" lookout:test > locked.log 2>&1
+          code=$?
+          set -e
+          cat locked.log
+          test "$code" -eq 1
+          grep -q "cannot write to /data" locked.log
+          ! grep -q "at Object.writeFileSync" locked.log
+
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -30,7 +88,9 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
-      - uses: docker/build-push-action@v6
+      - name: Publier l'image (amd64 et arm64)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64

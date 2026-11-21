@@ -161,6 +161,10 @@ docker build -t lookout .       # ou construire l'image
 
 Les textes de l'interface sont en français dans le code ; `public/i18n.js` contient leur traduction anglaise.
 
+Chaque construction est testée avant la publication de l'image : installation neuve avec les réglages par
+défaut, installation renforcée en lecture seule, et dossier de données inaccessible. Les mêmes vérifications
+se lancent sur n'importe quelle instance avec `node scripts/smoke-test.mjs http://localhost:8080`.
+
 ## Avertissement
 
 Projet personnel en version bêta. Les sources ESPN et HockeyTech sont des API publiques non documentées,

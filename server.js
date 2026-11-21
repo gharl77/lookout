@@ -108,6 +108,10 @@ async function loadSection(section, force) {
   return job;
 }
 
+// Filet de sécurité : une erreur imprévue dans une tâche de fond est journalisée, sans arrêter le serveur.
+process.on('unhandledRejection', (reason) => console.error('Erreur non gérée (promesse) :', reason));
+process.on('uncaughtException', (error) => console.error('Erreur non gérée :', error));
+
 // --- HTTP ---
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -164,14 +168,17 @@ async function api(req, res, url) {
     return send(res, 200, config);
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/section/')) {
-    const section = findSection(decodeURIComponent(url.pathname.slice('/api/section/'.length)));
+    let id;
+    try { id = decodeURIComponent(url.pathname.slice('/api/section/'.length)); } catch { throw new BriefingError('Section introuvable'); }
+    const section = findSection(id);
     return send(res, 200, await loadSection(section, q.get('force') === '1'));
   }
   if (route === 'GET /api/read') return send(res, 200, [...readIDs]);
   if (route === 'POST /api/read') {
     const body = await readBody(req);
-    for (const id of body.add ?? []) if (typeof id === 'string') readIDs.add(id);
-    for (const id of body.remove ?? []) readIDs.delete(id);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BriefingError('JSON invalide');
+    for (const id of Array.isArray(body.add) ? body.add : []) if (typeof id === 'string') readIDs.add(id);
+    for (const id of Array.isArray(body.remove) ? body.remove : []) readIDs.delete(id);
     saveRead();
     return send(res, 200, { ok: true });
   }
