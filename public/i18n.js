@@ -94,8 +94,8 @@ export const EN = {
   'Adresse': 'Address', 'Jeton': 'Token', "Jeton d'accès longue durée": 'Long-lived access token',
   'Afficher les itinéraires de rechange': 'Show alternate routes', 'Itinéraires de rechange': 'Alternate routes',
   'OSRM est un service libre, sans données de circulation en direct.': 'OSRM is a free service, without live traffic data.',
-  'TomTom tient compte de la circulation en direct. La clé est enregistrée en clair sur le serveur.': 'TomTom accounts for live traffic. The key is stored in plain text on the server.',
-  'Le temps affiché est celui que Waze fournit à Home Assistant. Le jeton est enregistré en clair sur le serveur.': 'The time shown is the one Waze gives Home Assistant. The token is stored in plain text on the server.',
+  "TomTom tient compte de la circulation en direct. Une fois enregistrée, la clé reste sur le serveur et n'est plus affichée.": 'TomTom accounts for live traffic. Once saved, the key stays on the server and is no longer displayed.',
+  "Le temps affiché est celui que Waze fournit à Home Assistant. Une fois enregistré, le jeton reste sur le serveur et n'est plus affiché.": 'The time shown is the one Waze gives Home Assistant. Once saved, the token stays on the server and is no longer displayed.',
 
   // Réglages — sports
   'Toutes les équipes': 'All teams', '{0} équipes': '{0} teams', 'Choisir les équipes à afficher': 'Choose which teams to show',
@@ -110,12 +110,12 @@ export const EN = {
   'Ajouter une ligue': 'Add a league',
   'Pour chaque ligue, choisissez « Toutes les équipes » ou seulement celles que vous suivez. Chemin ESPN : sport/ligue (ex. hockey/nhl, soccer/ita.1).': 'For each league, choose “All teams” or only the ones you follow. ESPN path: sport/league (e.g. hockey/nhl, soccer/ita.1).',
   'Clé API-Sports': 'API-Sports key', 'Facultatif': 'Optional', 'facultatif': 'optional', 'Obtenir une clé gratuite sur api-sports.io': 'Get a free key at api-sports.io',
-  'Nécessaire seulement pour les ligues API-Sports. Le forfait gratuit permet 100 requêtes par jour et par sport ; Lookout met les réponses en cache pour le respecter. La clé est enregistrée en clair sur le serveur.': 'Only needed for API-Sports leagues. The free plan allows 100 requests per day per sport; Lookout caches responses to stay within it. The key is stored in plain text on the server.',
+  'Nécessaire seulement pour les ligues API-Sports. Le forfait gratuit permet 100 requêtes par jour et par sport ; Lookout met les réponses en cache pour le respecter. Une fois enregistrée, la clé reste sur le serveur et n\'est plus affichée.': 'Only needed for API-Sports leagues. The free plan allows 100 requests per day per sport; Lookout caches responses to stay within it. Once saved, the key stays on the server and is no longer displayed.',
   "Résultats d'hier": 'Yesterday’s results', 'Matchs de demain': 'Tomorrow’s games', 'Logos des équipes': 'Team logos',
 
   // Réglages — API JSON
   'Requête': 'Request', 'En-têtes HTTP': 'HTTP headers',
-  'Un en-tête par ligne, au format « Nom: valeur » (ex. Authorization: Bearer …). Les clés sont enregistrées en clair sur le serveur.': 'One header per line, as “Name: value” (e.g. Authorization: Bearer …). Keys are stored in plain text on the server.',
+  'Un en-tête par ligne, au format « Nom: valeur » (ex. Authorization: Bearer …). Une fois enregistrées, les valeurs restent sur le serveur et sont masquées.': 'One header per line, as “Name: value” (e.g. Authorization: Bearer …). Once saved, the values stay on the server and are masked.',
   'Correspondance des champs': 'Field mapping', 'Liste des éléments': 'Item list', 'Lien': 'Link', 'Date': 'Date', 'Image': 'Image',
   'ex. data.items (vide = racine)': 'e.g. data.items (empty = root)', 'ex. title': 'e.g. title', 'ex. url': 'e.g. url',
   'facultatif — ISO 8601 ou Unix': 'optional — ISO 8601 or Unix',
@@ -154,7 +154,7 @@ export const EN = {
   'Importer': 'Import', 'Configuration importée.': 'Configuration imported.', "Ce fichier n'est pas du JSON valide.": 'This file is not valid JSON.',
   'Sauvegarde': 'Backup', 'Exporter la configuration': 'Export the configuration', 'Configuration exportée.': 'Configuration exported.',
   'Exporter…': 'Export…', 'Importer une configuration': 'Import a configuration', 'Importer…': 'Import…',
-  'Le fichier JSON contient toutes vos sections, sources et préférences.': 'The JSON file contains all your sections, sources and preferences.',
+  'Le fichier JSON contient toutes vos sections, sources et préférences, mais pas vos clés ni vos jetons.': 'The JSON file contains all your sections, sources and preferences, but not your keys or tokens.',
   'Fichier de configuration': 'Configuration file', 'Emplacement': 'Location', 'Dans le dossier de données du conteneur, sur le serveur.': 'In the container’s data folder, on the server.',
   'Revenir à la configuration de départ': 'Restore the default configuration', 'Réinitialiser toute la configuration ?': 'Reset the whole configuration?',
   "Toutes vos sections et sources seront remplacées par celles de départ. Exportez d'abord votre configuration si vous voulez la conserver.": 'All your sections and sources will be replaced by the defaults. Export your configuration first if you want to keep it.',

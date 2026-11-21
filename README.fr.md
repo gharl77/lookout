@@ -120,7 +120,11 @@ télécharger la configuration en JSON, importable dans une autre instance.
 ## Sécurité
 
 Lookout est prévu pour un réseau domestique. Quiconque peut l'atteindre peut lire le tableau de bord et
-modifier ses réglages, et les clés d'API que vous entrez sont enregistrées en clair dans `config.json`.
+modifier ses réglages.
+
+Les clés d'API et les jetons que vous entrez sont en écriture seule : le serveur ne les renvoie jamais au
+navigateur (l'interface affiche un masque à la place) et ils sont absents des fichiers exportés. Ils sont
+enregistrés en clair dans `config.json` : protégez le dossier `/data` comme tout fichier contenant des secrets.
 
 - Ne l'exposez pas directement sur Internet ; passez par un VPN ou un proxy inverse avec HTTPS.
 - Définissez `LOOKOUT_PASSWORD` si d'autres personnes partagent votre réseau.

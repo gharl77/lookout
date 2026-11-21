@@ -59,6 +59,9 @@ export const LEAGUES = {
     ['Football américain', 'american-football'], ['Rugby', 'rugby'], ['Handball', 'handball'], ['Volleyball', 'volleyball']],
 };
 
+/** Ce que le navigateur reçoit à la place d'une clé enregistrée (voir lib/secrets.js). */
+export const SECRET_MASK = '••••••••';
+
 /** Intervalles de mise à jour offerts, en minutes. */
 export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
 

@@ -51,6 +51,26 @@ await check("la configuration s'enregistre (dossier de données accessible en é
   expect((await request('/api/read', { method: 'POST', ...json({ add: ['smoke'], remove: ['smoke'] }) })).status === 200, 'POST /api/read refusé');
 });
 
+// Une clé enregistrée ne doit jamais revenir vers le navigateur, ni dans la configuration ni ailleurs.
+await check('les clés enregistrées ne sont jamais renvoyées au navigateur', async () => {
+  const secret = 'SECRET-DE-TEST-1234567890';
+  const withKeys = structuredClone(config);
+  const s = withKeys.sections[0];
+  Object.assign(s.sports, { apiSportsKey: secret });
+  Object.assign(s.commute, { tomtomKey: secret, hassToken: secret });
+  s.api.headers = `Authorization: Bearer ${secret}\nAccept: application/json`;
+  const saved = await request('/api/config', { method: 'PUT', ...json(withKeys) });
+  expect(!(await saved.text()).includes(secret), 'la réponse à l\'enregistrement contient la clé');
+  const body = await (await request('/api/config')).text();
+  expect(!body.includes(secret), 'GET /api/config contient la clé');
+  const masked = JSON.parse(body).sections[0];
+  expect(masked.sports.apiSportsKey && masked.commute.tomtomKey && masked.commute.hassToken, 'le masque est absent : la clé semble perdue');
+  expect(masked.api.headers.includes('Authorization:') && masked.api.headers.includes('Accept:'), 'les noms des en-têtes ont disparu');
+  // Remet la configuration de départ (champs vidés explicitement).
+  expect((await request('/api/config', { method: 'PUT', ...json(config) })).status === 200, 'remise en état refusée');
+  expect(!(await (await request('/api/config')).text()).includes('••'), 'un masque subsiste après avoir vidé les champs');
+});
+
 // Les requêtes malformées doivent être refusées proprement (4xx), jamais faire tomber le serveur.
 const malformed = [
   ['JSON invalide', '/api/config', { method: 'PUT', ...json('pas du json') }],

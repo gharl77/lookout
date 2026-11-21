@@ -119,8 +119,11 @@ the configuration as a JSON file that can be imported into another instance.
 
 ## Security
 
-Lookout is meant for a home network. Anyone who can reach it can read the dashboard and change its settings,
-and API keys you enter are stored in plain text in `config.json`.
+Lookout is meant for a home network. Anyone who can reach it can read the dashboard and change its settings.
+
+API keys and tokens you enter are write-only: the server never sends them back to the browser (the interface
+shows a mask instead) and they are left out of exported files. They are stored in plain text in
+`config.json`, so protect the `/data` folder like any file holding secrets.
 
 - Do not expose it directly to the Internet; use a VPN or a reverse proxy with HTTPS.
 - Set `LOOKOUT_PASSWORD` if other people share your network.

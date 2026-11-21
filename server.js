@@ -13,6 +13,7 @@ import { fetchWeather, searchPlaces } from './lib/weather.js';
 import { fetchSports, fetchTeams, searchAPISportsLeagues } from './lib/sports.js';
 import { fetchCommute, initGeocodeCache } from './lib/commute.js';
 import { installDnsCache, dnsStats } from './lib/dns-cache.js';
+import { redact, restoreSecrets } from './lib/secrets.js';
 
 installDnsCache();
 
@@ -181,20 +182,21 @@ async function api(req, res, url) {
   const route = `${req.method} ${url.pathname}`;
   const q = url.searchParams;
 
-  if (route === 'GET /api/config') return send(res, 200, config);
+  // Le navigateur ne reçoit jamais les clés ni les jetons : seulement un masque.
+  if (route === 'GET /api/config') return send(res, 200, redact(config));
   if (route === 'GET /api/about') return send(res, 200, { name: 'Lookout', version: VERSION, dns: dnsStats() });
   if (route === 'PUT /api/config') {
     let next;
-    try { next = normalize(await readBody(req)); } catch (e) { return send(res, 400, { error: e.message }); }
+    try { next = restoreSecrets(normalize(await readBody(req)), config); } catch (e) { return send(res, 400, { error: e.message }); }
     config = saveConfig(next);
     const ids = new Set(config.sections.map((s) => s.id));
     for (const id of cache.keys()) if (!ids.has(id)) cache.delete(id);
-    return send(res, 200, config);
+    return send(res, 200, redact(config));
   }
   if (route === 'POST /api/config/reset') {
     config = saveConfig(defaultConfig());
     cache.clear();
-    return send(res, 200, config);
+    return send(res, 200, redact(config));
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/section/')) {
     let id;

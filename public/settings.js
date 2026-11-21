@@ -170,11 +170,11 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Service', select(o, 'provider', [['osrm', 'OSRM (sans circulation)'], ['tomtom', 'TomTom (avec circulation)'], ['hass', 'Home Assistant (Waze)']], { rerender: true, label: 'Service' })),
         o.provider === 'tomtom' && line('Clé TomTom', text(o, 'tomtomKey', { placeholder: 'Clé gratuite de developer.tomtom.com', mono: true })),
         hass && line('Adresse', text(o, 'hassURL', { placeholder: 'http://homeassistant.local:8123', mono: true })),
-        hass && line('Jeton', text(o, 'hassToken', { placeholder: "Jeton d'accès longue durée", mono: true, type: 'password' })),
+        hass && line('Jeton', text(o, 'hassToken', { placeholder: "Jeton d'accès longue durée", mono: true })),
         !hass && line('Afficher les itinéraires de rechange', toggle(o, 'showAlternates', { label: 'Itinéraires de rechange' })),
       ], o.provider === 'osrm' ? 'OSRM est un service libre, sans données de circulation en direct.'
-        : o.provider === 'tomtom' ? 'TomTom tient compte de la circulation en direct. La clé est enregistrée en clair sur le serveur.'
-          : 'Le temps affiché est celui que Waze fournit à Home Assistant. Le jeton est enregistré en clair sur le serveur.'),
+        : o.provider === 'tomtom' ? 'TomTom tient compte de la circulation en direct. Une fois enregistrée, la clé reste sur le serveur et n\'est plus affichée.'
+          : 'Le temps affiché est celui que Waze fournit à Home Assistant. Une fois enregistré, le jeton reste sur le serveur et n\'est plus affiché.'),
     ];
   }
 
@@ -268,7 +268,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Clé API-Sports', text(o, 'apiSportsKey', { placeholder: 'Facultatif', mono: true, onInput: () => {} })),
         h('div', { class: 'line' }, h('a', { href: 'https://dashboard.api-football.com/register', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
           'Obtenir une clé gratuite sur api-sports.io')),
-      ], 'Nécessaire seulement pour les ligues API-Sports. Le forfait gratuit permet 100 requêtes par jour et par sport ; Lookout met les réponses en cache pour le respecter. La clé est enregistrée en clair sur le serveur.'),
+      ], 'Nécessaire seulement pour les ligues API-Sports. Le forfait gratuit permet 100 requêtes par jour et par sport ; Lookout met les réponses en cache pour le respecter. Une fois enregistrée, la clé reste sur le serveur et n\'est plus affichée.'),
       group('Affichage', [
         line("Résultats d'hier", toggle(o, 'showYesterday', { label: "Résultats d'hier" })),
         line('Matchs de demain', toggle(o, 'showUpcoming', { label: 'Matchs de demain' })),
@@ -284,7 +284,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         h('div', { class: 'line stack' }, h('label', {}, 'Adresse'), text(o, 'url', { placeholder: 'https://api.exemple.com/v1/articles', mono: true, bare: false, label: 'Adresse' })),
         h('div', { class: 'line stack' }, h('label', {}, 'En-têtes HTTP'),
           h('textarea', { class: 'field mono', 'aria-label': 'En-têtes HTTP', spellcheck: 'false', onInput: (e) => { o.headers = e.target.value; commit(); } }, o.headers)),
-      ], 'Un en-tête par ligne, au format « Nom: valeur » (ex. Authorization: Bearer …). Les clés sont enregistrées en clair sur le serveur.'),
+      ], 'Un en-tête par ligne, au format « Nom: valeur » (ex. Authorization: Bearer …). Une fois enregistrées, les valeurs restent sur le serveur et sont masquées.'),
       group('Correspondance des champs', [
         line('Liste des éléments', text(o, 'itemsPath', { placeholder: 'ex. data.items (vide = racine)', mono: true })),
         line('Titre', text(o, 'titlePath', { placeholder: 'ex. title', mono: true })),
@@ -427,7 +427,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
           note.textContent = t('Configuration exportée.');
         } }, icon('download'), 'Exporter…')),
         line('Importer une configuration', h('button', { class: 'btn', onClick: () => fileInput.click() }, icon('upload'), 'Importer…'), fileInput),
-      ], 'Le fichier JSON contient toutes vos sections, sources et préférences.'),
+      ], 'Le fichier JSON contient toutes vos sections, sources et préférences, mais pas vos clés ni vos jetons.'),
       group('Fichier de configuration', [line('Emplacement', h('span', { class: 'mono' }, 'data/config.json')),
         line('Version', h('span', { class: 'mono' }, `Lookout ${app.version ?? ''}`))],
       'Dans le dossier de données du conteneur, sur le serveur.'),
