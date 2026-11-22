@@ -2,36 +2,39 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
-## À venir / Unreleased
+## 2026.11.2
 
-En développement, pas encore publié. / In development, not yet released.
+Lookout devient multiutilisateur. / Lookout becomes multi-user.
 
-- **Multiutilisateur** : comptes et profils. Chaque personne a ses propres réglages ; l'administrateur crée les
-  profils (éventuellement en copie d'un autre), réinitialise les mots de passe et supprime les profils. Une fois
-  connecté sur un appareil, on le reste. Le compte administrateur se crée à la première ouverture.
-- **Multi-user**: accounts and profiles. Each person has their own settings; the administrator creates profiles
-  (optionally as a copy of another), resets passwords and deletes profiles. Once signed in on a device, you stay
-  signed in. The administrator account is created the first time the app is opened.
-- **Consultation en lecture seule** : un administrateur peut ouvrir le tableau de bord d'un autre profil, sans
-  pouvoir rien y modifier (Réglages → Profils → ⋯ → Voir son tableau de bord).
-- **Read-only view**: an administrator can open another profile's dashboard without being able to change anything
-  (Settings → Profiles → ⋯ → View their dashboard).
-- **Mot de passe provisoire** : le mot de passe donné par un administrateur (nouveau profil ou réinitialisation)
-  doit être remplacé par la personne à sa connexion suivante.
-- **Clés d'API partagées** : un administrateur peut fournir une clé TomTom et une clé API-Sports à tous les profils
-  qui n'ont pas la leur (Réglages → Profils). Elles ne sont jamais réaffichées.
-- **Temporary password**: a password set by an administrator (new profile or reset) must be replaced by the person
-  at their next sign-in.
-- **Shared API keys**: an administrator can provide a TomTom key and an API-Sports key to every profile that has
-  none of its own (Settings → Profiles). They are never displayed again.
-- **Envoyer une section** : un administrateur peut déposer une copie d'une de ses sections chez un autre profil
-  (menu ⋯ de la carte → Envoyer à un profil).
-- **Sauvegarde complète** : un administrateur peut télécharger toute l'installation (comptes, réglages de chaque
-  profil, clés d'API) et la restaurer, y compris sur une installation neuve (Réglages → Données).
-- **Send a section**: an administrator can drop a copy of one of their sections into another profile
-  (card ⋯ menu → Send to a profile).
-- **Full backup**: an administrator can download the whole installation (accounts, each profile's settings, API
-  keys) and restore it, including on a fresh installation (Settings → Data).
+### Français
+
+**Comptes et profils**
+- Chaque personne a son profil : ses sections, ses sources et ses préférences. Le compte administrateur se crée à la première ouverture ; seuls les administrateurs créent ensuite des profils, à partir des réglages de départ ou en copie d'un autre.
+- Une fois connecté sur un appareil, on le reste, malgré les redémarrages et les mises à jour.
+- Le mot de passe donné par un administrateur (nouveau profil ou réinitialisation) est provisoire : la personne choisit le sien à sa connexion suivante.
+- Mise à jour depuis 2026.11.1 : le premier compte créé hérite des réglages existants, clés comprises. Les anciens fichiers sont conservés dans `data/avant-les-comptes/`.
+
+**Administration**
+- Liste des profils, avec qui est en ligne et depuis quels appareils ; déconnexion des appareils d'un profil.
+- Consultation en lecture seule du tableau de bord d'un autre profil.
+- Envoi d'une copie d'une section à un ou plusieurs profils.
+- Clés d'API partagées (TomTom, API-Sports) pour les profils qui n'ont pas la leur ; elles ne sont jamais réaffichées.
+- Sauvegarde complète de l'installation (comptes, profils, clés) et restauration, y compris sur une installation neuve.
+
+### English
+
+**Accounts and profiles**
+- Each person has a profile: their own sections, sources and preferences. The administrator account is created the first time the app is opened; after that only administrators create profiles, from the default settings or as a copy of another.
+- Once signed in on a device you stay signed in, across restarts and updates.
+- A password set by an administrator (new profile or reset) is temporary: the person chooses their own at their next sign-in.
+- Updating from 2026.11.1: the first account created inherits the existing settings, keys included. The old files are kept in `data/avant-les-comptes/`.
+
+**Administration**
+- Profile list showing who is online and from which devices; sign a profile's devices out.
+- Read-only view of another profile's dashboard.
+- Send a copy of a section to one or more profiles.
+- Shared API keys (TomTom, API-Sports) for profiles that have none of their own; they are never displayed again.
+- Full backup of the installation (accounts, profiles, keys) and restore, including on a fresh installation.
 
 ## 2026.11.1
 

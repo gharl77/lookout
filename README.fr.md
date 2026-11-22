@@ -1,7 +1,7 @@
 # Lookout
 
 [![Image Docker](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-2026.11.1-blue)
+![Version](https://img.shields.io/badge/version-2026.11.2-blue)
 ![Licence](https://img.shields.io/badge/licence-MIT-green)
 ![Plateformes](https://img.shields.io/badge/plateformes-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
@@ -102,6 +102,13 @@ mot de passe). Par la suite, seuls les administrateurs peuvent créer des compte
   jour — jusqu'à ce qu'on se déconnecte ou que le mot de passe change. Les formulaires sont standards : le
   navigateur ou le gestionnaire de mots de passe peut enregistrer le mot de passe.
 - **Les mots de passe** sont enregistrés hachés (scrypt), jamais en clair. Les sessions utilisent un témoin `HttpOnly`.
+  Un mot de passe donné par un administrateur est provisoire : la personne choisit le sien à sa connexion suivante.
+- **Les administrateurs** peuvent aussi voir qui est en ligne, ouvrir le tableau de bord d'un autre profil en
+  lecture seule, envoyer une copie d'une de leurs sections à d'autres profils (menu ⋯ de la carte) et fournir des
+  **clés d'API partagées** (TomTom, API-Sports), utilisées par tout profil qui n'a pas la sienne.
+- **Sauvegarde complète** (Réglages → Données) : un seul fichier avec tous les comptes, les réglages de chaque
+  profil et les clés d'API, à restaurer sur le même serveur ou sur une installation neuve. Gardez-le en lieu sûr :
+  il contient les clés.
 - **Créez l'administrateur dès l'installation.** Tant qu'il n'existe pas, la première personne qui ouvre la page
   peut le créer.
 
@@ -118,7 +125,7 @@ Le conteneur tourne avec l'UID/GID `1000:1000` et doit pouvoir écrire dans `/da
 | Étiquette | Description |
 |---|---|
 | `latest` | Dernière construction de la branche `main` |
-| `2026.11.1` | Une version précise |
+| `2026.11.2` | Une version précise |
 
 Les images sont construites pour `linux/amd64` et `linux/arm64`.
 

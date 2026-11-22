@@ -1,7 +1,7 @@
 # Lookout
 
 [![Docker image](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-2026.11.1-blue)
+![Version](https://img.shields.io/badge/version-2026.11.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
@@ -101,7 +101,13 @@ and password). From then on, only administrators can create accounts.
 - **Staying signed in**: once signed in on a device you stay signed in — across restarts and updates — until
   you sign out or your password changes. Sign-in forms are standard, so browsers and password managers can
   save the password.
-- **Passwords** are stored hashed (scrypt), never in plain text. Sessions use an `HttpOnly` cookie.
+- **Passwords** are stored hashed (scrypt), never in plain text. Sessions use an `HttpOnly` cookie. A password set
+  by an administrator is temporary: the person chooses their own at their next sign-in.
+- **Administrators** can also see who is online, open another profile's dashboard read-only, send a copy of one
+  of their sections to other profiles (card ⋯ menu), and provide **shared API keys** (TomTom, API-Sports) used by
+  every profile that has none of its own.
+- **Full backup** (Settings → Data): one file with every account, each profile's settings and the API keys, which
+  can be restored on the same server or on a fresh installation. Keep it somewhere safe: it contains the keys.
 - **Create the administrator right after installing.** Until it exists, whoever opens the page first can create it.
 
 ## User and permissions
@@ -117,7 +123,7 @@ The container runs as UID/GID `1000:1000` and must be able to write to `/data`.
 | Tag | Description |
 |---|---|
 | `latest` | Latest build of the `main` branch |
-| `2026.11.1` | A specific release |
+| `2026.11.2` | A specific release |
 
 Images are built for `linux/amd64` and `linux/arm64`.
 
