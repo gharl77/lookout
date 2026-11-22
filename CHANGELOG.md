@@ -2,46 +2,69 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
-## À venir / Unreleased
+## 2026.11.3
 
-En développement, pas encore publié. / In development, not yet released.
+Notifications, YouTube, nouvelles sections et réglages repensés. / Notifications, YouTube, new sections and redesigned settings.
 
-- **Filtres** : mots masqués ou mis en évidence dans tous les fils (Réglages → Lecture et filtres), mise en évidence par section.
-- **À lire plus tard** : gardez un article d'un clic ; la liste suit votre profil sur tous vos appareils.
-- **Notifications** (iPhone, iPad, Mac, PC) : alertes météo, début et résultat des matchs de vos équipes, nouveaux
-  articles des sections de votre choix (un toucher ouvre l'article), même page fermée. Exige HTTPS ; sur iPhone,
-  Lookout doit d'abord être ajouté à l'écran d'accueil.
-- **Mode affichage** : plein écran pour un écran mural ou une télé, avec l'heure et la rotation des pages.
-- **Catalogue de fils** : 23 catégories et plus de 150 fils vérifiés (films, séries, culture, musique, livres, jeux
-  vidéo, science, espace, santé, environnement, auto, cuisine, voyage…), offertes aussi en sections prêtes à l'emploi.
-- **YouTube** : les dernières vidéos de vos chaînes, en vignettes. Ajout par adresse ou @nom, import de vos
-  abonnements depuis Google Takeout, option pour masquer les Shorts. Sans clé ni connexion à Google.
-- **Feed catalogue**: 23 categories and over 150 verified feeds (movies, series, culture, music, books, video
-  games, science, space, health, environment, cars, food, travel…), also offered as ready-made sections.
-- **YouTube**: the latest videos from your channels, as thumbnails. Add by address or @name, import your
-  subscriptions from Google Takeout, option to hide Shorts. No key or Google sign-in.
-- **Recherche** dans les articles de toutes les sections et dans « À lire plus tard » (touche `/`).
-- **Sorties** : nouvelles saisons de séries (TVmaze, sans clé) et films en salle ou à venir (TMDB, clé gratuite).
-- **Résumé du jour** : l'essentiel de vos fils en quelques points, par Claude (clé Anthropic ; Opus 5.5 par défaut).
-- **YouTube** : lecture des vidéos dans Lookout ; liste des chaînes tenue à la main ou synchronisée avec un compte
-  Google (identifiant client fourni par l'administrateur).
-- **Santé des sources** : un onglet pour l'administrateur liste les sources en panne de tous les profils.
-- **Search** across the articles of every section and “Read later” (`/` key).
-- **Releases**: new series seasons (TVmaze, no key) and movies in theatres or upcoming (TMDB, free key).
-- **Daily summary**: the essentials of your feeds in a few points, by Claude (Anthropic key; Opus 5.5 by default).
-- **YouTube**: videos play inside Lookout; channel list maintained by hand or synced with a Google account
-  (client ID provided by the administrator).
-- **Source health**: an administrator tab lists the failing sources of every profile.
-- **Réglages réorganisés** : navigation latérale en quatre groupes (Tableau de bord, Préférences, Compte,
-  Administration), une rubrique par sujet, recherche dans les réglages ; sur téléphone, une rubrique à la fois.
-- **Settings reorganised**: side navigation in four groups (Dashboard, Preferences, Account, Administration), one
-  pane per topic, search within settings; on a phone, one pane at a time.
-- **Filters**: words hidden or highlighted in every feed (Settings → Reading and filters), highlighting per section.
-- **Read later**: keep an article in one click; the list follows your profile on all your devices.
-- **Notifications** (iPhone, iPad, Mac, PC): weather alerts, start and final score of your teams' games, new
-  articles from the sections you choose (tapping opens the article), even with the page closed. Requires HTTPS;
-  on iPhone, Lookout must first be added to the Home Screen.
-- **Display mode**: full screen for a wall screen or TV, with the time and page rotation.
+Documentation complète dans [`docs/`](docs/README.md). / Full documentation in [`docs/`](docs/README.md).
+
+### Français
+
+**Tableau de bord**
+- Recherche dans les articles de toutes les sections et dans « À lire plus tard » (touche `/`).
+- « À lire plus tard » : gardez un article d'un clic ; la liste suit votre profil sur tous vos appareils.
+- Filtres : mots masqués ou mis en évidence dans tous les fils, mise en évidence par section.
+- Mode affichage : plein écran pour un écran mural ou une télé, avec l'heure et la rotation des pages.
+- Accueil d'un nouveau profil : quelques questions (ville, sujets, ligues, équipes) préparent son tableau de bord.
+
+**Sections et sources**
+- Catalogue de fils : 23 catégories et plus de 150 fils vérifiés, offerts aussi en sections prêtes à l'emploi.
+- YouTube : dernières vidéos de vos chaînes en vignettes, lues dans Lookout ; ajout par adresse ou @nom, import depuis Google Takeout, ou synchronisation avec un compte Google.
+- Sorties : nouvelles saisons de séries (TVmaze) et films en salle ou à venir (TMDB).
+- Résumé du jour : l'essentiel de vos fils en quelques points, par Claude (clé Anthropic).
+- Nouvelle présentation « Vignettes » pour les fils.
+
+**Notifications** (iPhone, iPad, Mac, PC)
+- Alertes météo, début et résultat des matchs de vos équipes, nouveaux articles des sections de votre choix.
+- Un toucher sur la notification d'un article l'ouvre. Exige HTTPS ; sur iPhone, Lookout doit être ajouté à l'écran d'accueil.
+
+**Réglages**
+- Navigation latérale en quatre groupes, une rubrique par sujet, recherche dans les réglages ; sur téléphone, une rubrique à la fois.
+- Créer une page directement depuis le choix de la page d'une section.
+
+**Administration**
+- Clés partagées : TMDB, Anthropic et connexion Google s'ajoutent à TomTom et API-Sports.
+- La clé Anthropic partagée est réservée aux profils choisis, avec un modèle plafond et le suivi de la dépense par profil.
+- État des sources : les sources en panne de tous les profils, et depuis quand.
+
+### English
+
+**Dashboard**
+- Search across the articles of every section and “Read later” (`/` key).
+- “Read later”: keep an article in one click; the list follows your profile on all your devices.
+- Filters: words hidden or highlighted in every feed, highlighting per section.
+- Display mode: full screen for a wall screen or TV, with the time and page rotation.
+- Welcome for a new profile: a few questions (city, topics, leagues, teams) set up its dashboard.
+
+**Sections and sources**
+- Feed catalogue: 23 categories and over 150 verified feeds, also offered as ready-made sections.
+- YouTube: latest videos from your channels as thumbnails, played inside Lookout; add by address or @name, import from Google Takeout, or sync with a Google account.
+- Releases: new series seasons (TVmaze) and movies in theatres or upcoming (TMDB).
+- Daily summary: the essentials of your feeds in a few points, by Claude (Anthropic key).
+- New “Thumbnails” layout for feeds.
+
+**Notifications** (iPhone, iPad, Mac, PC)
+- Weather alerts, start and final score of your teams' games, new articles from the sections you choose.
+- Tapping an article notification opens it. Requires HTTPS; on iPhone, Lookout must be added to the Home Screen.
+
+**Settings**
+- Side navigation in four groups, one pane per topic, search within settings; on a phone, one pane at a time.
+- Create a page straight from a section's page choice.
+
+**Administration**
+- Shared keys: TMDB, Anthropic and Google sign-in join TomTom and API-Sports.
+- The shared Anthropic key is reserved for chosen profiles, with a model ceiling and per-profile spending.
+- Source status: the failing sources of every profile, and since when.
 
 ## 2026.11.2
 

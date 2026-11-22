@@ -1,21 +1,28 @@
 # Lookout
 
 [![Image Docker](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-2026.11.2-blue)
+![Version](https://img.shields.io/badge/version-2026.11.3-blue)
 ![Licence](https://img.shields.io/badge/licence-MIT-green)
 ![Plateformes](https://img.shields.io/badge/plateformes-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
 *[English](README.md)*
 
-Lookout est un tableau de bord personnel auto-hébergé : actualités, météo, trajets, pointages sportifs et
-nouvelles techno sur une seule page. Tout se configure dans l'interface web — les sections, leur ordre, leur
+Lookout est un tableau de bord personnel auto-hébergé : actualités, météo, trajets, pointages sportifs,
+vidéos et sorties sur une seule page. Tout se configure dans l'interface web — les sections, leur ordre, leur
 taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
+
+**Documentation complète :** [guide d'utilisation](docs/fr/guide.md) ·
+[guide d'administration](docs/fr/administration.md) · [sources et clés](docs/fr/sources.md)
 
 - Un seul petit conteneur, sans base de données ni dépendance externe
 - Multiutilisateur : chaque personne a un profil avec ses propres sections, sources et préférences
 - Fonctionne dans n'importe quel navigateur ; sur iPhone, s'ajoute à l'écran d'accueil comme une app
 - Thèmes clair et sombre, couleur d'accent, densité et nombre de colonnes réglables
 - Plusieurs pages (onglets), disposition par glisser-déposer avec annulation, et pastille sur les articles parus depuis votre dernière visite
+- Recherche dans tous les articles, liste « À lire plus tard », filtres par mots-clés
+- Notifications sur iPhone, iPad, Mac et PC : alertes météo, matchs de vos équipes, nouveaux articles
+- Mode affichage pour un écran mural ou une télé
+- Un nouveau profil est accueilli par quelques questions qui préparent son tableau de bord
 - Interface bilingue (français / anglais)
 - Respectueux des sources : chacune est interrogée au plus une fois par intervalle, peu importe le nombre de rechargements (30 minutes par défaut, 5 pour les pointages et les trajets, réglable par section)
 
@@ -23,11 +30,14 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 
 | Section | Source | Clé requise |
 |---|---|---|
-| Fils RSS | N'importe quel fil RSS ou Atom, avec filtres par mots-clés et trois présentations | Non |
+| Fils RSS | N'importe quel fil RSS ou Atom, avec filtres par mots-clés et quatre présentations ; catalogue de 23 catégories et plus de 150 fils | Non |
+| YouTube | Dernières vidéos de vos chaînes, lues dans Lookout ; liste tenue à la main, importée de Google Takeout ou synchronisée avec un compte Google | Non (identifiant client Google pour la synchronisation) |
 | Météo | [Open-Meteo](https://open-meteo.com), avec les alertes d'Environnement Canada | Non |
 | Trajets | OSRM, TomTom (circulation en direct) ou capteur Home Assistant | TomTom seulement |
 | Pointages | ESPN, HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH), API-Sports — choix des équipes par ligue, classement, matchs en direct mis à jour chaque minute | API-Sports seulement |
 | API JSON | N'importe quelle API qui renvoie une liste, par chemin de champs | Selon l'API |
+| Sorties | Nouvelles saisons de séries (TVmaze) et films en salle ou à venir (TMDB) | TMDB seulement |
+| Résumé du jour | L'essentiel de vos fils en quelques points, par Claude (API d'Anthropic) | Oui, payante à l'usage |
 
 ## Démarrage rapide
 
@@ -65,7 +75,8 @@ docker run -d \
   ghcr.io/gharl77/lookout:latest
 ```
 
-Ouvrez ensuite `http://<ip-du-serveur>:8765` et cliquez sur l'engrenage pour configurer vos sections.
+Ouvrez ensuite `http://<ip-du-serveur>:8765`, créez le compte administrateur, puis répondez aux quelques
+questions d'accueil ou cliquez sur l'engrenage pour configurer vos sections.
 
 ## Paramètres
 
@@ -79,7 +90,7 @@ Ouvrez ensuite `http://<ip-du-serveur>:8765` et cliquez sur l'engrenage pour con
 
 | Chemin dans le conteneur | Description |
 |---|---|
-| `/data` | Comptes (`users.json`), sessions ouvertes (`sessions.json`), un dossier par profil (`profiles/<id>/` : réglages et état de lecture) et le cache de géocodage |
+| `/data` | Comptes, sessions, clés partagées et un dossier par profil (réglages, articles lus et gardés, abonnements aux notifications). Détail dans le [guide d'administration](docs/fr/administration.md#ce-que-contient-le-dossier-de-données) |
 
 ### Variables d'environnement
 
@@ -106,7 +117,9 @@ mot de passe). Par la suite, seuls les administrateurs peuvent créer des compte
   Un mot de passe donné par un administrateur est provisoire : la personne choisit le sien à sa connexion suivante.
 - **Les administrateurs** peuvent aussi voir qui est en ligne, ouvrir le tableau de bord d'un autre profil en
   lecture seule, envoyer une copie d'une de leurs sections à d'autres profils (menu ⋯ de la carte) et fournir des
-  **clés d'API partagées** (TomTom, API-Sports), utilisées par tout profil qui n'a pas la sienne.
+  **clés d'API partagées** (TomTom, API-Sports, TMDB, Anthropic), utilisées par les profils qui n'ont pas la leur.
+  La clé Anthropic, seule facturée à l'usage, n'est offerte qu'aux profils qu'ils choisissent, avec un modèle
+  plafond et un suivi de la dépense par profil. Un onglet liste les sources en panne de tous les profils.
 - **Sauvegarde complète** (Réglages → Sauvegarde) : un seul fichier avec tous les comptes, les réglages de chaque
   profil et les clés d'API, à restaurer sur le même serveur ou sur une installation neuve. Gardez-le en lieu sûr :
   il contient les clés.
@@ -126,7 +139,8 @@ Le conteneur tourne avec l'UID/GID `1000:1000` et doit pouvoir écrire dans `/da
 | Étiquette | Description |
 |---|---|
 | `latest` | Dernière construction de la branche `main` |
-| `2026.11.2` | Une version précise |
+| `2026.11.3` | Une version précise |
+| `test` | Branche de développement, pour essayer avant une version |
 
 Les images sont construites pour `linux/amd64` et `linux/arm64`.
 
@@ -143,14 +157,16 @@ Dans Portainer : ouvrez le stack et choisissez **Re-pull image and redeploy**.
 
 ## Sauvegarde
 
-Tout se trouve dans le volume `/data` : copiez ce dossier pour sauvegarder tous les profils. Chacun peut aussi
-utiliser **Réglages → Mes données → Exporter** pour télécharger sa propre configuration en JSON.
+Tout se trouve dans le volume `/data` : copiez ce dossier pour tout sauvegarder. Un administrateur peut aussi
+télécharger toute l'installation dans un seul fichier (**Réglages → Sauvegarde**), et chacun peut exporter sa
+propre configuration, sans les clés (**Réglages → Mes données → Exporter**). Voir le
+[guide d'administration](docs/fr/administration.md#sauvegarde-et-restauration).
 
 ## Sécurité
 
 Lookout est prévu pour un réseau domestique. Chaque profil est protégé par son mot de passe, mais utilisez
 HTTPS (par un proxy inverse) si le réseau n'est pas entièrement de confiance : sans lui, les mots de passe
-circulent en clair.
+circulent en clair. Le HTTPS est aussi nécessaire aux notifications et à la connexion Google.
 
 Les clés d'API et les jetons que vous entrez sont en écriture seule : le serveur ne les renvoie jamais au
 navigateur (l'interface affiche un masque à la place) et ils sont absents des fichiers exportés. Ils sont
@@ -206,5 +222,5 @@ se lancent sur n'importe quelle instance avec `node scripts/smoke-test.mjs http:
 
 ## Avertissement
 
-Projet personnel. Les sources ESPN et HockeyTech sont des API publiques non documentées,
-qui peuvent changer sans préavis. Respectez les conditions d'utilisation de chaque service que vous branchez.
+Projet personnel. ESPN, HockeyTech et les fils publics de YouTube sont des interfaces non documentées,
+qui peuvent changer sans préavis. Le résumé du jour envoie les titres de vos fils à Anthropic. Respectez les conditions d'utilisation de chaque service que vous branchez.

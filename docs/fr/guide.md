@@ -1,0 +1,250 @@
+# Guide d'utilisation
+
+*[English](../en/guide.md) · [Retour au sommaire](../README.md)*
+
+Ce guide décrit tout ce qu'on peut faire dans Lookout une fois connecté. Pour l'installation, les comptes et
+la sauvegarde, voir le [guide d'administration](administration.md) ; pour les services externes et leurs clés,
+voir [Sources et clés](sources.md).
+
+## Sommaire
+
+- [Première connexion](#première-connexion)
+- [Le tableau de bord](#le-tableau-de-bord)
+- [Organiser les cartes](#organiser-les-cartes)
+- [Les types de section](#les-types-de-section)
+- [Lire les articles](#lire-les-articles)
+- [Recherche](#recherche)
+- [À lire plus tard](#à-lire-plus-tard)
+- [Notifications](#notifications)
+- [Mode affichage](#mode-affichage)
+- [Les réglages](#les-réglages)
+- [Raccourcis clavier](#raccourcis-clavier)
+- [Sur iPhone et iPad](#sur-iphone-et-ipad)
+
+## Première connexion
+
+Un administrateur vous crée un profil et vous donne un nom et un mot de passe **provisoire**. À votre première
+connexion, Lookout vous demande de choisir votre propre mot de passe : l'administrateur ne le connaît pas.
+
+Si votre profil est tout neuf, quelques questions préparent ensuite votre tableau de bord :
+
+1. votre prénom et la ville de votre météo ;
+2. les sujets qui vous intéressent (chacun devient une section de fils) ;
+3. les ligues sportives que vous suivez ;
+4. vos équipes dans ces ligues.
+
+Vous pouvez passer ces questions à tout moment. Tout ce qu'elles règlent reste modifiable dans les réglages.
+
+Une fois connecté sur un appareil, vous le restez, même après un redémarrage ou une mise à jour du serveur,
+jusqu'à ce que vous vous déconnectiez ou que votre mot de passe change.
+
+## Le tableau de bord
+
+- **En haut à gauche** : le logo, puis l'heure de la dernière mise à jour et celle de la prochaine.
+- **En haut à droite**, dans l'ordre : *À lire plus tard* (visible dès qu'un article est gardé), *Rechercher*,
+  *Actualiser*, *Organiser*, *Réglages*, et la pastille de votre compte.
+- **Message d'accueil** : la date, « Bonjour » avec votre prénom, et un *coup d'œil* (météo et premier trajet).
+- **Onglets de pages**, s'il y a plus d'une page.
+- **Les cartes** : une par section.
+
+Chaque carte a deux boutons dans son en-tête : la flèche circulaire met à jour cette seule section, et `⋯`
+ouvre son menu :
+
+| Entrée du menu | Effet |
+|---|---|
+| Mettre à jour maintenant | Redemande les données de la section (au plus une fois par minute) |
+| Tout marquer comme lu | Pour les sections d'articles |
+| Largeur | 1, 2 ou 3 colonnes, ou pleine largeur |
+| Configurer… | Ouvre les réglages de cette section |
+| Déplacer vers la page | S'il y a plusieurs pages |
+| Envoyer à un profil… | Administrateurs seulement : dépose une copie chez un autre profil |
+| Masquer | Retire la carte sans supprimer la section |
+
+La pastille du compte donne accès à *Mon compte*, au *Mode affichage*, aux *Profils* (administrateurs) et à la
+déconnexion.
+
+## Organiser les cartes
+
+- **À la souris** : glissez une carte par son en-tête, à tout moment. Une ligne indique où elle se posera.
+- **Au doigt** : touchez d'abord *Organiser*, puis glissez.
+- Chaque carte garde la colonne où vous la déposez : les autres ne bougent pas.
+- Après un déplacement, un masquage ou un changement de largeur, un bandeau propose d'**annuler** pendant
+  quelques secondes.
+- En mode *Organiser*, un bandeau offre *Réorganiser automatiquement* (replace les cartes dans les colonnes les
+  moins remplies), *Ajouter une section* et *Terminé*.
+
+Le nombre de colonnes suit la largeur de l'écran, ou se fixe dans *Réglages → Apparence*. Sur un écran étroit,
+tout passe sur une colonne.
+
+## Les types de section
+
+*Ajouter une section* propose sept types, plus deux raccourcis.
+
+### Fils RSS
+
+Des articles tirés d'un ou plusieurs fils RSS ou Atom.
+
+- **Sources** : collez l'adresse d'un fil, ou choisissez dans *Suggestions* (23 catégories, plus de 150 fils
+  vérifiés). L'ordre des sources sert à alterner les articles.
+- **Présentation** : *Liste*, *À la une* (premier article en grand), *Vignettes* ou *Titres seulement*.
+- **Ordre** : les plus récents d'abord, ou en alternant entre les sources pour qu'un fil très actif ne prenne
+  pas toute la place.
+- **Affichage** : images, résumé, nom de la source, heure de publication.
+- **Filtres** : âge maximal, mots obligatoires, mots exclus, mots mis en évidence. Les mots se séparent par des
+  virgules et sont cherchés dans le titre et le résumé.
+- **Notifications** : *Notifier les nouveaux articles* (voir [Notifications](#notifications)).
+
+*Fils par catégorie…* crée d'un coup une section prête à l'emploi pour un sujet (Films, Séries et télé,
+Culture, Science, Jeux vidéo, etc.), avec trois sources dans la langue de l'interface.
+
+### YouTube
+
+Les dernières vidéos de vos chaînes, en vignettes. Aucune clé n'est nécessaire.
+
+- **Ajouter une chaîne** : collez son adresse (`youtube.com/@nom`) ou son `@nom`.
+- **Importer mes abonnements…** : reprend toutes vos chaînes d'un coup à partir d'un fichier de Google Takeout.
+  Le bouton `i` donne la marche à suivre.
+- **Compte Google** : si l'administrateur l'a configuré, *Relier mon compte Google* tient la liste à jour
+  d'après vos abonnements, une fois par jour. Lookout ne demande que la lecture de vos abonnements. Dans ce
+  mode, les chaînes ajoutées à la main qui ne font pas partie de vos abonnements sont retirées à chaque
+  synchronisation.
+- **Lire les vidéos dans Lookout** : un clic ouvre la vidéo par-dessus le tableau de bord. `Cmd`-clic ou
+  `Ctrl`-clic l'ouvre sur youtube.com.
+- **Masquer les Shorts et les directs**.
+
+### Météo
+
+Conditions actuelles, prévisions horaires et quotidiennes pour un lieu, par Open-Meteo. Au Canada, les alertes
+d'Environnement Canada s'affichent en tête de carte. Options : alertes, détails (ressenti, vent, humidité,
+soleil), nombre d'heures et de jours.
+
+### Trajets
+
+Temps de parcours pour un ou plusieurs trajets (départ, destination, mode de déplacement).
+
+| Service | Circulation en direct | Clé |
+|---|---|---|
+| OSRM | Non | Aucune |
+| TomTom | Oui | Clé gratuite |
+| Home Assistant | Selon votre capteur (Waze, Google Maps) | Adresse et jeton de votre Home Assistant |
+
+### Pointages sportifs
+
+Résultats, matchs en cours et à venir, classement.
+
+- **Ligues** : ESPN (LNH, NFL, NBA, MLB, MLS, LCF, etc., ou toute autre ligue par son chemin), HockeyTech
+  (LHJMQ, LPHF, OHL, WHL, LAH), API-Sports (avec clé).
+- **Équipes** : pour chaque ligue, *Toutes les équipes* ou seulement celles que vous suivez.
+- Pendant un match d'une équipe suivie, la section se met à jour chaque minute.
+
+### API JSON
+
+Une liste tirée de n'importe quelle API qui renvoie du JSON. Vous indiquez l'adresse, les en-têtes éventuels
+et le chemin des champs (liste, titre, sous-titre, lien, date, image). Voir [Sources et clés](sources.md#api-json).
+
+### Sorties
+
+Les premières de saisons de séries (TVmaze, sans clé) et les films en salle ou à venir (TMDB, clé gratuite),
+pour un pays et une période.
+
+### Résumé du jour
+
+L'essentiel de vos fils en quelques points, rédigé par Claude. Il faut une clé Anthropic, la vôtre ou celle
+que l'administrateur vous a ouverte.
+
+- **Modèle** : Claude Opus 5.5 (par défaut), Sonnet 5.5 ou Haiku 5.5, du plus capable au plus économique.
+- **Accent particulier** : une consigne libre, par exemple « le Québec et la techno d'abord ».
+- **Sections résumées** : tous vos fils, ou seulement ceux que vous cochez.
+- Seuls les titres des dernières 24 heures sont envoyés à Anthropic. Un nouveau résumé n'est demandé que si
+  les titres ont changé, et jamais plus d'une fois par heure.
+
+## Lire les articles
+
+- Un clic ouvre l'article dans un nouvel onglet et le marque comme lu.
+- Les articles lus sont atténués (réglable). L'état « lu » est enregistré sur le serveur : il vous suit sur
+  tous vos appareils.
+- La pastille **Nouveau** signale les articles parus depuis votre visite précédente sur cet appareil. Le repère
+  n'avance que si vous êtes parti au moins dix minutes.
+- Clic droit sur un article (ordinateur) : ouvrir, copier le lien, garder pour plus tard, marquer lu ou non lu.
+
+## Recherche
+
+La loupe, ou la touche `/`, cherche dans les articles de **toutes** vos sections, toutes pages confondues, et
+dans *À lire plus tard*. Plusieurs mots doivent tous être présents.
+
+## À lire plus tard
+
+Le signet sur un article le garde dans une liste personnelle. Il apparaît au survol à la souris et reste
+toujours visible au doigt. La liste (200 articles au plus) est enregistrée sur le serveur et commune à vos
+appareils. Elle s'ouvre par le bouton à signet de la barre du haut.
+
+## Notifications
+
+*Réglages → Notifications.* Lookout peut vous prévenir même quand la page est fermée.
+
+**Conditions**
+- L'adresse doit être en **HTTPS**.
+- Sur **iPhone ou iPad**, ajoutez d'abord Lookout à l'écran d'accueil (*Partager → Sur l'écran d'accueil*) et
+  ouvrez-le depuis son icône.
+- Sur **Mac ou PC**, utilisez Safari, Chrome, Edge ou Firefox, et autorisez les notifications de ce navigateur
+  dans les réglages du système.
+
+**Ce qui déclenche une notification**
+- une nouvelle **alerte météo** pour une de vos sections météo ;
+- le **début d'un match** d'une équipe suivie, et son **résultat final** si vous l'activez ;
+- un **nouvel article** dans une section où vous avez activé *Notifier les nouveaux articles*. Un toucher sur
+  la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce.
+
+Chaque appareil s'abonne séparément. Le bouton *Envoyer une notification d'essai* vérifie le chemin complet
+pour cet appareil. Le délai d'une notification d'article dépend de l'intervalle de la section.
+
+## Mode affichage
+
+Pour un écran mural, une tablette ou une télé : plein écran, sans boutons, avec l'heure. Les pages défilent
+(durée réglable dans *Réglages → Mode affichage*) et l'écran reste allumé.
+
+- **Entrer** : pastille du compte → *Mode affichage*, ou les réglages.
+- **Sortir** : touche `Échap`, ou touchez l'écran puis *Quitter*.
+- L'adresse garde `?affichage=1` : enregistrez-la en signet pour y revenir directement.
+
+## Les réglages
+
+L'engrenage, ou `Cmd`+`,`. Les changements sont enregistrés automatiquement. Un champ de recherche en haut de
+la navigation retrouve un réglage par mot-clé.
+
+| Groupe | Rubrique | Ce qu'on y trouve |
+|---|---|---|
+| Tableau de bord | Sections | Ajouter, supprimer, dupliquer, ordonner et configurer chaque section |
+| | Pages | Créer, renommer, ordonner et supprimer les pages |
+| Préférences | Général | Langue, unités, message d'accueil, intervalle de mise à jour par défaut |
+| | Apparence | Thème, couleur d'accent, arrière-plan, densité, nombre de colonnes |
+| | Lecture et filtres | Atténuer les articles lus ; mots masqués ou mis en évidence dans tous les fils |
+| | Notifications | Abonner cet appareil ; choisir ce qui déclenche une notification |
+| | Mode affichage | Durée de chaque page ; lancer le mode |
+| Compte | Mon compte | Mot de passe, déconnexion |
+| | Mes données | Exporter, importer ou réinitialiser sa propre configuration |
+| — | À propos | Version, emplacement des réglages, liens |
+
+Les administrateurs voient en plus le groupe *Administration* : voir le [guide d'administration](administration.md).
+
+**Mise à jour des sources.** Chaque source est interrogée au plus une fois par intervalle, même si vous
+rechargez la page plus souvent : cela évite qu'un site vous bloque. L'intervalle par défaut est de 30 minutes ;
+les pointages et les trajets ont 5 minutes, les sorties et le résumé 2 heures. Chaque section peut avoir le sien.
+
+**Export et import.** Le fichier exporté contient vos sections, vos sources et vos préférences, mais ni vos
+clés ni vos jetons.
+
+## Raccourcis clavier
+
+| Touche | Action |
+|---|---|
+| `/` ou `Cmd`/`Ctrl`+`K` | Rechercher dans les articles |
+| `R` | Actualiser toutes les sections |
+| `Cmd`/`Ctrl`+`,` | Ouvrir les réglages |
+| `Échap` | Fermer une fenêtre, annuler un glissement, quitter le mode affichage |
+
+## Sur iPhone et iPad
+
+Dans Safari : *Partager → Sur l'écran d'accueil*. Lookout s'ouvre alors comme une app, en plein écran, et peut
+recevoir des notifications. Les cartes passent sur une colonne et les réglages s'affichent une rubrique à la
+fois, avec un bouton *Retour*.

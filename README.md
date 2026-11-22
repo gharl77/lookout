@@ -1,21 +1,28 @@
 # Lookout
 
 [![Docker image](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-2026.11.2-blue)
+![Version](https://img.shields.io/badge/version-2026.11.3-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
 *[Français](README.fr.md)*
 
-Lookout is a self-hosted personal dashboard: news, weather, commute times, sports scores and tech headlines
+Lookout is a self-hosted personal dashboard: news, weather, commute times, sports scores, videos and releases
 on a single page. Everything is configured from the web UI — sections, their order, size and sources — and
 every source is either an RSS feed or an API.
+
+**Full documentation:** [user guide](docs/en/guide.md) ·
+[administration guide](docs/en/administration.md) · [sources and keys](docs/en/sources.md)
 
 - One small container, no database, no external dependency
 - Multi-user: each person has a profile with their own sections, sources and preferences
 - Works in any browser; on iPhone it can be added to the Home Screen like an app
 - Light and dark themes, accent colour, adjustable density and column count
 - Several pages (tabs), drag-and-drop layout with undo, and a badge on articles published since your last visit
+- Search across every article, a “Read later” list, keyword filters
+- Notifications on iPhone, iPad, Mac and PC: weather alerts, your teams' games, new articles
+- Display mode for a wall screen or a TV
+- A new profile is welcomed by a few questions that set up its dashboard
 - Bilingual interface (English / French)
 - Polite to its sources: each one is queried at most once per interval, however often you reload (30 minutes by default, 5 for scores and commute, adjustable per section)
 
@@ -23,11 +30,14 @@ every source is either an RSS feed or an API.
 
 | Section | Source | Key required |
 |---|---|---|
-| RSS feeds | Any RSS or Atom feed, with keyword filters and three layouts | No |
+| RSS feeds | Any RSS or Atom feed, with keyword filters and four layouts; a catalogue of 23 categories and over 150 feeds | No |
+| YouTube | Latest videos from your channels, played inside Lookout; list maintained by hand, imported from Google Takeout or synced with a Google account | No (Google client ID for syncing) |
 | Weather | [Open-Meteo](https://open-meteo.com), with Environment Canada alerts | No |
 | Commute | OSRM, TomTom (live traffic) or a Home Assistant sensor | TomTom only |
 | Sports scores | ESPN, HockeyTech (QMJHL, PWHL, OHL, WHL, AHL), API-Sports — pick teams per league, standings, live games refreshed every minute | API-Sports only |
 | JSON API | Any API returning a list, mapped by field path | Depends on the API |
+| Releases | New series seasons (TVmaze) and movies in theatres or upcoming (TMDB) | TMDB only |
+| Daily summary | The essentials of your feeds in a few points, by Claude (Anthropic API) | Yes, billed per use |
 
 ## Quick start
 
@@ -65,7 +75,8 @@ docker run -d \
   ghcr.io/gharl77/lookout:latest
 ```
 
-Then open `http://<server-ip>:8765` and click the gear icon to set up your sections.
+Then open `http://<server-ip>:8765`, create the administrator account, and either answer the few welcome
+questions or click the gear icon to set up your sections.
 
 ## Parameters
 
@@ -79,7 +90,7 @@ Then open `http://<server-ip>:8765` and click the gear icon to set up your secti
 
 | Container path | Description |
 |---|---|
-| `/data` | Accounts (`users.json`), open sessions (`sessions.json`), one folder per profile (`profiles/<id>/`: settings and read state) and the geocoding cache |
+| `/data` | Accounts, sessions, shared keys and one folder per profile (settings, read and saved articles, notification subscriptions). Details in the [administration guide](docs/en/administration.md#what-the-data-folder-holds) |
 
 ### Environment variables
 
@@ -105,8 +116,9 @@ and password). From then on, only administrators can create accounts.
 - **Passwords** are stored hashed (scrypt), never in plain text. Sessions use an `HttpOnly` cookie. A password set
   by an administrator is temporary: the person chooses their own at their next sign-in.
 - **Administrators** can also see who is online, open another profile's dashboard read-only, send a copy of one
-  of their sections to other profiles (card ⋯ menu), and provide **shared API keys** (TomTom, API-Sports) used by
-  every profile that has none of its own.
+  of their sections to other profiles (card ⋯ menu), and provide **shared API keys** (TomTom, API-Sports, TMDB, Anthropic) used by
+  profiles that have none of their own. The Anthropic key, the only one billed per use, is offered only to the
+  profiles they choose, with a model ceiling and per-profile spending. A pane lists the failing sources of every profile.
 - **Full backup** (Settings → Backup): one file with every account, each profile's settings and the API keys, which
   can be restored on the same server or on a fresh installation. Keep it somewhere safe: it contains the keys.
 - **Create the administrator right after installing.** Until it exists, whoever opens the page first can create it.
@@ -124,7 +136,8 @@ The container runs as UID/GID `1000:1000` and must be able to write to `/data`.
 | Tag | Description |
 |---|---|
 | `latest` | Latest build of the `main` branch |
-| `2026.11.2` | A specific release |
+| `2026.11.3` | A specific release |
+| `test` | Development branch, to try things before a release |
 
 Images are built for `linux/amd64` and `linux/arm64`.
 
@@ -141,13 +154,16 @@ In Portainer: open the stack and choose **Re-pull image and redeploy**.
 
 ## Backup
 
-Everything lives in the `/data` volume: copy that folder to back up every profile. Each person can also use
-**Settings → My data → Export** to download their own configuration as a JSON file.
+Everything lives in the `/data` volume: copy that folder to back up everything. An administrator can also
+download the whole installation as a single file (**Settings → Backup**), and each person can export their own
+configuration, without keys (**Settings → My data → Export**). See the
+[administration guide](docs/en/administration.md#backup-and-restore).
 
 ## Security
 
 Lookout is meant for a home network. Every profile is protected by its own password, but use HTTPS (through a
-reverse proxy) if the network is not fully trusted: without it, passwords travel in clear text.
+reverse proxy) if the network is not fully trusted: without it, passwords travel in clear text. HTTPS is also
+required for notifications and Google sign-in.
 
 API keys and tokens you enter are write-only: the server never sends them back to the browser (the interface
 shows a mask instead) and they are left out of exported files. They are stored in plain text in
@@ -203,5 +219,5 @@ read-only install, and an unwritable data folder. Run the same checks against an
 
 ## Disclaimer
 
-Personal project. The ESPN and HockeyTech sources are undocumented public APIs that may change
-without notice. Respect the terms of use of each service you connect.
+Personal project. ESPN, HockeyTech and YouTube's public feeds are undocumented interfaces that may change
+without notice. The daily summary sends your feeds' headlines to Anthropic. Respect the terms of use of each service you connect.
