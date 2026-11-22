@@ -504,39 +504,91 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   }
 
   // --- Liste des sections ---
+  // La liste est une arborescence : chaque page, puis ses sections dans l'ordre du tableau de bord.
+  // On glisse une section pour la changer de place ou de page ; une page repliée reste une cible de dépôt.
   let listEl = null;
-  function sectionItems() {
-    return config().sections.map((s) => {
-      const item = h('button', { class: `s-item${s.enabled ? '' : ' off'}`, role: 'option', 'aria-selected': String(s.id === ui.selected), draggable: 'true',
-        onClick: () => { ui.selected = s.id; ui.detail = true; render(); } },
-      badge(s, true), h('span', { class: 'names' }, h('span', {}, s.title || 'Sans titre'), h('small', {}, t(KINDS[s.kind].label), config().pages.length > 1 && ` · ${config().pages.find((p) => p.id === s.page)?.name ?? ''}`)),
-      !s.enabled && h('span', { title: 'Section masquée' }, icon('hide')));
-      item.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; });
-      item.addEventListener('dragover', (e) => { e.preventDefault(); item.classList.add('drop-target'); });
-      item.addEventListener('dragleave', () => item.classList.remove('drop-target'));
-      item.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const list = config().sections, from = list.findIndex((x) => x.id === e.dataTransfer.getData('text/plain'));
-        if (from < 0 || list[from].id === s.id) return;
-        const [moved] = list.splice(from, 1);
-        list.splice(list.findIndex((x) => x.id === s.id), 0, moved);
-        commit(); render();
-      });
-      return h('li', {}, item);
+  const collapsed = new Set();   // pages repliées (le temps que les réglages restent ouverts)
+  let dragged = null;            // id de la section en cours de glisser
+  const clearMarks = () => { for (const el of listEl?.querySelectorAll('.drop-before, .drop-after, .drop-into') ?? []) el.classList.remove('drop-before', 'drop-after', 'drop-into'); };
+
+  /** Déplace une section : devant ou derrière une autre (`anchorID`), ou à la fin d'une page. Elle prend la page d'arrivée. */
+  function moveSection(id, pageID, anchorID = null, after = false) {
+    const list = config().sections, from = list.findIndex((x) => x.id === id);
+    if (from < 0 || id === anchorID) return;
+    const [moved] = list.splice(from, 1);
+    if (moved.page !== pageID) { moved.page = pageID; moved.column = -1; }
+    let at = anchorID ? list.findIndex((x) => x.id === anchorID) + (after ? 1 : 0) : -1;
+    if (at < 0) at = list.findLastIndex((x) => x.page === pageID) + 1 || list.length;   // fin de la page
+    list.splice(at, 0, moved);
+    collapsed.delete(pageID);
+    commit(); render();
+  }
+  /** Fait d'un élément une cible de dépôt. `where(e)` dit où la section atterrirait : { page, anchor?, after? }. */
+  function dropZone(el, where, mark) {
+    el.addEventListener('dragover', (e) => { if (!dragged) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; clearMarks(); mark(e); });
+    el.addEventListener('dragleave', (e) => { if (!el.contains(e.relatedTarget)) clearMarks(); });
+    el.addEventListener('drop', (e) => {
+      if (!dragged) return;
+      e.preventDefault(); e.stopPropagation();
+      const target = where(e), id = dragged;
+      dragged = null;
+      clearMarks();
+      if (target.page === '+') {
+        const page = newPage(t('Nouvelle page'));
+        config().pages.push(page);
+        target.page = page.id;
+      }
+      moveSection(id, target.page, target.anchor, target.after);
     });
+  }
+  const lowerHalf = (el, e) => { const r = el.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
+
+  function sectionItem(s) {
+    const item = h('button', { class: `s-item${s.enabled ? '' : ' off'}`, role: 'option', 'aria-selected': String(s.id === ui.selected), draggable: 'true',
+      onClick: () => { ui.selected = s.id; ui.detail = true; render(); } },
+    badge(s, true), h('span', { class: 'names' }, h('span', {}, s.title || 'Sans titre'), h('small', {}, t(KINDS[s.kind].label))),
+    !s.enabled && h('span', { title: 'Section masquée' }, icon('hide')));
+    item.addEventListener('dragstart', (e) => { dragged = s.id; e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; item.classList.add('dragging'); });
+    item.addEventListener('dragend', () => { dragged = null; item.classList.remove('dragging'); clearMarks(); });
+    dropZone(item, (e) => ({ page: s.page, anchor: s.id, after: lowerHalf(item, e) }), (e) => item.classList.add(lowerHalf(item, e) ? 'drop-after' : 'drop-before'));
+    return h('li', {}, item);
+  }
+  function sectionItems() {
+    const pages = config().pages, sections = config().sections;
+    const groups = pages.map((p) => {
+      const mine = sections.filter((s) => s.page === p.id), open = !collapsed.has(p.id);
+      const head = h('button', { class: 's-page', 'aria-expanded': String(open), title: open ? 'Replier la page' : 'Déplier la page',
+        onClick: () => { if (open) collapsed.add(p.id); else collapsed.delete(p.id); refreshList(); } },
+      icon(open ? 'down' : 'right'), h('span', { class: 'grow' }, p.name || t('Sans titre')), h('small', {}, String(mine.length)));
+      const group = h('li', { class: 's-group' }, head,
+        open && h('ul', { role: 'group', 'aria-label': p.name }, mine.map(sectionItem),
+          !mine.length && h('li', { class: 's-empty' }, 'Glissez une section ici')));
+      // Sur l'en-tête, ou dans le vide de la page : la section se range à la fin de cette page.
+      dropZone(group, () => ({ page: p.id }), () => group.classList.add('drop-into'));
+      return group;
+    });
+    const add = h('li', { class: 's-group' }, h('button', { class: 's-page add', title: 'Ajouter une page',
+      onClick: () => { config().pages.push(newPage(t('Nouvelle page'))); commit(); ui.tab = 'pages'; render(); } }, icon('plus'), h('span', { class: 'grow' }, 'Nouvelle page')));
+    dropZone(add, () => ({ page: '+' }), () => add.classList.add('drop-into'));
+    return [...groups, add];
   }
   function refreshList() { listEl?.replaceChildren(...sectionItems()); }
 
+  /** Monte ou descend la section choisie parmi celles de sa page ; au bout, elle passe sur la page voisine. */
   function moveSelected(offset) {
-    const list = config().sections, i = list.findIndex((s) => s.id === ui.selected), j = i + offset;
-    if (i < 0 || j < 0 || j >= list.length) return;
-    [list[i], list[j]] = [list[j], list[i]];
-    commit(); render();
+    const list = config().sections, pages = config().pages, s = list.find((x) => x.id === ui.selected);
+    if (!s) return;
+    const mine = list.filter((x) => x.page === s.page), i = mine.indexOf(s), neighbour = mine[i + offset];
+    if (neighbour) return moveSection(s.id, s.page, neighbour.id, offset > 0);
+    const page = pages[pages.findIndex((p) => p.id === s.page) + offset];
+    if (!page) return;
+    const first = list.find((x) => x.page === page.id);
+    moveSection(s.id, page.id, offset > 0 ? first?.id ?? null : null, false);
   }
 
   function sectionsTab() {
     const list = config().sections, selected = list.find((s) => s.id === ui.selected);
-    listEl = h('ul', { role: 'listbox', 'aria-label': 'Sections' }, sectionItems());
+    listEl = h('ul', { class: 's-tree', role: 'listbox', 'aria-label': 'Sections' }, sectionItems());
     const foot = h('div', { class: 's-list-foot' },
       h('button', { class: 'icon-btn', title: 'Ajouter une section', 'aria-label': 'Ajouter une section', onClick: (e) => addSectionMenu(e.currentTarget, (s) => {
         s.page = app.currentPage(); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); }) }, icon('plus')),
@@ -650,7 +702,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       ], "Plein écran, sans boutons, avec l'heure. Les pages défilent l'une après l'autre et l'écran reste allumé. Pour en sortir : touche Échap, ou touchez l'écran puis « Quitter »."));
   }
   function pagesPane() {
-    return pane("Les pages sont les onglets du tableau de bord. Chaque section appartient à une page ; son réglage « Page » permet de la déplacer.", pagesGroup());
+    return pane("Les pages sont les onglets du tableau de bord. Chaque section appartient à une page : dans la rubrique Sections, glissez-la sous la page voulue.", pagesGroup());
   }
   function keysPane() {
     return pane("Ce que vous fournissez une fois pour toute l'installation. Un profil qui saisit sa propre clé dans une section garde la sienne.", sharedKeysForm());

@@ -11,6 +11,8 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
   pour changer l'ordre, menu `⋯` pour supprimer.
 - **Glisser une carte sur un onglet** l'envoie sur cette page ; sur *+ Page*, sur une nouvelle page.
 - Une page vide propose d'y ajouter une section directement.
+- **Réglages → Sections** : la liste est une arborescence par page ; on glisse une section sous une autre page,
+  ou sur *Nouvelle page*.
 
 ### English
 
@@ -19,6 +21,8 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
   to delete.
 - **Dragging a card onto a tab** sends it to that page; onto *+ Page*, to a new page.
 - An empty page offers to add a section right there.
+- **Settings → Sections**: the list is a tree grouped by page; drag a section under another page, or onto
+  *New page*.
 
 ## 2026.11.3
 

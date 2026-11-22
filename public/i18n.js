@@ -25,6 +25,8 @@ export const EN = {
   'Ajoutez ou réactivez des sections dans les réglages.': 'Add or re-enable sections in Settings.',
   'Ouvrir les réglages': 'Open Settings',
   // Mode « Organiser » : palette de sections et pages
+  'Replier la page': 'Collapse page', 'Déplier la page': 'Expand page', 'Glissez une section ici': 'Drag a section here',
+  "Les pages sont les onglets du tableau de bord. Chaque section appartient à une page : dans la rubrique Sections, glissez-la sous la page voulue.": 'Pages are the tabs of the dashboard. Each section belongs to a page: under Sections, drag it below the page you want.',
   "Section « {0} » ajoutée": "“{0}” section added",
   "Options de la page": "Page options",
   "Options de la page {0}": "Options for the {0} page",
