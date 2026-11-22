@@ -139,7 +139,7 @@ async function summarize(section, config) {
     for (const a of recent) items.push({ section: feed.title, source: a.source ?? '', title: a.title, link: a.link });
   }
   // Clé du profil : aucun plafond, c'est lui qui paie. Clé partagée : seulement pour les profils autorisés, et jusqu'au modèle permis.
-  let key = String(section.summary.anthropicKey ?? '').trim(), model = section.summary.model;
+  let key = String(section.summary.anthropicKey ?? '').trim(), model = section.summary.model, payer = null;
   if (!key && accounts.sharedKey('anthropicKey')) {
     const owner = accounts.ownerOfConfig(config);
     if (!owner || !accounts.sharedAllowed(owner.id, 'anthropicKey')) {
@@ -147,9 +147,37 @@ async function summarize(section, config) {
     }
     key = accounts.sharedKey('anthropicKey');
     model = accounts.sharedModel(model);
+    payer = owner.id;
   }
-  const result = await fetchSummary(section.id, { ...section.summary, model, points: section.maxItems }, key, items.slice(0, 90));
+  const result = await fetchSummary(section.id, { ...section.summary, model, points: section.maxItems }, key, items.slice(0, 90),
+    payer ? (spent) => recordUsage(payer, spent) : null);
   return { ...result, sourceErrors: {} };
+}
+
+// --- Suivi de l'usage de la clé Anthropic partagée ---
+// Chaque résumé fait avec la clé de l'administrateur est compté, par profil et par mois, avec son coût estimé
+// d'après les tarifs publics (dollars US par million de jetons). C'est une estimation : la facture d'Anthropic fait foi.
+const USAGE_FILE = path.join(DATA, 'usage.json');
+const PRICES = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-5-5': [0.1, 0.5] };
+let usage = {};
+try { usage = JSON.parse(fs.readFileSync(USAGE_FILE, 'utf8')); } catch { /* aucun usage enregistré */ }
+const monthOf = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+function recordUsage(userID, { model, inputTokens, outputTokens }) {
+  const [input, output] = PRICES[model] ?? PRICES['claude-opus-5-5'];
+  const entry = ((usage[monthOf()] ??= {})[userID] ??= { calls: 0, inputTokens: 0, outputTokens: 0, cost: 0 });
+  entry.calls++;
+  entry.inputTokens += inputTokens;
+  entry.outputTokens += outputTokens;
+  entry.cost += (inputTokens * input + outputTokens * output) / 1e6;
+  for (const month of Object.keys(usage).sort().slice(0, -13)) delete usage[month];   // treize mois gardés
+  fs.promises.writeFile(USAGE_FILE, JSON.stringify(usage)).catch(() => {});
+}
+/** Usage du mois en cours et du mois précédent, par profil (pour l'administrateur). */
+function usageReport() {
+  const previous = new Date();
+  previous.setDate(0);   // dernier jour du mois précédent
+  const rows = (month) => Object.entries(usage[month] ?? {}).map(([id, entry]) => ({ name: accounts.user(id)?.name ?? null, ...entry })).sort((a, b) => b.cost - a.cost);
+  return { month: monthOf(), current: rows(monthOf()), previousMonth: monthOf(previous), previous: rows(monthOf(previous)) };
 }
 
 // --- Compte Google relié : abonnements YouTube ---
@@ -436,14 +464,14 @@ async function api(req, res, url) {
   // --- Clés d'API partagées : tout le monde sait lesquelles existent, seul un administrateur les définit ---
   // Chacun apprend quelles clés partagées il peut utiliser ; l'administrateur voit en plus qui a droit à la clé Anthropic.
   if (route === 'GET /api/shared-keys') {
-    return send(res, 200, user.role === 'admin' ? { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy } : accounts.sharedKeysFor(user.id));
+    return send(res, 200, user.role === 'admin' ? { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy, usage: usageReport() } : accounts.sharedKeysFor(user.id));
   }
   if (route === 'PUT /api/shared-keys') {
     requireAdmin(user);
     const body = await readBody(req);
     accounts.setSharedKeys(body);
     if (body?.policy) accounts.setSharedPolicy(body.policy);
-    const set = { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy };
+    const set = { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy, usage: usageReport() };
     // Les sections restées en erreur (clé manquante ou refusée) sont redemandées dès le prochain affichage.
     for (const [key, entry] of cache) if (hasErrors(entry.payload)) cache.delete(key);
     return send(res, 200, set);

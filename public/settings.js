@@ -994,9 +994,27 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
 
   // --- Clés d'API partagées (administrateur) ---
   let sharedNote = null;
-  let policyDraft = null;   // qui a droit à la clé Anthropic partagée, tant que ce n'est pas enregistré
+  /** Ce que la clé Anthropic partagée a coûté ce mois-ci et le mois dernier, par profil. */
+  function usageGroup() {
+    const report = app.sharedKeys?.usage;
+    if (!report) return null;
+    const money = (value) => new Intl.NumberFormat(document.documentElement.lang, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    const monthName = (month) => new Intl.DateTimeFormat(document.documentElement.lang, { month: 'long', year: 'numeric' }).format(new Date(`${month}-15T12:00:00`));
+    const total = (rows) => rows.reduce((sum, row) => sum + row.cost, 0), calls = (rows) => rows.reduce((sum, row) => sum + row.calls, 0);
+    const detail = (row) => h('span', { class: 'usage' }, h('span', { class: 'sub-line' }, t('{0} résumés', row.calls)), h('b', {}, money(row.cost)));
+    return group('Dépense de la clé Anthropic partagée', [
+      !report.current.length && h('div', { class: 'line' }, h('span', { class: 'lbl sub-line' }, t('Aucun résumé généré en {0}.', monthName(report.month)))),
+      report.current.map((row) => line(row.name ?? t('Profil supprimé'), detail(row))),
+      report.current.length > 1 && line(t('Total de {0}', monthName(report.month)), detail({ calls: calls(report.current), cost: total(report.current) })),
+      report.previous.length > 0 && line(t('Total de {0}', monthName(report.previousMonth)), detail({ calls: calls(report.previous), cost: total(report.previous) })),
+    ], "Estimation en dollars américains, d'après les tarifs publics et les jetons réellement consommés par chaque résumé. Seuls les résumés faits avec la clé partagée sont comptés ; la facture d'Anthropic fait foi.");
+  }
+
+  let policyDraft = null, keysFresh = false;   // qui a droit à la clé Anthropic partagée, tant que ce n'est pas enregistré
   function sharedKeysForm() {
     if (!users) { loadUsers(); return h('span', { class: 'spinner' }); }
+    // À l'ouverture de la rubrique : état à jour des clés et de la dépense (une fois par ouverture des réglages).
+    if (!keysFresh) { keysFresh = true; api('/api/shared-keys').then((fresh) => { app.sharedKeys = fresh; policyDraft = null; if (ui.tab === 'keys') render(); }).catch(() => {}); }
     const API_KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports'],
       ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé du jour — facturé à l’usage']];
     const GOOGLE_KEYS = [['googleClientId', 'Identifiant client', 'Fourni par Google Cloud'], ['googleClientSecret', 'Secret client', 'Fourni par Google Cloud']];
@@ -1027,6 +1045,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
           onChange: (e) => { policyDraft.anthropicUsers = e.target.checked ? [...policyDraft.anthropicUsers, u.id] : policyDraft.anthropicUsers.filter((id) => id !== u.id); } }))),
         line('Modèle le plus coûteux permis', select(policyDraft, 'anthropicMaxModel', SUMMARY_MODELS, { label: 'Modèle le plus coûteux permis' })),
       ], "La clé Anthropic est la seule facturée à l'usage : chaque résumé du jour vous est compté. Les autres profils n'y ont droit que si vous les cochez ici, et jamais au-delà du modèle choisi. Un profil qui saisit sa propre clé n'est pas concerné."),
+      usageGroup(),
       group('Connexion Google (application)', [
         ...rows(GOOGLE_KEYS),
         h('div', { class: 'line' }, h('span', { class: 'lbl' }, 'Marche à suivre et adresse de redirection'),

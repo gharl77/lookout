@@ -119,7 +119,31 @@ body.signed-out #topbar, body.signed-out #main { display: none; }
   border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 14px; }
 #edit-banner .grow { flex: 1 1 220px; }
 
+.usage { display: flex; align-items: baseline; gap: 12px; }
+.usage b { font-variant-numeric: tabular-nums; }
 .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -6px 4px 20px; }
+
+/* --- Accueil d'un nouveau profil --- */
+.dialog.onboarding { width: min(600px, calc(100vw - 24px)); }
+.ob-body { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.ob-body h3 { font: 800 22px/1.2 ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; letter-spacing: -0.01em; }
+.ob-progress { display: flex; gap: 6px; }
+.ob-progress i { flex: 1; height: 4px; border-radius: 2px; background: var(--fill); }
+.ob-progress i.on { background: var(--accent); }
+.ob-field { display: flex; flex-direction: column; gap: 6px; }
+.ob-field > span { font-size: 13.5px; font-weight: 600; }
+.ob-current { display: flex; align-items: center; gap: 6px; color: var(--text) !important; font-weight: 500; }
+.ob-results { display: flex; flex-direction: column; gap: 2px; }
+.ob-result { text-align: left; padding: 8px 10px; border-radius: 9px; }
+.ob-result:hover { background: var(--hover); }
+.ob-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob-chip { display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 999px; font-size: 14.5px; background: var(--card); border: 1px solid var(--sep); }
+.ob-chip svg { font-size: 16px; color: var(--text2); }
+.ob-chip.on { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); font-weight: 600; }
+.ob-chip.on svg { color: var(--accent); }
+.ob-chips.small { max-height: 180px; overflow-y: auto; }
+.ob-chips.small .ob-chip { padding: 5px 11px; font-size: 13.5px; }
+.onboarding .actions .ob-skip { margin-right: auto; color: var(--text2); }
 
 /* --- Sorties et résumé --- */
 .rows.grid.posters { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }

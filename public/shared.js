@@ -249,7 +249,8 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
   dimReadArticles: true, units: 'metric',
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
   displaySeconds: 30,
-  notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false };   // ce qui déclenche une notification                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
+  notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false,
+  onboarded: true };   // faux pour un profil tout neuf : il est accueilli par quelques questions à sa première visite   // ce qui déclenche une notification                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '',
   notify: false,     // notification à chaque nouvel article (sur les appareils abonnés)
@@ -371,7 +372,7 @@ export function defaultConfig() {
   economy.feed.layout = 'compact';
   const hn = template('api');
   hn.feed.layout = 'compact';
-  return { version: 1, general: clone(GENERAL), pages: [newPage('Accueil')],
+  return { version: 1, general: { ...clone(GENERAL), onboarded: false }, pages: [newPage('Accueil')],
     sections: [newSection('weather'), news, commute, scores, tech, sportsNews, world, economy, hn] };
 }
 

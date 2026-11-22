@@ -1,6 +1,7 @@
 // Briefing — tableau de bord.
 import { h, icon, sfIcon, badge, fmt, t, api, openMenu, openDialog, confirmDialog, hasOverlay, whenSignedOut, viewProfile } from './ui.js';
 import { showAuth, showPasswordChange, signOut } from './auth.js';
+import { runOnboarding } from './onboarding.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
 import { KINDS, template, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
@@ -949,6 +950,8 @@ document.addEventListener('keydown', (e) => {
     state.readIDs = new Set(read);
     if (!app.viewing) api('/api/saved').then(applySaved).catch(() => {});
     if (!app.viewing) googleFollowUp();
+    // Profil tout neuf : quelques questions pour remplacer le tableau de bord d'exemple par le sien.
+    if (!app.viewing && !app.display && state.config.general.onboarded === false) runOnboarding(app);
     // Appareil abonné aux notifications : son service worker se met à jour avec l'application.
     navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => {});
     if (new URLSearchParams(location.search).has('affichage')) startDisplay({ fullscreen: false });
