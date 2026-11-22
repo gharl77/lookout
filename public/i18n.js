@@ -29,6 +29,8 @@ export const EN = {
   'Choisissez une section dans la liste, ou ajoutez-en une.': 'Pick a section in the list, or add one.',
   "Pour retirer une section du tableau de bord sans perdre ses réglages, désactivez plutôt « Afficher dans le tableau de bord ».": 'To take a section off the dashboard without losing its settings, turn off “Show on the dashboard” instead.',
   // Doublons entre sections
+  '{0} articles marqués comme lus': '{0} articles marked as read', 'Article marqué comme lu': 'Article marked as read',
+  'Tout marquer comme lu dans la section {0}': 'Mark all as read in the {0} section',
   'Doublons': 'Duplicates', 'Afficher chaque nouvelle une seule fois par page': 'Show each story only once per page',
   "Quand plusieurs sections d'une même page reçoivent la même nouvelle, seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant. Deux articles différents sur le même sujet ne sont pas considérés comme des doublons.": 'When several sections on the same page receive the same story, only the first one in page order shows it; the others show their next article. Two different articles on the same topic are not treated as duplicates.',
   // Agenda, lecteur d'article, modèles de page

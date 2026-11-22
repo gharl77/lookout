@@ -803,13 +803,26 @@ const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Ple
 /** Largeur suivante quand on appuie sur le bouton du mode « Organiser » : 1 → 2 → 3 → pleine largeur → 1. */
 const nextSpan = (span) => SPANS[(SPANS.findIndex(([value]) => value === span) + 1) % SPANS.length][0];
 
+/** Articles affichés par une section et pas encore lus. */
+function unreadShown(s) {
+  const articles = state.data.get(s.id)?.articles;
+  return articles ? shownArticles(s, articles, general(), skipFor(s)).filter((a) => !state.readIDs.has(a.id)).map((a) => a.id) : [];
+}
+/** Marque comme lus tous les articles affichés par la section ; un bandeau permet de revenir en arrière. */
+function markAllRead(s) {
+  const ids = unreadShown(s);
+  if (!ids.length) return;
+  setRead(ids, true);
+  showToast(ids.length > 1 ? t('{0} articles marqués comme lus', ids.length) : t('Article marqué comme lu'), 'Annuler', () => setRead(ids, false));
+}
+
 function cardMenu(anchor, s) {
   const payload = state.data.get(s.id);
   // Profil d'un autre : on peut seulement redemander les données.
   if (app.viewing) return openMenu(anchor, [{ label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) }]);
   openMenu(anchor, [
     { label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) },
-    payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles, general(), skipFor(s)).map((a) => a.id), true) },
+    payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => markAllRead(s) },
     '-',
     { heading: 'Largeur' },
     ...SPANS.map(([value, label]) => ({ label, checked: s.span === value, action: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = value; }) })),
@@ -874,6 +887,9 @@ function buildCard(s) {
       h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, 'Section masquée', (x) => { x.enabled = false; }) }, icon('hide')))
     : [
       !loading && errors && h('span', { class: 'warn', title: errors, role: 'img', 'aria-label': 'Certaines sources sont en erreur' }, icon('warning')),
+      // Tout marquer comme lu : offert seulement quand il reste des articles non lus à l'écran.
+      !app.viewing && !app.display && unreadShown(s).length > 0 && h('button', { class: 'icon-btn', title: 'Tout marquer comme lu',
+        'aria-label': t('Tout marquer comme lu dans la section {0}', s.title), onClick: () => markAllRead(s) }, icon('check-on')),
       h('button', { class: `icon-btn reload${loading ? ' spinning' : ''}`, disabled: loading, 'aria-busy': String(loading),
         'aria-label': t('Mettre à jour la section {0} maintenant', s.title),
         title: payload?.updatedAt ? t('Mettre à jour maintenant (données de {0})', fmt.time(payload.updatedAt)) : 'Mettre à jour maintenant',

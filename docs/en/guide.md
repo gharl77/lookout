@@ -218,6 +218,8 @@ the one the administrator has opened to you.
 - Read articles are dimmed (adjustable). The read state is stored on the server: it follows you across devices.
 - The **New** badge marks articles published since your previous visit on this device. The marker only moves
   forward if you were away for at least ten minutes.
+- **Mark all as read**: the ✓ button in a card's header marks all its displayed articles; a banner lets you
+  undo. It only appears while unread articles remain.
 - **Duplicates**: when several sections on the same page receive the same story (top stories, world,
   politics…), only the first one in page order shows it; the others show their next article. Turn it off under
   *Settings → Reading and filters*.

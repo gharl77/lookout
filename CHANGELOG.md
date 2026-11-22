@@ -8,11 +8,13 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 - **Doublons** : une même nouvelle reprise par plusieurs sections d'une page n'apparaît plus qu'une fois, dans
   la première section ; les autres montrent l'article suivant. Réglable dans *Lecture et filtres*.
+- **Tout marquer comme lu** : un bouton dans l'en-tête de chaque carte d'articles, avec annulation.
 
 ### English
 
 - **Duplicates**: a story carried by several sections of a page now shows only once, in the first section; the
   others show their next article. Adjustable under *Reading and filters*.
+- **Mark all as read**: a button in the header of each article card, with undo.
 
 ## 2026.11.4
 
