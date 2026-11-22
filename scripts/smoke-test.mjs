@@ -250,6 +250,19 @@ await check('à lire plus tard : la liste est propre au profil, bornée aux lien
   expect((await (await request('/api/saved')).json())[0].title === 'Un article', 'liste inattendue');
   expect((await (await request('/api/saved', { method: 'POST', ...json({ remove: ['article-1'] }) })).json()).length === 0, 'article non retiré');
 });
+await check("notifications : clé du serveur, abonnement limité aux services connus", async () => {
+  const { key } = await (await request('/api/push/key')).json();
+  expect(Buffer.from(key, 'base64url').length === 65, 'clé publique du serveur inattendue');
+  const keys = { p256dh: 'BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4', auth: 'BTBZMqHH6r4Tts7J_aSIgg' };
+  for (const endpoint of ['http://127.0.0.1:8080/api/config', 'https://exemple.test/push', 'https://web.push.apple.com.exemple.test/x', 'pas une adresse']) {
+    expect((await request('/api/push/subscribe', { method: 'POST', ...json({ subscription: { endpoint, keys } }) })).status === 400, `adresse d'envoi acceptée : ${endpoint}`);
+  }
+  expect((await request('/api/push/subscribe', { method: 'POST', ...json({ subscription: { endpoint: 'https://web.push.apple.com/abc', keys: { ...keys, auth: 'court' } } }) })).status === 400, 'clés invalides acceptées');
+  expect((await request('/api/push/test', { method: 'POST', ...json({}) })).status === 400, "essai accepté sans appareil abonné");
+  expect((await request('/api/push/subscribe', { method: 'POST', ...json({ subscription: { endpoint: 'https://web.push.apple.com/abc', keys } }) })).status === 200, 'abonnement valide refusé');
+  expect((await request('/api/push/unsubscribe', { method: 'POST', ...json({ endpoint: 'https://web.push.apple.com/abc' }) })).status === 200, 'désabonnement refusé');
+  expect((await request('/api/push/test', { method: 'POST', ...json({}) })).status === 400, "l'appareil désabonné reçoit encore");
+});
 await check('sauvegarde complète : téléchargement protégé, restauration fidèle, données précédentes mises de côté', async () => {
   expect((await request('/api/backup', { method: 'POST', ...json({ password: 'mauvais-mot-de-passe' }) })).status === 400, 'sauvegarde remise sans le bon mot de passe');
   const backup = await (await request('/api/backup', { method: 'POST', ...json({ password: ADMIN.password }) })).json();

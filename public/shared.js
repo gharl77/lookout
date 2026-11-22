@@ -77,7 +77,8 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
   tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
   dimReadArticles: true, units: 'metric',
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
-  displaySeconds: 30 };                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
+  displaySeconds: 30,
+  notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false };   // ce qui déclenche une notification                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '' };
 const WEATHER = { locationName: 'Montréal, Québec', latitude: 45.5019, longitude: -73.5674, showDetails: true,

@@ -1,0 +1,22 @@
+// Lookout — service worker. Il ne sert qu'aux notifications : il ne met rien en cache, pour ne jamais
+// resservir une ancienne version de l'interface.
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+
+self.addEventListener('push', (event) => {
+  let message = {};
+  try { message = event.data?.json() ?? {}; } catch { /* message illisible : on affiche une notification générique */ }
+  // Chaque message reçu doit afficher une notification, sinon le système retire l'autorisation (iPhone).
+  event.waitUntil(self.registration.showNotification(message.title || 'Lookout', {
+    body: message.body || '', tag: message.tag, icon: new URL('lookout-180.png', self.location).href,
+    badge: new URL('lookout-180.png', self.location).href, data: { url: self.registration.scope } }));
+});
+
+// Un toucher sur la notification ramène à Lookout (fenêtre déjà ouverte, sinon nouvelle).
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+    const open = windows.find((w) => w.url.startsWith(self.registration.scope));
+    return open ? open.focus() : self.clients.openWindow(event.notification.data?.url ?? self.registration.scope);
+  }));
+});

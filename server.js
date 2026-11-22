@@ -15,6 +15,8 @@ import { fetchCommute, initGeocodeCache } from './lib/commute.js';
 import { installDnsCache, dnsStats } from './lib/dns-cache.js';
 import { redact, restoreSecrets } from './lib/secrets.js';
 import { Accounts, AUTH_EPOCH, SESSION_COOKIE, SESSION_MAX_AGE } from './lib/accounts.js';
+import { Push, cleanSubscription } from './lib/push.js';
+import { startWatcher } from './lib/notify.js';
 
 installDnsCache();
 
@@ -54,6 +56,8 @@ initGeocodeCache(DATA);
 // Le compte administrateur se crée à la première ouverture de la page ; ensuite, seuls les administrateurs
 // peuvent créer des comptes.
 const accounts = new Accounts(DATA);
+// Notifications : le service du fabricant exige une adresse de contact pour l'exploitant du serveur.
+const push = new Push(DATA, process.env.LOOKOUT_CONTACT || 'https://github.com/gharl77/lookout');
 
 // --- Données des sections ---
 // Chaque source n'est interrogée qu'une fois par intervalle : celui de sa section s'il est défini, sinon
@@ -116,6 +120,19 @@ function logSourceErrors(section, sourceErrors = {}) {
 /** Options d'une section, complétées par la clé partagée quand le profil n'a pas saisi la sienne. */
 function withSharedKey(options, name) {
   return String(options[name] ?? '').trim() ? options : { ...options, [name]: accounts.sharedKey(name) };
+}
+
+/** Envoie une notification à tous les appareils abonnés d'un profil ; oublie ceux qui n'existent plus. */
+async function notify(userID, message) {
+  const result = { devices: 0, delivered: 0, error: null };
+  for (const subscription of accounts.pushSubscriptions(userID)) {
+    result.devices++;
+    const sent = await push.send(subscription, message);
+    if (sent.ok) result.delivered++;
+    else if (sent.gone) accounts.removePush(userID, subscription.endpoint);
+    else { result.error = sent.error; console.warn(`Notification non remise (${new URL(subscription.endpoint).hostname}) : ${sent.error}`); }
+  }
+  return result;
 }
 
 async function loadSection(section, config, force = false) {
@@ -395,6 +412,24 @@ async function api(req, res, url) {
     accounts.saveRead(user.id);
     return send(res, 200, { ok: true });
   }
+  // --- Notifications sur cet appareil ---
+  if (route === 'GET /api/push/key') return send(res, 200, { key: push.publicKey });
+  if (route === 'POST /api/push/subscribe') {
+    const body = await readBody(req);
+    accounts.addPush(user.id, token, cleanSubscription(body?.subscription), body?.lang);
+    return send(res, 200, { ok: true });
+  }
+  if (route === 'POST /api/push/unsubscribe') {
+    accounts.removePush(user.id, String((await readBody(req))?.endpoint ?? ''));
+    return send(res, 200, { ok: true });
+  }
+  if (route === 'POST /api/push/test') {
+    const sent = await notify(user.id, { title: 'Lookout', body: t('Les notifications fonctionnent sur cet appareil.'), tag: 'essai' });
+    if (!sent.devices) throw new BriefingError('Aucun appareil abonné aux notifications');
+    if (!sent.delivered) throw new BriefingError('Le service de notifications a refusé le message ({0})', sent.error ?? '?');
+    return send(res, 200, sent);
+  }
+
   // Articles gardés « à lire plus tard » : propres au profil, partagés entre ses appareils.
   if (route === 'GET /api/saved') return send(res, 200, profile.saved);
   if (route === 'POST /api/saved') {
@@ -461,3 +496,7 @@ http.createServer(async (req, res) => {
     if (!res.headersSent) send(res, error instanceof BriefingError ? (error.status ?? 400) : 500, { error: error instanceof BriefingError ? error.message : 'Erreur interne du serveur / Internal server error' });
   }
 }).listen(PORT, () => console.log(`Lookout ${VERSION} à l'écoute sur le port ${PORT} — données : ${DATA} — ${accounts.hasUsers ? `${accounts.names().length} profil(s)` : 'aucun compte : le premier visiteur crée l\'administrateur'}${PASSWORD ? ' — mot de passe global activé' : ''}`));
+
+// Surveillance en arrière-plan des alertes météo et des matchs, pour les profils dont un appareil est abonné.
+startWatcher({ subscribers: () => accounts.pushProfiles(), load: (section, config) => loadSection(section, config),
+  deliver: notify, withLang: (lang, run) => requestLang.run(lang, run) });

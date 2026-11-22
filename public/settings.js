@@ -439,10 +439,72 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Masquer partout', text(g, 'muteKeywords', { placeholder: 'ex. horoscope, célébrités', label: 'Masquer partout' })),
         line('Mettre en évidence partout', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mettre en évidence partout' })),
       ], "Mots ou expressions séparés par des virgules, cherchés dans le titre et le résumé. Ils s'ajoutent aux filtres propres à chaque section."),
+      notificationsGroup(g),
       group('Mode affichage', [
         line('Changer de page', select(g, 'displaySeconds', [[0, 'Jamais'], [15, 'Toutes les 15 secondes'], [30, 'Toutes les 30 secondes'], [60, 'Chaque minute'], [120, 'Toutes les 2 minutes'], [300, 'Toutes les 5 minutes']], { label: 'Changer de page' })),
         line('Écran mural ou télé', h('button', { class: 'btn', onClick: () => { closeCurrent?.(); app.startDisplay(); } }, sfIcon('desktopcomputer'), 'Lancer le mode affichage')),
       ], "Plein écran, sans boutons, avec l'heure. Les pages défilent l'une après l'autre et l'écran reste allumé. Pour en sortir : touche Échap, ou touchez l'écran puis « Quitter »."))));
+  }
+
+  // --- Notifications sur cet appareil ---
+  // L'abonnement est propre à l'appareil (et, sur iPhone, à l'app ajoutée à l'écran d'accueil) ; ce qui
+  // déclenche une notification est un réglage du profil, commun à tous ses appareils.
+  const push = { state: 'unknown', note: null };   // unknown | unsupported | insecure | denied | off | on
+  const pushRegistration = () => navigator.serviceWorker.register(new URL('sw.js', document.baseURI));
+  async function readPushState() {
+    if (!window.isSecureContext) push.state = 'insecure';
+    else if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) push.state = 'unsupported';
+    else if (Notification.permission === 'denied') push.state = 'denied';
+    else {
+      try { push.state = await (await pushRegistration()).pushManager.getSubscription() ? 'on' : 'off'; } catch { push.state = 'unsupported'; }
+    }
+    if (ui.tab === 'general') render();
+  }
+  async function setPush(on) {
+    push.note = null;
+    try {
+      const registration = await pushRegistration();
+      await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      if (on) {
+        if (await Notification.requestPermission() !== 'granted') { push.state = Notification.permission === 'denied' ? 'denied' : 'off'; return render(); }
+        const { key } = await api('/api/push/key');
+        const subscription = existing ?? await registration.pushManager.subscribe({ userVisibleOnly: true,
+          applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) });
+        await api('/api/push/subscribe', { method: 'POST', body: { subscription: subscription.toJSON(), lang: document.documentElement.lang } });
+        push.state = 'on';
+      } else if (existing) {
+        await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: existing.endpoint } });
+        await existing.unsubscribe();
+        push.state = 'off';
+      }
+    } catch (error) { push.note = { text: error.message, ok: false }; }
+    render();
+  }
+  function notificationsGroup(g) {
+    if (push.state === 'unknown') readPushState();
+    const WHY = {
+      insecure: "Les notifications exigent une adresse en HTTPS. Ouvrez Lookout par son adresse sécurisée.",
+      unsupported: "Ce navigateur ne propose pas les notifications. Sur iPhone ou iPad : ajoutez d'abord Lookout à l'écran d'accueil (Partager → Sur l'écran d'accueil), puis ouvrez-le depuis son icône.",
+      denied: "Les notifications sont bloquées pour ce site. Autorisez-les dans les réglages du navigateur ou de l'appareil, puis revenez ici.",
+    };
+    const usable = push.state === 'on' || push.state === 'off';
+    const test = async () => {
+      try { await api('/api/push/test', { method: 'POST', body: {} }); push.note = { text: t("Notification d'essai envoyée."), ok: true }; }
+      catch (error) { push.note = { text: error.message, ok: false }; }
+      render();
+    };
+    const note = noteView(push.note);
+    push.note = null;
+    return group('Notifications', [
+      line('Recevoir les notifications sur cet appareil', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: push.state === 'on', disabled: !usable,
+        'aria-label': 'Notifications sur cet appareil', onChange: (e) => setPush(e.target.checked) })),
+      line('Alertes météo', toggle(g, 'notifyAlerts', { label: 'Alertes météo' })),
+      line("Début d'un match de mes équipes", toggle(g, 'notifyGameStart', { label: "Début d'un match" })),
+      line("Résultat final d'un match de mes équipes", toggle(g, 'notifyGameEnd', { label: 'Résultat final' })),
+      push.state === 'on' && h('div', { class: 'line' }, h('div', {}, note), h('button', { class: 'btn', onClick: test }, sfIcon('bell.fill'), "Envoyer une notification d'essai")),
+      push.state !== 'on' && note && h('div', { class: 'line' }, note),
+    ], WHY[push.state] ?? "Lookout surveille vos sections météo et sports même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Chaque appareil s'abonne séparément.");
   }
 
   // --- Données ---

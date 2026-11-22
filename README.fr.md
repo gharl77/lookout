@@ -88,6 +88,7 @@ Ouvrez ensuite `http://<ip-du-serveur>:8765` et cliquez sur l'engrenage pour con
 | `TZ` | `Etc/UTC` | Fuseau horaire, qui détermine ce qu'est « aujourd'hui » pour les pointages (ex. `America/Toronto`) |
 | `LOOKOUT_PASSWORD` | *(aucun)* | Barrière supplémentaire facultative devant tout le reste (authentification HTTP Basic), en plus des comptes |
 | `LOOKOUT_USER` | `lookout` | Nom d'utilisateur associé à `LOOKOUT_PASSWORD` |
+| `LOOKOUT_CONTACT` | adresse du projet | Contact (adresse `mailto:` ou `https:`) annoncé aux services de notifications lors d'un envoi |
 | `PORT` | `8080` | Port d'écoute du serveur dans le conteneur |
 
 ## Comptes et profils

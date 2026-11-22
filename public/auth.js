@@ -108,6 +108,14 @@ export function showPasswordChange(user) {
 }
 
 export async function signOut() {
+  // L'appareil cesse de recevoir les notifications du profil qu'on quitte.
+  try {
+    const subscription = await (await navigator.serviceWorker?.getRegistration())?.pushManager?.getSubscription();
+    if (subscription) {
+      await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: subscription.endpoint } });
+      await subscription.unsubscribe();
+    }
+  } catch { /* sans gravité : l'abonnement est de toute façon lié à la session qui se ferme */ }
   try { await api('/api/auth/logout', { method: 'POST', body: {} }); } catch { /* le témoin est effacé de toute façon au prochain chargement */ }
   location.reload();
 }

@@ -88,6 +88,7 @@ Then open `http://<server-ip>:8765` and click the gear icon to set up your secti
 | `TZ` | `Etc/UTC` | Time zone, used to decide what "today" means for scores (e.g. `America/Toronto`) |
 | `LOOKOUT_PASSWORD` | *(none)* | Optional extra gate in front of everything (HTTP Basic authentication), on top of accounts |
 | `LOOKOUT_USER` | `lookout` | User name that goes with `LOOKOUT_PASSWORD` |
+| `LOOKOUT_CONTACT` | project URL | Contact (`mailto:` or `https:` address) announced to push services when sending notifications |
 | `PORT` | `8080` | Port the server listens on inside the container |
 
 ## Accounts and profiles
