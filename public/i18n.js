@@ -25,6 +25,8 @@ export const EN = {
   'Ajoutez ou réactivez des sections dans les réglages.': 'Add or re-enable sections in Settings.',
   'Ouvrir les réglages': 'Open Settings',
   // Agenda, lecteur d'article, modèles de page
+  "Google ne trouve pas ce calendrier. Utilisez l'« Adresse secrète au format iCal » : l'adresse publique ne fonctionne que si le calendrier est public.": 'Google cannot find this calendar. Use the “Secret address in iCal format”: the public address only works if the calendar is public.',
+  "Calendrier introuvable à cette adresse. Vérifiez qu'elle est complète et que le calendrier est bien partagé ou publié.": 'No calendar found at this address. Check that it is complete and that the calendar is shared or published.',
   "Ce site ne permet pas de lire cet article ici. Ouvrez-le sur le site.": 'This site does not allow reading this article here. Open it on the site.',
   "Agenda": "Calendar",
   "Prochains événements de vos calendriers (adresse iCal : Google, iCloud, Outlook)": "Upcoming events from your calendars (iCal address: Google, iCloud, Outlook)",
