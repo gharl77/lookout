@@ -72,6 +72,16 @@ const cache = new Map();   // clé -> { time, payload }
 // Les entrées dont plus personne ne se sert (sources modifiées, profil supprimé) sont retirées après un jour.
 setInterval(() => { for (const [key, entry] of cache) if (Date.now() - entry.time > 24 * 3600e3) cache.delete(key); }, 3600e3).unref();
 const pending = new Map();
+// Sections déposées par un administrateur dans le profil d'un autre. Une page ouverte avant le dépôt ne les
+// connaît pas : tant qu'elle n'a pas rechargé ses réglages, ses enregistrements ne doivent pas les effacer.
+const delivered = new Map();    // profil -> Map(section -> moment du dépôt)
+const configSeen = new Map();   // session -> dernier chargement des réglages
+setInterval(() => {
+  for (const [id, sections] of delivered) {
+    for (const [section, time] of sections) if (Date.now() - time > 7 * 24 * 3600e3) sections.delete(section);
+    if (!sections.size) delivered.delete(id);
+  }
+}, 3600e3).unref();
 
 const intervalMs = (section, config) => Math.max(1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
@@ -161,12 +171,12 @@ function send(res, status, body, headers = {}) {
   res.end(json ? JSON.stringify(body) : body);
 }
 
-async function readBody(req) {
+async function readBody(req, limit = 2e6) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 2e6) throw new BriefingError('Requête trop volumineuse');
+    if (size > limit) throw new BriefingError('Requête trop volumineuse');
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new BriefingError('JSON invalide'); }
@@ -237,6 +247,15 @@ async function api(req, res, url) {
     return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, null) });
   }
 
+  // Restaurer une sauvegarde sur une installation neuve : possible tant qu'aucun compte n'existe, comme la
+  // création de l'administrateur. (Sur une installation en service, voir plus bas : réservé à un administrateur.)
+  if (route === 'POST /api/restore' && !accounts.hasUsers) {
+    const body = await readBody(req, 30e6);
+    const done = accounts.restoreAll(body?.backup);
+    console.log(`Sauvegarde restaurée sur une installation neuve : ${done.users} profil(s).`);
+    return send(res, 200, done);
+  }
+
   // Tout le reste exige d'être connecté.
   if (!user) throw Object.assign(new BriefingError('Connexion requise'), { status: 401 });
 
@@ -279,6 +298,20 @@ async function api(req, res, url) {
     return send(res, 200, set);
   }
 
+  // --- Sauvegarde complète (administrateur) ---
+  // Le fichier contient les clés d'API et les empreintes des mots de passe : le mot de passe de
+  // l'administrateur est redemandé, pour qu'une session restée ouverte ne suffise pas à l'obtenir.
+  if (route === 'POST /api/backup' || route === 'POST /api/restore') {
+    requireAdmin(user);
+    const body = await readBody(req, 30e6);
+    if (!accounts.checkOwnPassword(user.id, body?.password)) throw new BriefingError('Mot de passe incorrect');
+    if (route === 'POST /api/backup') { console.log(`Sauvegarde complète téléchargée par « ${user.name} ».`); return send(res, 200, accounts.exportAll()); }
+    const done = accounts.restoreAll(body?.backup);
+    cache.clear(); delivered.clear(); configSeen.clear();
+    console.log(`Sauvegarde restaurée par « ${user.name} » : ${done.users} profil(s). Les données précédentes sont mises de côté.`);
+    return send(res, 200, done, { 'Set-Cookie': sessionCookie(req, null) });
+  }
+
   // --- Profils (administrateur) ---
   if (route === 'GET /api/users') { requireAdmin(user); return send(res, 200, accounts.list()); }
   if (route === 'POST /api/users') {
@@ -317,13 +350,37 @@ async function api(req, res, url) {
 
   // --- Réglages et données du profil connecté ---
   // Le navigateur ne reçoit jamais les clés ni les jetons : seulement un masque.
-  if (route === 'GET /api/config') return send(res, 200, redact(profile.config));
+  if (route === 'GET /api/config') {
+    if (!viewedID) configSeen.set(token, Date.now());
+    return send(res, 200, redact(profile.config));
+  }
   if (route === 'PUT /api/config') {
     let next;
     try { next = restoreSecrets(normalize(await readBody(req)), profile.config); } catch (e) { return send(res, 400, { error: e.message }); }
+    // Sections reçues d'un administrateur depuis le dernier chargement de cette page : elles sont conservées.
+    for (const [id, time] of delivered.get(user.id) ?? []) {
+      const kept = (configSeen.get(token) ?? 0) < time && !next.sections.some((s) => s.id === id) && profile.config.sections.find((s) => s.id === id);
+      if (kept) next.sections.push(structuredClone(kept));
+    }
     return send(res, 200, redact(accounts.saveConfig(user.id, next)));
   }
   if (route === 'POST /api/config/reset') return send(res, 200, redact(accounts.saveConfig(user.id, normalize(defaultConfig()))));
+  // Envoyer une copie d'une de ses sections à d'autres profils (administrateur).
+  const sendRoute = /^\/api\/section\/([^/]+)\/send$/.exec(url.pathname);
+  if (sendRoute && req.method === 'POST') {
+    requireAdmin(user);
+    const body = await readBody(req);
+    const section = findSection(decodeURIComponent(sendRoute[1]));
+    const targets = [...new Set(Array.isArray(body?.to) ? body.to.map(String) : [])].filter((id) => id !== user.id);
+    if (!targets.length) throw new BriefingError('Choisissez au moins un profil');
+    if (targets.some((id) => !accounts.user(id))) throw new BriefingError('Profil introuvable');
+    for (const id of targets) {
+      const copy = accounts.addSection(id, section);
+      if (!delivered.has(id)) delivered.set(id, new Map());
+      delivered.get(id).set(copy, Date.now());
+    }
+    return send(res, 200, { sent: targets.length });
+  }
   if (req.method === 'GET' && url.pathname.startsWith('/api/section/')) {
     let id;
     try { id = decodeURIComponent(url.pathname.slice('/api/section/'.length)); } catch { throw new BriefingError('Section introuvable'); }

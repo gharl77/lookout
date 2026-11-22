@@ -182,6 +182,18 @@ await check('profils : copie des réglages, indépendance, droits et mots de pas
   expect((await request('/api/config', as('inconnu'))).status === 400, 'un profil inexistant est consultable');
   expect((await (await request('/api/config', {}, guestCookie)).json()).sections[0].title === 'Modifié par le profil invité', 'la consultation a modifié le profil consulté');
 
+  // Envoi d'une section : la copie arrive chez l'autre profil, et une page ouverte avant l'envoi ne l'efface pas.
+  const stale = await (await request('/api/config', {}, guestCookie)).json();   // ce que connaît la page de l'invitée
+  const firstID = (await (await request('/api/config')).json()).sections[0].id;
+  expect((await request(`/api/section/${firstID}/send`, { method: 'POST', ...json({ to: [me.id] }) }, guestCookie)).status === 403, 'un simple utilisateur a envoyé une section');
+  expect((await request(`/api/section/${firstID}/send`, { method: 'POST', ...json({ to: [] }) })).status === 400, 'envoi sans destinataire accepté');
+  expect((await request(`/api/section/${firstID}/send`, { method: 'POST', ...json({ to: [guest.id] }) })).status === 200, 'envoi de section refusé');
+  expect((await (await request('/api/config', { method: 'PUT', ...json(stale) }, guestCookie)).json()).sections.length === stale.sections.length + 1, "la section reçue a été effacée par une page ouverte avant l'envoi");
+  const received = await (await request('/api/config', {}, guestCookie)).json();
+  expect(received.sections.at(-1).title === 'Marque du profil admin' && received.sections.at(-1).id !== firstID, 'la section reçue est inattendue');
+  received.sections.pop();   // une fois la page rechargée, l'invitée peut la supprimer pour de bon
+  expect((await (await request('/api/config', { method: 'PUT', ...json(received) }, guestCookie)).json()).sections.length === stale.sections.length, 'la section reçue ne se supprime pas');
+
   // Présence : l'administrateur voit qui est en ligne et depuis quels appareils.
   const seen = (await (await request('/api/users')).json()).find((u) => u.id === guest.id);
   expect(seen.online === true && seen.devices.length === 1 && typeof seen.devices[0].label === 'string', `présence inattendue : ${JSON.stringify(seen)}`);
@@ -229,6 +241,29 @@ await check('déconnexion : la session ne donne plus accès à rien', async () =
   const login = await request('/api/auth/login', { method: 'POST', ...json(ADMIN) }, '');
   expect(login.status === 200, 'reconnexion refusée');
   cookie = sessionFrom(login);
+});
+await check('sauvegarde complète : téléchargement protégé, restauration fidèle, données précédentes mises de côté', async () => {
+  expect((await request('/api/backup', { method: 'POST', ...json({ password: 'mauvais-mot-de-passe' }) })).status === 400, 'sauvegarde remise sans le bon mot de passe');
+  const backup = await (await request('/api/backup', { method: 'POST', ...json({ password: ADMIN.password }) })).json();
+  expect(backup.format === 'lookout-backup' && backup.users.length === 1 && backup.profiles[backup.users[0].id].config.sections.length === config.sections.length, 'sauvegarde incomplète');
+  expect(!JSON.stringify(backup).includes(ADMIN.password), 'la sauvegarde contient un mot de passe en clair');
+
+  // On abîme l'installation, puis on restaure.
+  const extra = await request('/api/users', { method: 'POST', ...json({ name: 'De passage', password: 'depassage-1' }) });
+  expect(extra.status === 200, 'création refusée');
+  for (const bad of [{}, { format: 'lookout-backup', users: [] }, { ...backup, users: [{ ...backup.users[0], id: '../ailleurs' }] }, { ...backup, users: [{ ...backup.users[0], role: 'user' }] }]) {
+    expect((await request('/api/restore', { method: 'POST', ...json({ password: ADMIN.password, backup: bad }) })).status === 400, 'sauvegarde invalide acceptée');
+  }
+  expect((await request('/api/users')).status === 200, 'une sauvegarde invalide a touché aux comptes');
+  expect((await request('/api/restore', { method: 'POST', ...json({ password: 'mauvais-mot-de-passe', backup }) })).status === 400, 'restauration sans le bon mot de passe');
+  const before = cookie;
+  expect((await request('/api/restore', { method: 'POST', ...json({ password: ADMIN.password, backup }) })).status === 200, 'restauration refusée');
+  expect((await request('/api/config', {}, before)).status === 401, 'les sessions survivent à une restauration');
+  const login = await request('/api/auth/login', { method: 'POST', ...json(ADMIN) }, '');
+  expect(login.status === 200, 'reconnexion refusée après la restauration');
+  cookie = sessionFrom(login);
+  const users = await (await request('/api/users')).json();
+  expect(users.length === 1 && users[0].id === backup.users[0].id, 'les profils ne sont pas ceux de la sauvegarde');
 });
 await check('le serveur est toujours en vie après les requêtes malformées', async () => {
   expect((await request('/healthz')).status === 200, 'le serveur ne répond plus');

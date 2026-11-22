@@ -464,9 +464,10 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         } }, icon('download'), 'Exporter…')),
         line('Importer une configuration', h('button', { class: 'btn', onClick: () => fileInput.click() }, icon('upload'), 'Importer…'), fileInput),
       ], 'Le fichier JSON contient toutes vos sections, sources et préférences, mais pas vos clés ni vos jetons.'),
-      group('Fichier de configuration', [line('Emplacement', h('span', { class: 'mono' }, 'data/config.json')),
+      group('Fichier de configuration', [line('Emplacement', h('span', { class: 'mono' }, `data/profiles/${app.user.id}/config.json`)),
         line('Version', h('span', { class: 'mono' }, `Lookout ${app.version ?? ''}`))],
       'Dans le dossier de données du conteneur, sur le serveur.'),
+      app.user.role === 'admin' && fullBackup(note),
       group(null, [
         line('Revenir à la configuration de départ', h('button', { class: 'btn danger', onClick: async () => {
           if (!await confirmDialog('Réinitialiser toute la configuration ?', "Toutes vos sections et sources seront remplacées par celles de départ. Exportez d'abord votre configuration si vous voulez la conserver.", 'Réinitialiser')) return;
@@ -476,6 +477,52 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
           note.textContent = t('Configuration réinitialisée.');
         } }, icon('reset'), 'Réinitialiser…')),
       ]), note)));
+  }
+
+  // --- Sauvegarde complète (administrateur) ---
+  /** Redemande le mot de passe de l'administrateur avant une opération sensible. Renvoie le mot de passe, ou null. */
+  const askPassword = (title, message, actionLabel) => new Promise((resolve) => {
+    let answer = null;
+    openDialog((close) => {
+      const input = h('input', { class: 'field', type: 'password', placeholder: t('Votre mot de passe'), 'aria-label': 'Votre mot de passe', autocomplete: 'current-password', autofocus: true });
+      return h('form', { style: { display: 'contents' }, novalidate: true, onSubmit: (e) => { e.preventDefault(); if (!input.value) return input.focus(); answer = input.value; close(); } },
+        h('h3', {}, title), h('p', {}, message),
+        h('input', { type: 'text', name: 'username', autocomplete: 'username', value: app.user.name, hidden: true }), input,
+        h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onClick: close }, 'Annuler'), h('button', { class: 'btn primary', type: 'submit' }, actionLabel)));
+    }, { onClose: () => resolve(answer) });
+  });
+
+  function fullBackup(note) {
+    const download = async () => {
+      const password = await askPassword('Télécharger la sauvegarde complète', "Le fichier contient tous les profils, leurs réglages, leurs clés d'API et les clés partagées. Gardez-le en lieu sûr.", 'Télécharger');
+      if (!password) return;
+      try {
+        const backup = await api('/api/backup', { method: 'POST', body: { password } });
+        const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' })), download: `Lookout-sauvegarde-${backup.createdAt.slice(0, 10)}.json` });
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        note.textContent = t('Sauvegarde complète téléchargée ({0} profils).', backup.users.length);
+      } catch (error) { note.textContent = error.message; }
+    };
+    const fileInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true, onChange: async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try {
+        const backup = JSON.parse(await file.text());
+        if (backup?.format !== 'lookout-backup' || !Array.isArray(backup.users)) throw new Error(t("Ce fichier n'est pas une sauvegarde Lookout valide"));
+        const password = await askPassword(t('Restaurer la sauvegarde du {0} ?', new Date(backup.createdAt).toLocaleDateString(document.documentElement.lang)),
+          t("Tous les profils actuels seront remplacés par les {0} profils de la sauvegarde ({1}). Tout le monde devra se reconnecter, avec le mot de passe qu'il avait à ce moment-là. Les données actuelles sont mises de côté sur le serveur.",
+            backup.users.length, backup.users.map((u) => u.name).join(', ')), 'Restaurer');
+        if (!password) return;
+        await api('/api/restore', { method: 'POST', body: { password, backup } });
+        location.reload();
+      } catch (error) { note.textContent = error instanceof SyntaxError ? t("Ce fichier n'est pas du JSON valide.") : error.message; }
+    } });
+    return group('Sauvegarde complète', [
+      line('Télécharger tous les profils', h('button', { class: 'btn', onClick: download }, icon('download'), 'Télécharger…')),
+      line('Restaurer une sauvegarde', h('button', { class: 'btn danger', onClick: () => fileInput.click() }, icon('upload'), 'Restaurer…'), fileInput),
+    ], "Réservé aux administrateurs. Contrairement à l'export ci-dessus, ce fichier contient tout : les comptes, les réglages de chaque profil et les clés d'API. Il permet de reconstruire l'installation sur un autre serveur.");
   }
 
   // --- Compte ---

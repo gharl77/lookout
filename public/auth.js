@@ -16,6 +16,15 @@ export function showAuth({ setup, profiles }) {
   const field = (label, props) => h('label', { class: 'auth-field' }, h('span', {}, label), h('input', { class: 'field', required: true, ...props }));
 
   let form;
+  const restoreInput = h('input', { type: 'file', accept: 'application/json,.json', hidden: true, onChange: async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      await api('/api/restore', { method: 'POST', body: { backup: JSON.parse(await file.text()) } });
+      location.reload();
+    } catch (err) { fail(err instanceof SyntaxError ? t("Ce fichier n'est pas du JSON valide.") : err.message); }
+  } });
   if (setup) {
     const name = field('Votre nom', { name: 'username', autocomplete: 'username', maxlength: '32', autofocus: true });
     const password = field('Mot de passe', { name: 'new-password', type: 'password', autocomplete: 'new-password', minlength: '6' });
@@ -34,7 +43,9 @@ export function showAuth({ setup, profiles }) {
     h('h1', {}, 'Bienvenue dans Lookout'),
     h('p', {}, "Créez le compte administrateur. Il pourra ensuite créer un profil pour chaque personne, avec ses propres réglages."),
     name, password, confirm, error,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Créer le compte'));
+    h('button', { class: 'btn primary', type: 'submit' }, 'Créer le compte'),
+    // Installation neuve : on peut aussi repartir d'une sauvegarde complète faite ailleurs.
+    h('button', { class: 'btn', type: 'button', style: { justifyContent: 'center' }, onClick: () => restoreInput.click() }, 'Restaurer une sauvegarde…'), restoreInput);
   } else {
     const last = remembered();
     const start = profiles.find((p) => p.toLowerCase() === last.toLowerCase()) ?? (profiles.length === 1 ? profiles[0] : '');

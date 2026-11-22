@@ -353,10 +353,35 @@ function cardMenu(anchor, s) {
     // Avec plusieurs pages : envoyer la carte sur une autre.
     ...(pages().length > 1 ? ['-', { heading: 'Déplacer vers la page' }, ...pages().filter((p) => p.id !== s.page).map((p) => ({
       label: p.name || 'Sans titre', action: () => updateSection(s.id, 'Section déplacée', (x) => { x.page = p.id; x.column = -1; }) }))] : []),
+    // Administrateur : déposer une copie de cette section chez un autre profil.
+    ...(app.user?.role === 'admin' ? ['-', { label: 'Envoyer à un profil…', icon: icon('users'), action: () => sendSection(anchor, s) }] : []),
     '-',
     { label: 'Masquer', icon: icon('hide'), action: () => updateSection(s.id, 'Section masquée', (x) => { x.enabled = false; }) },
   ]);
 }
+
+/** Menu des profils à qui envoyer une copie de la section (réglages et clés compris). */
+async function sendSection(anchor, s) {
+  let others;
+  try {
+    await saveNow();   // le serveur copie ce qu'il a enregistré : les derniers changements doivent y être
+    others = (await api('/api/users')).filter((u) => u.id !== app.user.id);
+  } catch (error) { return showNotice(error.message); }
+  if (!others.length) return showNotice(t('Aucun autre profil à qui envoyer cette section.'));
+  const send = async (targets, done) => {
+    try {
+      await api(`/api/section/${encodeURIComponent(s.id)}/send`, { method: 'POST', body: { to: targets.map((u) => u.id) } });
+      showNotice(done);
+    } catch (error) { showNotice(error.message); }
+  };
+  openMenu(anchor, [
+    { heading: t('Envoyer « {0} » à', s.title) },
+    ...others.map((u) => ({ label: u.name, action: () => send([u], t('Section envoyée à {0}. Elle apparaîtra à son prochain chargement de la page.', u.name)) })),
+    ...(others.length > 1 ? ['-', { label: 'Tous les profils', icon: icon('users'), action: () => send(others, t('Section envoyée à {0} profils.', others.length)) }] : []),
+  ]);
+}
+/** Message bref, sans action à annuler. */
+function showNotice(message) { showToast(message, 'OK', () => {}); }
 
 function sourceErrorText(s, payload) {
   const names = new Map([...s.feed.sources, ...s.sports.leagues].map((x) => [x.id, x.name]));

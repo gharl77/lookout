@@ -24,6 +24,14 @@ En développement, pas encore publié. / In development, not yet released.
   at their next sign-in.
 - **Shared API keys**: an administrator can provide a TomTom key and an API-Sports key to every profile that has
   none of its own (Settings → Profiles). They are never displayed again.
+- **Envoyer une section** : un administrateur peut déposer une copie d'une de ses sections chez un autre profil
+  (menu ⋯ de la carte → Envoyer à un profil).
+- **Sauvegarde complète** : un administrateur peut télécharger toute l'installation (comptes, réglages de chaque
+  profil, clés d'API) et la restaurer, y compris sur une installation neuve (Réglages → Données).
+- **Send a section**: an administrator can drop a copy of one of their sections into another profile
+  (card ⋯ menu → Send to a profile).
+- **Full backup**: an administrator can download the whole installation (accounts, each profile's settings, API
+  keys) and restore it, including on a fresh installation (Settings → Data).
 
 ## 2026.11.1
 
