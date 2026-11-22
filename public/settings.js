@@ -810,6 +810,9 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       group('Lecture', [
         line('Atténuer les articles déjà lus', toggle(g, 'dimReadArticles', { label: 'Atténuer les articles lus' })),
       ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."),
+      group('Doublons', [
+        line('Afficher chaque nouvelle une seule fois par page', toggle(g, 'dedupeArticles', { label: 'Afficher chaque nouvelle une seule fois par page' })),
+      ], "Quand plusieurs sections d'une même page reçoivent la même nouvelle, seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant. Deux articles différents sur le même sujet ne sont pas considérés comme des doublons."),
       group('Lecteur intégré', [
         line('Ouvrir les articles dans Lookout', toggle(g, 'readerDefault', { label: 'Ouvrir les articles dans Lookout' })),
       ], "Le lecteur affiche le texte de l'article sans quitter Lookout. Activé, un clic sur un article l'ouvre dans le lecteur ; sinon, utilisez le bouton en forme de livre sur chaque article. Certains sites réservés aux abonnés ne s'y prêtent pas : un bouton ouvre alors l'article sur le site."),

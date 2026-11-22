@@ -248,6 +248,7 @@ export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apispor
 const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appearance: 'system', accentHex: '#3B82F6',
   tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
   dimReadArticles: true, units: 'metric',
+  dedupeArticles: true,   // une même nouvelle n'apparaît qu'une fois par page
   readerDefault: false,   // un clic sur un article l'ouvre dans le lecteur intégré plutôt que dans un nouvel onglet
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
   displaySeconds: 30,

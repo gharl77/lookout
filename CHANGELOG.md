@@ -2,6 +2,18 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+### Français
+
+- **Doublons** : une même nouvelle reprise par plusieurs sections d'une page n'apparaît plus qu'une fois, dans
+  la première section ; les autres montrent l'article suivant. Réglable dans *Lecture et filtres*.
+
+### English
+
+- **Duplicates**: a story carried by several sections of a page now shows only once, in the first section; the
+  others show their next article. Adjustable under *Reading and filters*.
+
 ## 2026.11.4
 
 Agenda, lecteur d'article, mode Organiser repensé, sécurité renforcée. / Calendar, article reader, redesigned Arrange mode, hardened security.

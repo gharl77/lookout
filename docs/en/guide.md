@@ -218,6 +218,9 @@ the one the administrator has opened to you.
 - Read articles are dimmed (adjustable). The read state is stored on the server: it follows you across devices.
 - The **New** badge marks articles published since your previous visit on this device. The marker only moves
   forward if you were away for at least ten minutes.
+- **Duplicates**: when several sections on the same page receive the same story (top stories, world,
+  politics…), only the first one in page order shows it; the others show their next article. Turn it off under
+  *Settings → Reading and filters*.
 - Right-click an article (desktop): open, copy link, save for later, mark read or unread.
 
 ![The Reading and filters pane](../images/en/reglages-lecture.jpg)

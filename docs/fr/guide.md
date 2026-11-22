@@ -226,6 +226,9 @@ que l'administrateur vous a ouverte.
   tous vos appareils.
 - La pastille **Nouveau** signale les articles parus depuis votre visite précédente sur cet appareil. Le repère
   n'avance que si vous êtes parti au moins dix minutes.
+- **Doublons** : quand plusieurs sections d'une même page reçoivent la même nouvelle (à la une, international,
+  politique…), seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant.
+  Se désactive dans *Réglages → Lecture et filtres*.
 - Clic droit sur un article (ordinateur) : ouvrir, copier le lien, garder pour plus tard, marquer lu ou non lu.
 
 ![La rubrique Lecture et filtres](../images/fr/reglages-lecture.jpg)

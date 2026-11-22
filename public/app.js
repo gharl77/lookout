@@ -3,7 +3,7 @@ import { h, icon, sfIcon, badge, fmt, t, api, openMenu, openDialog, confirmDialo
 import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { runOnboarding } from './onboarding.js';
 import { setLangProvider, resolveLang } from './i18n.js';
-import { cardBody, shownArticles, countNew, WMO } from './cards.js';
+import { cardBody, shownArticles, articleKeys, countNew, WMO } from './cards.js';
 import { KINDS, FEED_CATALOG, template, youtubeSection, categorySection, newPage, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
 import { openSettings } from './settings.js';
 
@@ -116,6 +116,11 @@ async function loadSection(id, force = false) {
   state.data.set(id, payload);
   state.loading.delete(id);
   renderCard(id);
+  // Les sections placées après celle-ci peuvent maintenant avoir des doublons à écarter (ou à reprendre).
+  if (payload.articles && general().dedupeArticles) {
+    const list = visible(), at = list.findIndex((s) => s.id === id);
+    if (at >= 0) for (const s of list.slice(at + 1)) if (state.data.get(s.id)?.articles) renderCard(s.id);
+  }
   renderHero();
   updateToolbar();
 }
@@ -399,7 +404,22 @@ document.addEventListener('visibilitychange', () => {
   else if (noteReturn() && state.config) renderAll();
 });
 
-const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs.has(id), setRead,
+// --- Une même nouvelle n'apparaît qu'une fois par page ---
+// Une nouvelle reprise par plusieurs fils (à la une, international, politique…) reste dans la première section qui
+// l'affiche, dans l'ordre de la page ; les suivantes montrent à la place l'article suivant de leur liste.
+/** Filtre pour une section : vrai pour un article qu'une section placée avant elle affiche déjà. Nul si l'option est coupée. */
+function skipFor(section) {
+  if (!general().dedupeArticles) return null;
+  const taken = new Set(), skip = (a) => articleKeys(a).some((key) => taken.has(key));
+  for (const s of visible()) {
+    if (s.id === section.id) return taken.size ? skip : null;
+    const articles = state.data.get(s.id)?.articles;
+    if (articles) for (const a of shownArticles(s, articles, general(), skip)) for (const key of articleKeys(a)) taken.add(key);
+  }
+  return null;   // section absente de la page affichée
+}
+
+const ctx = { get general() { return general(); }, skipFor, isRead: (id) => state.readIDs.has(id), setRead,
   get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, get readArticle() { return app.display ? null : readArticle; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 
@@ -789,7 +809,7 @@ function cardMenu(anchor, s) {
   if (app.viewing) return openMenu(anchor, [{ label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) }]);
   openMenu(anchor, [
     { label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) },
-    payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles).map((a) => a.id), true) },
+    payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles, general(), skipFor(s)).map((a) => a.id), true) },
     '-',
     { heading: 'Largeur' },
     ...SPANS.map(([value, label]) => ({ label, checked: s.span === value, action: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = value; }) })),

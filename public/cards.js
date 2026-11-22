@@ -6,10 +6,10 @@ import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 import { keywords, articleFilter, youtubeVideoID } from './shared.js';
 
 /** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
-export function present(articles, options, sourceOrder, limit, general = {}) {
+export function present(articles, options, sourceOrder, limit, general = {}, skip = null) {
   const keep = articleFilter(options, general), seen = new Set();
   const sorted = articles.filter((a) => {
-    if (!keep(a)) return false;
+    if (!keep(a) || skip?.(a)) return false;
     const key = a.title.toLowerCase();
     return seen.has(key) ? false : (seen.add(key), true);
   }).sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
@@ -108,15 +108,29 @@ function articleRow(article, style, section, ctx) {
 
 /** Nombre d'articles affichés parus depuis la dernière visite. */
 export function countNew(section, articles, ctx) {
-  return shownArticles(section, articles, ctx.general).filter(ctx.isNew).length;
+  return shownArticles(section, articles, ctx.general, ctx.skipFor?.(section)).filter(ctx.isNew).length;
 }
 
-export function shownArticles(section, articles, general) {
-  return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems), general);
+/** Ce qui identifie une même nouvelle d'une section à l'autre : son adresse (sans paramètres de suivi), sinon son titre. */
+export function articleKeys(article) {
+  const keys = [], title = String(article.title ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (article.link) {
+    try {
+      const u = new URL(article.link);
+      keys.push(`u:${u.hostname.replace(/^www\./, '')}${u.pathname.replace(/\/+$/, '')}${u.hostname.includes('youtube.') ? u.search : ''}`);
+    } catch { /* adresse invalide : le titre suffira */ }
+  }
+  if (title.length >= 25) keys.push(`t:${title}`);   // un titre court (« Météo », « En direct ») n'identifie rien
+  return keys;
+}
+
+/** Articles affichés par une section. `skip` écarte ceux qu'une section placée avant elle montre déjà. */
+export function shownArticles(section, articles, general, skip = null) {
+  return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems), general, skip);
 }
 
 function articleList(section, articles, ctx) {
-  const shown = shownArticles(section, articles, ctx.general);
+  const shown = shownArticles(section, articles, ctx.general, ctx.skipFor?.(section));
   if (!shown.length) return h('div', { class: 'hint' }, 'Aucun article ne correspond aux filtres.');
   const layout = section.feed.layout;
   return h('div', { class: `rows${layout === 'grid' ? ' grid' : ''}` }, shown.map((a, i) => articleRow(a, layout === 'headline' ? (i === 0 ? 'headline' : 'list') : layout, section, ctx)));
