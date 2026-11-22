@@ -26,6 +26,7 @@ UI = {
  "check-on":("fill","check-circle"),"check-off":("regular","circle"),"check":("bold","check"),"warning":("fill","warning"),
  "close":("bold","x"),"search":("bold","magnifying-glass"),"pin":("fill","map-pin"),"arrow-up":("bold","arrow-up"),"arrow-down":("bold","arrow-down"),
  "wind":("regular","wind"),"drop":("fill","drop"),"sunset":("fill","sun-horizon"),"thermo":("regular","thermometer-simple"),
+ "user":("bold","user"), "users":("regular","users"), "signout":("bold","sign-out"), "key":("regular","key"),
  "gear":("regular","gear"),"gear-bold":("bold","gear"),"drive":("regular","hard-drives"),"link":("bold","link"),"open":("regular","arrow-square-out"),
  "drag":("fill","hand-grabbing"),"offline":("bold","wifi-slash"),"image":("regular","image"),"shield":("fill","shield"),
  "walk":("fill","person-simple-walk"),"car":("fill","car"),"transit":("fill","tram"),"back":("bold","arrow-left"),

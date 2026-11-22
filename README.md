@@ -12,6 +12,7 @@ on a single page. Everything is configured from the web UI — sections, their o
 every source is either an RSS feed or an API.
 
 - One small container, no database, no external dependency
+- Multi-user: each person has a profile with their own sections, sources and preferences
 - Works in any browser; on iPhone it can be added to the Home Screen like an app
 - Light and dark themes, accent colour, adjustable density and column count
 - Several pages (tabs), drag-and-drop layout with undo, and a badge on articles published since your last visit
@@ -78,16 +79,32 @@ Then open `http://<server-ip>:8765` and click the gear icon to set up your secti
 
 | Container path | Description |
 |---|---|
-| `/data` | Configuration (`config.json`), read state (`read.json`) and geocoding cache (`geocode.json`) |
+| `/data` | Accounts (`users.json`), open sessions (`sessions.json`), one folder per profile (`profiles/<id>/`: settings and read state) and the geocoding cache |
 
 ### Environment variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `TZ` | `Etc/UTC` | Time zone, used to decide what "today" means for scores (e.g. `America/Toronto`) |
-| `LOOKOUT_PASSWORD` | *(none)* | When set, the interface asks for this password (HTTP Basic authentication) |
+| `LOOKOUT_ADMIN_USER`, `LOOKOUT_ADMIN_PASSWORD` | *(none)* | Create the administrator account at first start instead of in the browser |
+| `LOOKOUT_PASSWORD` | *(none)* | Optional extra gate in front of everything (HTTP Basic authentication), on top of accounts |
 | `LOOKOUT_USER` | `lookout` | User name that goes with `LOOKOUT_PASSWORD` |
 | `PORT` | `8080` | Port the server listens on inside the container |
+
+## Accounts and profiles
+
+Lookout is multi-user. On the first visit it asks you to create the **administrator** account; an existing
+single-user installation becomes that account's profile, with its settings intact.
+
+- **Profiles**: the administrator creates one per person (Settings → Profiles), either from the default
+  settings or as a copy of another profile, and can reset passwords, replace a profile's settings with a copy
+  of another's, or delete it. Everyone edits their own sections, sources and preferences.
+- **Staying signed in**: once signed in on a device you stay signed in — across restarts and updates — until
+  you sign out or your password changes. Sign-in forms are standard, so browsers and password managers can
+  save the password.
+- **Passwords** are stored hashed (scrypt), never in plain text. Sessions use an `HttpOnly` cookie.
+- **Create the administrator early.** Until it exists, whoever opens the page first can create it. Set
+  `LOOKOUT_ADMIN_USER` and `LOOKOUT_ADMIN_PASSWORD` to create it at startup instead.
 
 ## User and permissions
 
@@ -119,12 +136,13 @@ In Portainer: open the stack and choose **Re-pull image and redeploy**.
 
 ## Backup
 
-Everything lives in the `/data` volume. Copy that folder, or use **Settings → Data → Export** to download
-the configuration as a JSON file that can be imported into another instance.
+Everything lives in the `/data` volume: copy that folder to back up every profile. Each person can also use
+**Settings → Data → Export** to download their own configuration as a JSON file.
 
 ## Security
 
-Lookout is meant for a home network. Anyone who can reach it can read the dashboard and change its settings.
+Lookout is meant for a home network. Every profile is protected by its own password, but use HTTPS (through a
+reverse proxy) if the network is not fully trusted: without it, passwords travel in clear text.
 
 API keys and tokens you enter are write-only: the server never sends them back to the browser (the interface
 shows a mask instead) and they are left out of exported files. They are stored in plain text in
@@ -132,7 +150,6 @@ shows a mask instead) and they are left out of exported files. They are stored i
 
 - Do not expose it directly to the Internet; use a VPN or a reverse proxy with HTTPS.
 - Reverse proxies that cache static files (such as the "Cache Assets" option of Nginx Proxy Manager) are safe to use: interface files are served from an address that changes with every version.
-- Set `LOOKOUT_PASSWORD` if other people share your network.
 
 ## Hardened example
 

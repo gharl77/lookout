@@ -14,6 +14,7 @@ import { fetchSports, fetchTeams, searchAPISportsLeagues } from './lib/sports.js
 import { fetchCommute, initGeocodeCache } from './lib/commute.js';
 import { installDnsCache, dnsStats } from './lib/dns-cache.js';
 import { redact, restoreSecrets } from './lib/secrets.js';
+import { Accounts, AUTH_EPOCH, SESSION_COOKIE, SESSION_MAX_AGE } from './lib/accounts.js';
 
 installDnsCache();
 
@@ -35,9 +36,6 @@ const BUILD = (() => {
 // Langue de la requête en cours (en-tête X-Lang envoyé par l'interface) : sert à traduire les messages.
 const requestLang = new AsyncLocalStorage();
 setLangProvider(() => requestLang.getStore() ?? 'fr');
-const CONFIG_FILE = path.join(DATA, 'config.json');
-const READ_FILE = path.join(DATA, 'read.json');
-
 // Le dossier de données doit être accessible en écriture : on le vérifie tout de suite, avec un message clair.
 try {
   fs.mkdirSync(DATA, { recursive: true });
@@ -51,35 +49,19 @@ try {
 }
 initGeocodeCache(DATA);
 
-// --- Configuration et état de lecture (fichiers JSON dans le volume de données) ---
+// --- Comptes et profils ---
+// Chaque utilisateur a ses propres réglages et son propre état de lecture (voir lib/accounts.js).
+const accounts = new Accounts(DATA);
 
-function loadConfig() {
+// Premier compte administrateur créé d'office si ces variables sont définies ; sinon il se crée à la
+// première visite, dans le navigateur.
+if (!accounts.hasUsers && process.env.LOOKOUT_ADMIN_USER && process.env.LOOKOUT_ADMIN_PASSWORD) {
   try {
-    return normalize(JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')));
+    const admin = accounts.create({ name: process.env.LOOKOUT_ADMIN_USER, password: process.env.LOOKOUT_ADMIN_PASSWORD });
+    console.log(`Compte administrateur « ${admin.name} » créé à partir des variables d'environnement.`);
   } catch (error) {
-    if (fs.existsSync(CONFIG_FILE)) {
-      // Fichier illisible : on le met de côté plutôt que de l'écraser.
-      fs.renameSync(CONFIG_FILE, path.join(DATA, 'config-illisible.json'));
-      console.error('Configuration illisible, mise de côté :', error.message);
-    }
-    return saveConfig(normalize(defaultConfig()));
+    console.error('Compte administrateur non créé :', error.message);
   }
-}
-
-function saveConfig(next) {
-  fs.writeFileSync(CONFIG_FILE + '.tmp', JSON.stringify(next, null, 2));
-  fs.renameSync(CONFIG_FILE + '.tmp', CONFIG_FILE);
-  return next;
-}
-
-let config = loadConfig();
-let readIDs = new Set();
-try { readIDs = new Set(JSON.parse(fs.readFileSync(READ_FILE, 'utf8'))); } catch { /* premier lancement */ }
-
-function saveRead() {
-  // Garde l'historique borné : les plus anciens identifiants sont retirés en premier.
-  if (readIDs.size > 4000) readIDs = new Set([...readIDs].slice(-3000));
-  fs.promises.writeFile(READ_FILE, JSON.stringify([...readIDs])).catch(() => {});
 }
 
 // --- Données des sections ---
@@ -93,10 +75,14 @@ function saveRead() {
 const RETRY_MS = 2 * 60e3;
 const FORCE_MS = 60e3;
 const LIVE_MS = 60e3;
-const cache = new Map();   // id de section -> { signature, time, payload }
+// Clé : identifiant de section + empreinte de ses sources. Deux profils qui suivent exactement les mêmes
+// sources (un profil copié d'un autre, par exemple) partagent donc les mêmes données : une seule requête.
+const cache = new Map();   // clé -> { time, payload }
+// Les entrées dont plus personne ne se sert (sources modifiées, profil supprimé) sont retirées après un jour.
+setInterval(() => { for (const [key, entry] of cache) if (Date.now() - entry.time > 24 * 3600e3) cache.delete(key); }, 3600e3).unref();
 const pending = new Map();
 
-const intervalMs = (section) => Math.max(1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
+const intervalMs = (section, config) => Math.max(1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
   || (payload.routes ?? []).some((route) => route.error);
 /** Un match d'une équipe suivie est-il en cours ? (Toute la ligue compte si aucune équipe n'est choisie.) */
@@ -113,8 +99,8 @@ function hasLiveGame(payload, section) {
 }
 
 /** Moment à partir duquel les sources d'une section pourront être réinterrogées. */
-function nextUpdate(entry, section) {
-  let wait = intervalMs(section);
+function nextUpdate(entry, section, config) {
+  let wait = intervalMs(section, config);
   if (hasErrors(entry.payload)) wait = Math.min(wait, RETRY_MS);
   if (hasLiveGame(entry.payload, section)) wait = Math.min(wait, LIVE_MS);   // pendant un match : chaque minute
   return entry.time + wait;
@@ -126,15 +112,13 @@ function logSourceErrors(section, sourceErrors = {}) {
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
 
-async function loadSection(section, force = false) {
+async function loadSection(section, config, force = false) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
-  const cached = cache.get(section.id);
-  const due = cached && (force ? cached.time + FORCE_MS : nextUpdate(cached, section));
-  if (cached && cached.signature === signature && Date.now() < due) {
-    return { ...cached.payload, nextUpdateAt: nextUpdate(cached, section) };
-  }
-  const key = section.id + signature;
+  const key = `${section.id}|${signature}`;
+  const cached = cache.get(key);
+  const due = cached && (force ? cached.time + FORCE_MS : nextUpdate(cached, section, config));
+  if (cached && Date.now() < due) return { ...cached.payload, nextUpdateAt: nextUpdate(cached, section, config) };
   if (pending.has(key)) return pending.get(key);
 
   const job = (async () => {
@@ -153,13 +137,13 @@ async function loadSection(section, force = false) {
       else console.warn(`[${section.title}] ${error.message}`);
       const message = error instanceof BriefingError ? error.message : t('Erreur interne du serveur');
       // En cas d'échec, on renvoie les dernières données connues avec l'erreur.
-      const stale = cached?.signature === signature ? cached.payload : null;
+      const stale = cached?.payload ?? null;
       payload = stale ? { ...stale, error: message } : { kind: section.kind, error: message, sourceErrors: {}, updatedAt: null };
     }
     // Les échecs sont mémorisés aussi : une source en panne n'est pas redemandée à chaque chargement de page.
-    const entry = { signature, time: Date.now(), payload };
-    cache.set(section.id, entry);
-    return { ...payload, nextUpdateAt: nextUpdate(entry, section) };
+    const entry = { time: Date.now(), payload };
+    cache.set(key, entry);
+    return { ...payload, nextUpdateAt: nextUpdate(entry, section, config) };
   })().finally(() => pending.delete(key));
   pending.set(key, job);
   return job;
@@ -199,45 +183,127 @@ function authorized(req) {
   return given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 }
 
-function findSection(id) {
-  const section = config.sections.find((s) => s.id === id);
-  if (!section) throw new BriefingError('Section introuvable');
-  return section;
+// --- Sessions ---
+
+function sessionToken(req) {
+  for (const part of String(req.headers.cookie ?? '').split(';')) {
+    const [name, ...value] = part.trim().split('=');
+    if (name === SESSION_COOKIE) return value.join('=');
+  }
+  return null;
+}
+
+/** En-tête qui dépose (ou efface) le témoin de session. Il est invisible pour le JavaScript de la page. */
+function sessionCookie(req, token) {
+  const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+  return `${SESSION_COOKIE}=${token ?? ''}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${token ? SESSION_MAX_AGE : 0}${secure}`;
+}
+
+const clientAddress = (req) => String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress || '';
+
+function requireAdmin(user) {
+  if (user.role !== 'admin') throw Object.assign(new BriefingError('Réservé à un administrateur'), { status: 403 });
 }
 
 async function api(req, res, url) {
   const route = `${req.method} ${url.pathname}`;
   const q = url.searchParams;
+  const token = sessionToken(req);
+  const user = accounts.sessionUser(token);
 
-  // Le navigateur ne reçoit jamais les clés ni les jetons : seulement un masque.
-  if (route === 'GET /api/config') return send(res, 200, redact(config));
   if (route === 'GET /api/about') return send(res, 200, { name: 'Lookout', version: VERSION, build: BUILD, dns: dnsStats() });
+
+  // Toute requête qui modifie quelque chose doit venir de l'interface elle-même : cet en-tête ne peut pas
+  // être ajouté par un formulaire ou un lien placé sur un autre site.
+  if (req.method !== 'GET' && req.headers['x-requested-with'] !== 'lookout') {
+    throw Object.assign(new BriefingError('Requête refusée'), { status: 403 });
+  }
+
+  // --- Connexion ---
+  if (route === 'GET /api/auth/state') {
+    return send(res, 200, { setup: !accounts.hasUsers, user: user ? accounts.describe(user) : null,
+      profiles: user || !accounts.hasUsers ? [] : accounts.names() });
+  }
+  if (route === 'POST /api/auth/setup') {
+    if (accounts.hasUsers) throw Object.assign(new BriefingError('Un administrateur existe déjà'), { status: 403 });
+    const body = await readBody(req);
+    const admin = accounts.create({ name: body?.name, password: body?.password });
+    console.log(`Compte administrateur « ${admin.name} » créé.`);
+    return send(res, 200, { user: accounts.describe(admin) }, { 'Set-Cookie': sessionCookie(req, accounts.startSession(admin, req.headers['user-agent'])) });
+  }
+  if (route === 'POST /api/auth/login') {
+    const body = await readBody(req);
+    const found = accounts.login(body?.name, body?.password, clientAddress(req));
+    return send(res, 200, { user: accounts.describe(found) }, { 'Set-Cookie': sessionCookie(req, accounts.startSession(found, req.headers['user-agent'])) });
+  }
+  if (route === 'POST /api/auth/logout') {
+    accounts.endSession(token);
+    return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, null) });
+  }
+
+  // Tout le reste exige d'être connecté.
+  if (!user) throw Object.assign(new BriefingError('Connexion requise'), { status: 401 });
+  const profile = accounts.profile(user.id);
+  const findSection = (id) => {
+    const section = profile.config.sections.find((s) => s.id === id);
+    if (!section) throw new BriefingError('Section introuvable');
+    return section;
+  };
+
+  if (route === 'POST /api/auth/password') {
+    const body = await readBody(req);
+    if (!accounts.checkOwnPassword(user.id, body?.current)) throw new BriefingError('Mot de passe actuel incorrect');
+    accounts.update(user.id, { password: body?.next }, token);
+    return send(res, 200, { ok: true });
+  }
+
+  // --- Profils (administrateur) ---
+  if (route === 'GET /api/users') { requireAdmin(user); return send(res, 200, accounts.list()); }
+  if (route === 'POST /api/users') {
+    requireAdmin(user);
+    const body = await readBody(req);
+    const created = accounts.create({ name: body?.name, password: body?.password, role: body?.role, copyFrom: body?.copyFrom || null });
+    return send(res, 200, accounts.describe(created));
+  }
+  const userRoute = /^\/api\/users\/([^/]+)(\/copy)?$/.exec(url.pathname);
+  if (userRoute) {
+    requireAdmin(user);
+    const id = decodeURIComponent(userRoute[1]);
+    if (req.method === 'PATCH' && !userRoute[2]) {
+      const body = await readBody(req);
+      const changes = {};
+      for (const field of ['name', 'role', 'password']) if (body?.[field] !== undefined) changes[field] = body[field];
+      return send(res, 200, accounts.describe(accounts.update(id, changes, id === user.id ? token : null)));
+    }
+    if (req.method === 'POST' && userRoute[2]) {
+      const body = await readBody(req);
+      accounts.copyProfile(body?.from, id);
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === 'DELETE' && !userRoute[2]) { accounts.remove(id, user.id); return send(res, 200, { ok: true }); }
+  }
+
+  // --- Réglages et données du profil connecté ---
+  // Le navigateur ne reçoit jamais les clés ni les jetons : seulement un masque.
+  if (route === 'GET /api/config') return send(res, 200, redact(profile.config));
   if (route === 'PUT /api/config') {
     let next;
-    try { next = restoreSecrets(normalize(await readBody(req)), config); } catch (e) { return send(res, 400, { error: e.message }); }
-    config = saveConfig(next);
-    const ids = new Set(config.sections.map((s) => s.id));
-    for (const id of cache.keys()) if (!ids.has(id)) cache.delete(id);
-    return send(res, 200, redact(config));
+    try { next = restoreSecrets(normalize(await readBody(req)), profile.config); } catch (e) { return send(res, 400, { error: e.message }); }
+    return send(res, 200, redact(accounts.saveConfig(user.id, next)));
   }
-  if (route === 'POST /api/config/reset') {
-    config = saveConfig(normalize(defaultConfig()));
-    cache.clear();
-    return send(res, 200, redact(config));
-  }
+  if (route === 'POST /api/config/reset') return send(res, 200, redact(accounts.saveConfig(user.id, normalize(defaultConfig()))));
   if (req.method === 'GET' && url.pathname.startsWith('/api/section/')) {
     let id;
     try { id = decodeURIComponent(url.pathname.slice('/api/section/'.length)); } catch { throw new BriefingError('Section introuvable'); }
-    const section = findSection(id);
-    return send(res, 200, await loadSection(section, q.get('force') === '1'));
+    return send(res, 200, await loadSection(findSection(id), profile.config, q.get('force') === '1'));
   }
-  if (route === 'GET /api/read') return send(res, 200, [...readIDs]);
+  if (route === 'GET /api/read') return send(res, 200, [...profile.readIDs]);
   if (route === 'POST /api/read') {
     const body = await readBody(req);
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BriefingError('JSON invalide');
-    for (const id of Array.isArray(body.add) ? body.add : []) if (typeof id === 'string') readIDs.add(id);
-    for (const id of Array.isArray(body.remove) ? body.remove : []) readIDs.delete(id);
-    saveRead();
+    for (const id of Array.isArray(body.add) ? body.add : []) if (typeof id === 'string') profile.readIDs.add(id);
+    for (const id of Array.isArray(body.remove) ? body.remove : []) profile.readIDs.delete(id);
+    accounts.saveRead(user.id);
     return send(res, 200, { ok: true });
   }
   if (route === 'GET /api/weather/search') return send(res, 200, await searchPlaces(q.get('q') ?? ''));
@@ -294,6 +360,6 @@ http.createServer(async (req, res) => {
     return serveStatic(req, res, url);
   } catch (error) {
     if (!(error instanceof BriefingError)) console.error(error);
-    if (!res.headersSent) send(res, error instanceof BriefingError ? 400 : 500, { error: error instanceof BriefingError ? error.message : 'Erreur interne du serveur / Internal server error' });
+    if (!res.headersSent) send(res, error instanceof BriefingError ? (error.status ?? 400) : 500, { error: error instanceof BriefingError ? error.message : 'Erreur interne du serveur / Internal server error' });
   }
-}).listen(PORT, () => console.log(`Lookout ${VERSION} à l'écoute sur le port ${PORT} — données : ${DATA}${PASSWORD ? ' — mot de passe activé' : ''}`));
+}).listen(PORT, () => console.log(`Lookout ${VERSION} à l'écoute sur le port ${PORT} — données : ${DATA} — ${accounts.hasUsers ? `${accounts.names().length} profil(s)` : 'aucun compte : le premier visiteur crée l\'administrateur'}${PASSWORD ? ' — mot de passe global activé' : ''}`));

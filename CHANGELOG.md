@@ -2,6 +2,17 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+En développement, pas encore publié. / In development, not yet released.
+
+- **Multiutilisateur** : comptes et profils. Chaque personne a ses propres réglages ; l'administrateur crée les
+  profils (éventuellement en copie d'un autre), réinitialise les mots de passe et supprime les profils. Une fois
+  connecté sur un appareil, on le reste. L'installation existante devient le profil du premier administrateur.
+- **Multi-user**: accounts and profiles. Each person has their own settings; the administrator creates profiles
+  (optionally as a copy of another), resets passwords and deletes profiles. Once signed in on a device, you stay
+  signed in. An existing installation becomes the first administrator's profile.
+
 ## 2026.11.1
 
 Première version officielle. / First official release.

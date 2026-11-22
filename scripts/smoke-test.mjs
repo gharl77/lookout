@@ -14,7 +14,11 @@ async function check(name, run) {
   }
 }
 const expect = (condition, message) => { if (!condition) throw new Error(message); };
-const request = (path, options = {}) => fetch(base + path, { signal: AbortSignal.timeout(10000), ...options });
+// Session courante : le témoin déposé à la connexion est renvoyé à chaque requête, comme le ferait un navigateur.
+let cookie = '';
+const request = (path, options = {}, session = cookie) => fetch(base + path, { signal: AbortSignal.timeout(10000), ...options,
+  headers: { 'X-Requested-With': 'lookout', ...(session ? { Cookie: session } : {}), ...(options.headers ?? {}) } });
+const sessionFrom = (response) => (response.headers.get('set-cookie') ?? '').split(';')[0];
 const json = (body) => ({ headers: { 'Content-Type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
 
 console.log(`Lookout — test de fumée sur ${base}`);
@@ -50,6 +54,33 @@ await check('les fichiers sont revalidés par ETag (pas de vieille version en ca
   expect(etag && first.headers.get('cache-control') === 'no-cache', 'ETag ou Cache-Control manquant');
   expect((await request('/app.js', { headers: { 'If-None-Match': etag } })).status === 304, 'pas de réponse 304 pour un fichier inchangé');
   expect((await request('/app.js', { headers: { 'If-None-Match': '"autre"' } })).status === 200, 'un fichier modifié doit être renvoyé');
+});
+
+// --- Comptes : une installation neuve n'a aucun compte, et rien n'est accessible sans connexion ---
+const ADMIN = { name: 'Admin de test', password: 'motdepasse-de-test' };
+await check("installation neuve : aucun compte, création de l'administrateur proposée", async () => {
+  const state = await (await request('/api/auth/state')).json();
+  expect(state.setup === true && state.user === null, `état inattendu : ${JSON.stringify(state)}`);
+});
+await check('sans connexion, les réglages et les données sont refusés', async () => {
+  for (const path of ['/api/config', '/api/read', '/api/users', '/api/section/x']) {
+    expect((await request(path)).status === 401, `${path} accessible sans connexion`);
+  }
+});
+await check("une requête venue d'un autre site est refusée", async () => {
+  const response = await fetch(`${base}/api/auth/setup`, { method: 'POST', ...json(ADMIN) });   // sans l'en-tête de l'interface
+  expect(response.status === 403, `statut ${response.status}`);
+});
+await check("création de l'administrateur : session durable, témoin invisible pour les scripts", async () => {
+  expect((await request('/api/auth/setup', { method: 'POST', ...json({ name: 'x', password: 'court' }) })).status === 400, 'mot de passe trop court accepté');
+  const response = await request('/api/auth/setup', { method: 'POST', ...json(ADMIN) });
+  const header = response.headers.get('set-cookie') ?? '';
+  expect(response.status === 200 && /HttpOnly/i.test(header) && /SameSite=Lax/i.test(header), `témoin de session incorrect : ${header}`);
+  expect(Number(/Max-Age=(\d+)/.exec(header)?.[1]) > 300 * 24 * 3600, 'la session ne dure pas assez longtemps');
+  cookie = sessionFrom(response);
+  const state = await (await request('/api/auth/state')).json();
+  expect(state.user?.role === 'admin' && state.setup === false, 'le premier compte doit être administrateur');
+  expect((await request('/api/auth/setup', { method: 'POST', ...json({ name: 'autre', password: 'motdepasse2' }) })).status === 403, 'un second administrateur a pu se créer sans connexion');
 });
 
 let config;
@@ -96,6 +127,44 @@ await check('les clés enregistrées ne sont jamais renvoyées au navigateur', a
   expect(!(await (await request('/api/config')).text()).includes('••'), 'un masque subsiste après avoir vidé les champs');
 });
 
+// --- Profils : chacun ses réglages, seul l'administrateur les gère ---
+await check('profils : copie des réglages, indépendance, droits et mots de passe', async () => {
+  const me = (await (await request('/api/auth/state')).json()).user;
+  const marked = structuredClone(config);
+  marked.sections[0].title = 'Marque du profil admin';
+  await request('/api/config', { method: 'PUT', ...json(marked) });
+
+  const created = await request('/api/users', { method: 'POST', ...json({ name: 'Invitée', password: 'invitee-123', copyFrom: me.id }) });
+  expect(created.status === 200, `création refusée (${created.status})`);
+  const guest = await created.json();
+  expect(guest.role === 'user', 'un nouveau profil doit être un simple utilisateur');
+  expect((await request('/api/users', { method: 'POST', ...json({ name: 'invitée', password: 'autre-12345' }) })).status === 400, 'deux profils portent le même nom');
+
+  expect((await request('/api/auth/login', { method: 'POST', ...json({ name: 'Invitée', password: 'mauvais' }) }, '')).status === 401, 'mauvais mot de passe accepté');
+  const login = await request('/api/auth/login', { method: 'POST', ...json({ name: 'Invitée', password: 'invitee-123' }) }, '');
+  expect(login.status === 200, 'connexion du nouveau profil refusée');
+  const guestCookie = sessionFrom(login);
+
+  const copy = await (await request('/api/config', {}, guestCookie)).json();
+  expect(copy.sections[0].title === 'Marque du profil admin', 'les réglages ne sont pas une copie du profil choisi');
+  copy.sections[0].title = 'Modifié par le profil invité';
+  await request('/api/config', { method: 'PUT', ...json(copy) }, guestCookie);
+  expect((await (await request('/api/config')).json()).sections[0].title === 'Marque du profil admin', "un profil a modifié les réglages d'un autre");
+
+  expect((await request('/api/users', {}, guestCookie)).status === 403, 'un simple utilisateur voit la liste des profils');
+  expect((await request(`/api/users/${me.id}`, { method: 'DELETE' }, guestCookie)).status === 403, 'un simple utilisateur peut supprimer un profil');
+  expect((await request(`/api/users/${me.id}`, { method: 'DELETE' })).status === 400, 'un administrateur a pu supprimer son propre profil');
+  expect((await request(`/api/users/${me.id}`, { method: 'PATCH', ...json({ role: 'user' }) })).status === 400, 'le dernier administrateur a pu être rétrogradé');
+
+  // Mot de passe réinitialisé par l'administrateur : les appareils du profil sont déconnectés.
+  expect((await request(`/api/users/${guest.id}`, { method: 'PATCH', ...json({ password: 'nouveau-12345' }) })).status === 200, 'réinitialisation refusée');
+  expect((await request('/api/config', {}, guestCookie)).status === 401, "l'ancienne session survit au changement de mot de passe");
+  expect((await request(`/api/users/${guest.id}`, { method: 'DELETE' })).status === 200, 'suppression du profil refusée');
+  expect((await request('/api/auth/login', { method: 'POST', ...json({ name: 'Invitée', password: 'nouveau-12345' }) }, '')).status === 401, 'un profil supprimé peut encore se connecter');
+
+  await request('/api/config', { method: 'PUT', ...json(config) });   // remise en état
+});
+
 // Les requêtes malformées doivent être refusées proprement (4xx), jamais faire tomber le serveur.
 const malformed = [
   ['JSON invalide', '/api/config', { method: 'PUT', ...json('pas du json') }],
@@ -115,6 +184,14 @@ for (const [name, path, options] of malformed) {
     expect(status >= 400 && status < 500, `statut ${status}`);
   });
 }
+await check('déconnexion : la session ne donne plus accès à rien', async () => {
+  const before = cookie;
+  expect((await request('/api/auth/logout', { method: 'POST', ...json({}) })).status === 200, 'déconnexion refusée');
+  expect((await request('/api/config', {}, before)).status === 401, 'la session reste valide après la déconnexion');
+  const login = await request('/api/auth/login', { method: 'POST', ...json(ADMIN) }, '');
+  expect(login.status === 200, 'reconnexion refusée');
+  cookie = sessionFrom(login);
+});
 await check('le serveur est toujours en vie après les requêtes malformées', async () => {
   expect((await request('/healthz')).status === 200, 'le serveur ne répond plus');
   const after = await (await request('/api/config')).json();

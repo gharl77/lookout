@@ -12,6 +12,7 @@ nouvelles techno sur une seule page. Tout se configure dans l'interface web — 
 taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 
 - Un seul petit conteneur, sans base de données ni dépendance externe
+- Multiutilisateur : chaque personne a un profil avec ses propres sections, sources et préférences
 - Fonctionne dans n'importe quel navigateur ; sur iPhone, s'ajoute à l'écran d'accueil comme une app
 - Thèmes clair et sombre, couleur d'accent, densité et nombre de colonnes réglables
 - Plusieurs pages (onglets), disposition par glisser-déposer avec annulation, et pastille sur les articles parus depuis votre dernière visite
@@ -78,16 +79,32 @@ Ouvrez ensuite `http://<ip-du-serveur>:8765` et cliquez sur l'engrenage pour con
 
 | Chemin dans le conteneur | Description |
 |---|---|
-| `/data` | Configuration (`config.json`), état de lecture (`read.json`) et cache de géocodage (`geocode.json`) |
+| `/data` | Comptes (`users.json`), sessions ouvertes (`sessions.json`), un dossier par profil (`profiles/<id>/` : réglages et état de lecture) et le cache de géocodage |
 
 ### Variables d'environnement
 
 | Variable | Défaut | Description |
 |---|---|---|
 | `TZ` | `Etc/UTC` | Fuseau horaire, qui détermine ce qu'est « aujourd'hui » pour les pointages (ex. `America/Toronto`) |
-| `LOOKOUT_PASSWORD` | *(aucun)* | Si défini, l'interface demande ce mot de passe (authentification HTTP Basic) |
+| `LOOKOUT_ADMIN_USER`, `LOOKOUT_ADMIN_PASSWORD` | *(aucun)* | Créent le compte administrateur au premier démarrage plutôt que dans le navigateur |
+| `LOOKOUT_PASSWORD` | *(aucun)* | Barrière supplémentaire facultative devant tout le reste (authentification HTTP Basic), en plus des comptes |
 | `LOOKOUT_USER` | `lookout` | Nom d'utilisateur associé à `LOOKOUT_PASSWORD` |
 | `PORT` | `8080` | Port d'écoute du serveur dans le conteneur |
+
+## Comptes et profils
+
+Lookout est multiutilisateur. À la première visite, il demande de créer le compte **administrateur** ; une
+installation existante à un seul utilisateur devient le profil de ce compte, réglages intacts.
+
+- **Profils** : l'administrateur en crée un par personne (Réglages → Profils), à partir des réglages de départ
+  ou en copie d'un autre profil. Il peut aussi réinitialiser un mot de passe, remplacer les réglages d'un profil
+  par une copie de ceux d'un autre, ou le supprimer. Chacun modifie ses propres sections, sources et préférences.
+- **Rester connecté** : une fois connecté sur un appareil, on le reste — malgré les redémarrages et les mises à
+  jour — jusqu'à ce qu'on se déconnecte ou que le mot de passe change. Les formulaires sont standards : le
+  navigateur ou le gestionnaire de mots de passe peut enregistrer le mot de passe.
+- **Les mots de passe** sont enregistrés hachés (scrypt), jamais en clair. Les sessions utilisent un témoin `HttpOnly`.
+- **Créez l'administrateur sans tarder.** Tant qu'il n'existe pas, la première personne qui ouvre la page peut le
+  créer. Définissez `LOOKOUT_ADMIN_USER` et `LOOKOUT_ADMIN_PASSWORD` pour le créer au démarrage.
 
 ## Utilisateur et permissions
 
@@ -119,13 +136,14 @@ Dans Portainer : ouvrez le stack et choisissez **Re-pull image and redeploy**.
 
 ## Sauvegarde
 
-Tout se trouve dans le volume `/data`. Copiez ce dossier, ou utilisez **Réglages → Données → Exporter** pour
-télécharger la configuration en JSON, importable dans une autre instance.
+Tout se trouve dans le volume `/data` : copiez ce dossier pour sauvegarder tous les profils. Chacun peut aussi
+utiliser **Réglages → Données → Exporter** pour télécharger sa propre configuration en JSON.
 
 ## Sécurité
 
-Lookout est prévu pour un réseau domestique. Quiconque peut l'atteindre peut lire le tableau de bord et
-modifier ses réglages.
+Lookout est prévu pour un réseau domestique. Chaque profil est protégé par son mot de passe, mais utilisez
+HTTPS (par un proxy inverse) si le réseau n'est pas entièrement de confiance : sans lui, les mots de passe
+circulent en clair.
 
 Les clés d'API et les jetons que vous entrez sont en écriture seule : le serveur ne les renvoie jamais au
 navigateur (l'interface affiche un masque à la place) et ils sont absents des fichiers exportés. Ils sont
@@ -133,7 +151,6 @@ enregistrés en clair dans `config.json` : protégez le dossier `/data` comme to
 
 - Ne l'exposez pas directement sur Internet ; passez par un VPN ou un proxy inverse avec HTTPS.
 - Les proxys qui mettent les fichiers statiques en cache (comme l'option « Cache Assets » de Nginx Proxy Manager) ne posent pas de problème : les fichiers de l'interface sont servis à une adresse qui change à chaque version.
-- Définissez `LOOKOUT_PASSWORD` si d'autres personnes partagent votre réseau.
 
 ## Exemple renforcé
 

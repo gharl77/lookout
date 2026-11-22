@@ -1,5 +1,6 @@
 // Briefing — tableau de bord.
-import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay } from './ui.js';
+import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay, whenSignedOut } from './ui.js';
+import { showAuth, signOut } from './auth.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
 import { KINDS, template, fetchSignature } from './shared.js';
@@ -621,6 +622,7 @@ new ResizeObserver(scheduleLayout).observe($('grid'));
 
 // --- Démarrage ---
 const app = {
+  user: null,
   version: '',
   build: '',
   state, commit, saveNow, loadSection, refreshAll, restartTimer, renderAll, currentPage,
@@ -634,6 +636,21 @@ const app = {
   },
 };
 
+/** Pastille du compte, en haut à droite : initiale du nom, menu du compte. */
+function renderUserButton() {
+  const button = $('btn-user');
+  button.hidden = false;
+  button.textContent = app.user.name.charAt(0).toUpperCase();
+  button.title = app.user.name;
+  button.onclick = () => openMenu(button, [
+    { heading: app.user.name },
+    { label: 'Mon compte…', icon: icon('user'), action: () => openSettings(app, { tab: 'account' }) },
+    app.user.role === 'admin' && { label: 'Profils…', icon: icon('users'), action: () => openSettings(app, { tab: 'users' }) },
+    '-',
+    { label: 'Se déconnecter', icon: icon('signout'), action: signOut },
+  ]);
+}
+
 $('btn-refresh').append(icon('refresh'));
 $('btn-edit').append(icon('grid'));
 $('btn-settings').append(icon('gear-bold'));
@@ -641,13 +658,25 @@ $('btn-refresh').addEventListener('click', () => refreshAll());
 $('btn-edit').addEventListener('click', () => setEditing(!state.editing));
 $('btn-settings').addEventListener('click', () => openSettings(app));
 document.addEventListener('keydown', (e) => {
-  if (hasOverlay() || e.target.matches('input, textarea, select')) return;
+  if (hasOverlay() || e.target.matches?.('input, textarea, select')) return;
   if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) refreshAll();
   if (e.key === ',' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSettings(app); }
 });
 
 (async () => {
   try {
+    // Qui est là ? Sans session, on affiche la connexion (ou la création de l'administrateur) et on s'arrête.
+    language = resolveLang('auto', navigator.languages ?? [navigator.language]);
+    document.documentElement.lang = language;
+    const auth = await api('/api/auth/state');
+    if (!auth.user) {
+      // Pas encore de réglages à appliquer : l'écran de connexion suit le thème de l'appareil.
+      Object.assign(document.documentElement.dataset, { theme: darkQuery.matches ? 'dark' : 'light', tinted: 'true' });
+      return showAuth(auth);
+    }
+    app.user = auth.user;
+    whenSignedOut(() => location.reload());
+    renderUserButton();
     const [config, read, about] = await Promise.all([api('/api/config'), api('/api/read'), api('/api/about')]);
     app.version = about.version;
     // Version de l'interface réellement chargée : elle est dans l'adresse de ce script (« /v/<empreinte>/app.js »).

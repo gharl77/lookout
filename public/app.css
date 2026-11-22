@@ -81,6 +81,28 @@ svg.icon { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
 .tool.spinning svg { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* --- Compte : pastille et écran de connexion --- */
+.tool.avatar { width: 34px; margin-left: 2px; font-size: 14px; font-weight: 700; color: #fff; background: var(--accent); }
+.tool.avatar:hover { background: var(--accent); filter: brightness(1.1); }
+.avatar-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 13px; font-weight: 700;
+  color: #fff; background: var(--accent); }
+body.signed-out #topbar, body.signed-out #main { display: none; }
+.auth-screen { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); }
+.auth-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 28px 24px; border-radius: 22px;
+  background: var(--card); border: 0.5px solid var(--sep); box-shadow: var(--shadow); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+.auth-card img { align-self: center; border-radius: 16px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); }
+.auth-card h1 { margin: 0; text-align: center; font: 800 26px/1.2 ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; letter-spacing: -0.02em; }
+.auth-card p { margin: 0; text-align: center; font-size: 14px; color: var(--text2); }
+.auth-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 500; color: var(--text2); }
+.auth-field .field { padding: 10px 12px; font-size: 16px; color: var(--text); }
+.auth-card .btn.primary { justify-content: center; padding: 11px; font-size: 16px; border-radius: 11px; }
+.auth-error { color: #ef4444 !important; font-weight: 500; }
+.auth-note { font-size: 12px !important; }
+.auth-profiles { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.auth-profile { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 5px; border-radius: 999px; font-size: 14px; font-weight: 500;
+  background: var(--fill); border: 1.5px solid transparent; }
+.auth-profile[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
 /* --- En-tête --- */
 #main { max-width: 1900px; margin: 0 auto;
   padding: 18px calc(24px + env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left)); }
