@@ -17,6 +17,7 @@ import { redact, restoreSecrets } from './lib/secrets.js';
 import { Accounts, AUTH_EPOCH, SESSION_COOKIE, SESSION_MAX_AGE } from './lib/accounts.js';
 import { Push, cleanSubscription } from './lib/push.js';
 import { startWatcher } from './lib/notify.js';
+import { resolveChannel } from './lib/youtube.js';
 
 installDnsCache();
 
@@ -448,6 +449,7 @@ async function api(req, res, url) {
     if (Array.isArray(body?.remove)) return send(res, 200, accounts.dropArticles(user.id, body.remove.map(String)));
     throw new BriefingError('JSON invalide');
   }
+  if (route === 'GET /api/youtube/channel') return send(res, 200, await resolveChannel(q.get('q')));
   if (route === 'GET /api/weather/search') return send(res, 200, await searchPlaces(q.get('q') ?? ''));
   if (route === 'GET /api/teams') {
     const section = findSection(q.get('section'));

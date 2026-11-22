@@ -21,32 +21,201 @@ export const KINDS = {
 
 export const SWATCHES = ['#EF4444', '#F97316', '#F59E0B', '#22C55E', '#10B981', '#14B8A6', '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#64748B'];
 
+/**
+ * Catalogue de fils RSS, par catégorie. Chaque fil : [nom, adresse, langue]. Chaque catégorie peut aussi devenir
+ * une section prête à l'emploi (icône, couleur, premiers fils dans la langue de l'interface).
+ * Tous ces fils ont été vérifiés avec le lecteur de Lookout ; un site peut bien sûr changer d'adresse plus tard.
+ */
 export const FEED_CATALOG = [
-  { name: 'Actualités', feeds: [
-    ['Radio-Canada – À la une', 'https://ici.radio-canada.ca/rss/4159'],
-    ['Radio-Canada – En continu', 'https://ici.radio-canada.ca/rss/1000524'],
-    ['La Presse', 'https://www.lapresse.ca/actualites/rss'],
-    ['Le Devoir', 'https://www.ledevoir.com/rss/manchettes.xml'],
-    ['Le Journal de Montréal', 'https://www.journaldemontreal.com/rss.xml'],
-    ['CBC Top Stories', 'https://www.cbc.ca/webfeed/rss/rss-topstories'] ] },
-  { name: 'International', feeds: [
-    ['Le Monde', 'https://www.lemonde.fr/rss/une.xml'],
-    ['BBC World', 'https://feeds.bbci.co.uk/news/world/rss.xml'] ] },
-  { name: 'Techno', feeds: [
-    ['Numerama', 'https://www.numerama.com/feed/'],
-    ['MacGeneration', 'https://www.macg.co/news/feed'],
-    ['The Verge', 'https://www.theverge.com/rss/index.xml'],
-    ['Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index'],
-    ['9to5Mac', 'https://9to5mac.com/feed/'],
-    ['TechCrunch', 'https://techcrunch.com/feed/'],
-    ['Hacker News', 'https://hnrss.org/frontpage'] ] },
-  { name: 'Sports', feeds: [
-    ['La Presse – Sports', 'https://www.lapresse.ca/sports/rss'],
-    ['Radio-Canada – Sports', 'https://ici.radio-canada.ca/rss/771'] ] },
-  { name: 'Économie', feeds: [
-    ['Radio-Canada – Économie', 'https://ici.radio-canada.ca/rss/5717'],
-    ['La Presse – Affaires', 'https://www.lapresse.ca/affaires/rss'] ] },
+  { name: 'Actualités', icon: 'newspaper.fill', color: '#EF4444', feeds: [
+    ['Radio-Canada – À la une', 'https://ici.radio-canada.ca/rss/4159', 'fr'],
+    ['Radio-Canada – En continu', 'https://ici.radio-canada.ca/rss/1000524', 'fr'],
+    ['Radio-Canada – Grand Montréal', 'https://ici.radio-canada.ca/rss/4201', 'fr'],
+    ['La Presse', 'https://www.lapresse.ca/actualites/rss', 'fr'],
+    ['Le Devoir', 'https://www.ledevoir.com/rss/manchettes.xml', 'fr'],
+    ['Le Journal de Montréal', 'https://www.journaldemontreal.com/rss.xml', 'fr'],
+    ['TVA Nouvelles', 'https://www.tvanouvelles.ca/rss.xml', 'fr'],
+    ["L'actualité", 'https://lactualite.com/feed/', 'fr'],
+    ['CBC Top Stories', 'https://www.cbc.ca/webfeed/rss/rss-topstories', 'en'],
+    ['CBC Montreal', 'https://www.cbc.ca/webfeed/rss/rss-canada-montreal', 'en'],
+    ['The Globe and Mail', 'https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/canada/', 'en'],
+    ['Global News', 'https://globalnews.ca/feed/', 'en'] ] },
+  { name: 'International', icon: 'globe.americas.fill', color: '#14B8A6', feeds: [
+    ['Le Monde', 'https://www.lemonde.fr/rss/une.xml', 'fr'],
+    ['Radio-Canada – International', 'https://ici.radio-canada.ca/rss/96', 'fr'],
+    ['La Presse – International', 'https://www.lapresse.ca/international/rss', 'fr'],
+    ['Le Devoir – Monde', 'https://www.ledevoir.com/rss/section/monde.xml', 'fr'],
+    ['France 24', 'https://www.france24.com/fr/rss', 'fr'],
+    ['RFI', 'https://www.rfi.fr/fr/rss', 'fr'],
+    ['Courrier international', 'https://www.courrierinternational.com/feed/all/rss.xml', 'fr'],
+    ['BBC World', 'https://feeds.bbci.co.uk/news/world/rss.xml', 'en'],
+    ['The Guardian – World', 'https://www.theguardian.com/world/rss', 'en'],
+    ['NYT – World', 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', 'en'],
+    ['NPR – World', 'https://feeds.npr.org/1004/rss.xml', 'en'],
+    ['Al Jazeera', 'https://www.aljazeera.com/xml/rss/all.xml', 'en'] ] },
+  { name: 'Politique', icon: 'building.columns.fill', color: '#64748B', feeds: [
+    ['Radio-Canada – Politique', 'https://ici.radio-canada.ca/rss/4175', 'fr'],
+    ['La Presse – Politique', 'https://www.lapresse.ca/actualites/politique/rss', 'fr'],
+    ['Le Devoir – Politique', 'https://www.ledevoir.com/rss/section/politique.xml', 'fr'],
+    ['CBC – Politics', 'https://www.cbc.ca/webfeed/rss/rss-politics', 'en'],
+    ['Politico', 'https://rss.politico.com/politics-news.xml', 'en'] ] },
+  { name: 'Économie', icon: 'chart.line.uptrend.xyaxis', color: '#22C55E', feeds: [
+    ['Radio-Canada – Économie', 'https://ici.radio-canada.ca/rss/5717', 'fr'],
+    ['La Presse – Affaires', 'https://www.lapresse.ca/affaires/rss', 'fr'],
+    ['Les Affaires', 'https://www.lesaffaires.com/rss/', 'fr'],
+    ['Le Devoir – Économie', 'https://www.ledevoir.com/rss/section/economie.xml', 'fr'],
+    ['CBC – Business', 'https://www.cbc.ca/webfeed/rss/rss-business', 'en'],
+    ['Bloomberg – Markets', 'https://feeds.bloomberg.com/markets/news.rss', 'en'],
+    ['CNBC', 'https://www.cnbc.com/id/100003114/device/rss/rss.html', 'en'] ] },
+  { name: 'Techno', icon: 'cpu.fill', color: '#6366F1', feeds: [
+    ['Numerama', 'https://www.numerama.com/feed/', 'fr'],
+    ['MacGeneration', 'https://www.macg.co/news/feed', 'fr'],
+    ['Radio-Canada – Techno', 'https://ici.radio-canada.ca/rss/4169', 'fr'],
+    ['Frandroid', 'https://www.frandroid.com/feed', 'fr'],
+    ['Le Journal du Geek', 'https://www.journaldugeek.com/feed/', 'fr'],
+    ['Next', 'https://next.ink/feed/', 'fr'],
+    ['Korben', 'https://korben.info/feed', 'fr'],
+    ['The Verge', 'https://www.theverge.com/rss/index.xml', 'en'],
+    ['Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index', 'en'],
+    ['9to5Mac', 'https://9to5mac.com/feed/', 'en'],
+    ['MacRumors', 'https://feeds.macrumors.com/MacRumorsAll', 'en'],
+    ['TechCrunch', 'https://techcrunch.com/feed/', 'en'],
+    ['Wired', 'https://www.wired.com/feed/rss', 'en'],
+    ['Engadget', 'https://www.engadget.com/rss.xml', 'en'],
+    ['Hacker News', 'https://hnrss.org/frontpage', 'en'] ] },
+  { name: 'Intelligence artificielle', icon: 'bolt.fill', color: '#8B5CF6', feeds: [
+    ['The Verge – AI', 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', 'en'],
+    ['Ars Technica – AI', 'https://arstechnica.com/ai/feed/', 'en'],
+    ['MIT Technology Review – AI', 'https://www.technologyreview.com/topic/artificial-intelligence/feed', 'en'],
+    ['Simon Willison', 'https://simonwillison.net/atom/everything/', 'en'] ] },
+  { name: 'Science', icon: 'atom', color: '#0EA5E9', feeds: [
+    ['Radio-Canada – Science', 'https://ici.radio-canada.ca/rss/4165', 'fr'],
+    ['Futura', 'https://www.futura-sciences.com/rss/actualites.xml', 'fr'],
+    ['Sciences et Avenir', 'https://www.sciencesetavenir.fr/rss.xml', 'fr'],
+    ['Québec Science', 'https://www.quebecscience.qc.ca/feed/', 'fr'],
+    ['Agence Science-Presse', 'https://www.sciencepresse.qc.ca/rss.xml', 'fr'],
+    ['Phys.org', 'https://phys.org/rss-feed/', 'en'],
+    ['Science Daily', 'https://www.sciencedaily.com/rss/top/science.xml', 'en'],
+    ['Nature', 'https://www.nature.com/nature.rss', 'en'] ] },
+  { name: 'Espace', icon: 'star.fill', color: '#3B82F6', feeds: [
+    ['Ciel & Espace', 'https://www.cieletespace.fr/rss.xml', 'fr'],
+    ['NASA', 'https://www.nasa.gov/feed/', 'en'],
+    ['Space.com', 'https://www.space.com/feeds/all', 'en'],
+    ['Universe Today', 'https://www.universetoday.com/feed/', 'en'],
+    ['SpaceNews', 'https://spacenews.com/feed/', 'en'] ] },
+  { name: 'Santé', icon: 'cross.case.fill', color: '#EC4899', feeds: [
+    ['Radio-Canada – Santé', 'https://ici.radio-canada.ca/rss/4171', 'fr'],
+    ['La Presse – Santé', 'https://www.lapresse.ca/actualites/sante/rss', 'fr'],
+    ['BBC – Health', 'https://feeds.bbci.co.uk/news/health/rss.xml', 'en'],
+    ['NYT – Health', 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml', 'en'] ] },
+  { name: 'Environnement', icon: 'leaf.fill', color: '#10B981', feeds: [
+    ['Radio-Canada – Environnement', 'https://ici.radio-canada.ca/rss/92408', 'fr'],
+    ['La Presse – Environnement', 'https://www.lapresse.ca/actualites/environnement/rss', 'fr'],
+    ['Reporterre', 'https://reporterre.net/spip.php?page=backend', 'fr'],
+    ['The Guardian – Environment', 'https://www.theguardian.com/environment/rss', 'en'] ] },
+  { name: 'Sports', icon: 'sportscourt.fill', color: '#F59E0B', feeds: [
+    ['La Presse – Sports', 'https://www.lapresse.ca/sports/rss', 'fr'],
+    ['Radio-Canada – Sports', 'https://ici.radio-canada.ca/rss/771', 'fr'],
+    ['Le Devoir – Sports', 'https://www.ledevoir.com/rss/section/sports.xml', 'fr'],
+    ['DansLesCoulisses', 'https://www.danslescoulisses.com/feed/', 'fr'],
+    ["L'Équipe", 'https://dwh.lequipe.fr/api/edito/rss?path=/', 'fr'],
+    ['ESPN', 'https://www.espn.com/espn/rss/news', 'en'],
+    ['BBC Sport', 'https://feeds.bbci.co.uk/sport/rss.xml', 'en'],
+    ['Habs Eyes on the Prize', 'https://www.habseyesontheprize.com/rss/index.xml', 'en'] ] },
+  { name: 'Culture', icon: 'star.fill', color: '#EC4899', feeds: [
+    ['Radio-Canada – Arts', 'https://ici.radio-canada.ca/rss/4167', 'fr'],
+    ['La Presse – Arts', 'https://www.lapresse.ca/arts/rss', 'fr'],
+    ['Le Devoir – Culture', 'https://www.ledevoir.com/rss/section/culture.xml', 'fr'],
+    ['Le Monde – Culture', 'https://www.lemonde.fr/culture/rss_full.xml', 'fr'],
+    ['CBC – Arts', 'https://www.cbc.ca/webfeed/rss/rss-arts', 'en'],
+    ['The Guardian – Culture', 'https://www.theguardian.com/culture/rss', 'en'],
+    ['NYT – Arts', 'https://rss.nytimes.com/services/xml/rss/nyt/Arts.xml', 'en'] ] },
+  { name: 'Films', icon: 'film.fill', color: '#F97316', feeds: [
+    ['La Presse – Cinéma', 'https://www.lapresse.ca/cinema/rss', 'fr'],
+    ['Radio-Canada – Cinéma', 'https://ici.radio-canada.ca/rss/1000229', 'fr'],
+    ['Le Devoir – Cinéma', 'https://www.ledevoir.com/rss/section/culture/cinema.xml', 'fr'],
+    ['AlloCiné – Cinéma', 'https://www.allocine.fr/rss/news-cine.xml', 'fr'],
+    ['Écran Large', 'https://www.ecranlarge.com/rss', 'fr'],
+    ['Variety – Film', 'https://variety.com/v/film/feed/', 'en'],
+    ['Deadline', 'https://deadline.com/feed/', 'en'],
+    ['The Hollywood Reporter', 'https://www.hollywoodreporter.com/feed/', 'en'],
+    ['IndieWire', 'https://www.indiewire.com/feed/', 'en'],
+    ['/Film', 'https://www.slashfilm.com/feed/', 'en'],
+    ['Collider', 'https://collider.com/feed/', 'en'] ] },
+  { name: 'Séries et télé', icon: 'desktopcomputer', color: '#8B5CF6', feeds: [
+    ['La Presse – Télé', 'https://www.lapresse.ca/arts/television/rss', 'fr'],
+    ['AlloCiné – Séries', 'https://www.allocine.fr/rss/news-series.xml', 'fr'],
+    ['Le Devoir – Écrans', 'https://www.ledevoir.com/rss/section/culture/ecrans.xml', 'fr'],
+    ['Numerama – Pop culture', 'https://www.numerama.com/pop-culture/feed/', 'fr'],
+    ['HollywoodPQ', 'https://hollywoodpq.com/feed/', 'fr'],
+    ['Variety – TV', 'https://variety.com/v/tv/feed/', 'en'],
+    ['TVLine', 'https://tvline.com/feed/', 'en'] ] },
+  { name: 'Musique', icon: 'music.note', color: '#EC4899', feeds: [
+    ['La Presse – Musique', 'https://www.lapresse.ca/arts/musique/rss', 'fr'],
+    ['Le Devoir – Musique', 'https://www.ledevoir.com/rss/section/culture/musique.xml', 'fr'],
+    ['Pitchfork', 'https://pitchfork.com/feed/feed-news/rss', 'en'],
+    ['Rolling Stone – Music', 'https://www.rollingstone.com/music/feed/', 'en'],
+    ['Stereogum', 'https://www.stereogum.com/feed/', 'en'],
+    ['Consequence', 'https://consequence.net/feed/', 'en'],
+    ['NME', 'https://www.nme.com/feed', 'en'] ] },
+  { name: 'Livres', icon: 'book.fill', color: '#F59E0B', feeds: [
+    ['La Presse – Littérature', 'https://www.lapresse.ca/arts/litterature/rss', 'fr'],
+    ['Radio-Canada – Livres', 'https://ici.radio-canada.ca/rss/1000083', 'fr'],
+    ['The Guardian – Books', 'https://www.theguardian.com/books/rss', 'en'],
+    ['NYT – Books', 'https://rss.nytimes.com/services/xml/rss/nyt/Books.xml', 'en'],
+    ['Literary Hub', 'https://lithub.com/feed/', 'en'] ] },
+  { name: 'Jeux vidéo', icon: 'gamecontroller.fill', color: '#22C55E', feeds: [
+    ['Jeuxvideo.com', 'https://www.jeuxvideo.com/rss/rss.xml', 'fr'],
+    ['Gamekult', 'https://www.gamekult.com/feed.xml', 'fr'],
+    ['IGN', 'https://feeds.feedburner.com/ign/all', 'en'],
+    ['Polygon', 'https://www.polygon.com/rss/index.xml', 'en'],
+    ['Eurogamer', 'https://www.eurogamer.net/feed', 'en'],
+    ['Kotaku', 'https://kotaku.com/rss', 'en'],
+    ['PC Gamer', 'https://www.pcgamer.com/rss/', 'en'],
+    ['Nintendo Life', 'https://www.nintendolife.com/feeds/latest', 'en'],
+    ['Rock Paper Shotgun', 'https://www.rockpapershotgun.com/feed', 'en'] ] },
+  { name: 'Auto', icon: 'car.fill', color: '#64748B', feeds: [
+    ['La Presse – Auto', 'https://www.lapresse.ca/auto/rss', 'fr'],
+    ['Roulez Électrique', 'https://roulezelectrique.com/feed/', 'fr'],
+    ['AutoHebdo', 'https://www.autohebdo.fr/rss', 'fr'],
+    ['Electrek', 'https://electrek.co/feed/', 'en'],
+    ['Motor1', 'https://www.motor1.com/rss/news/all/', 'en'],
+    ['Car and Driver', 'https://www.caranddriver.com/rss/all.xml/', 'en'] ] },
+  { name: 'Cuisine', icon: 'fork.knife', color: '#F97316', feeds: [
+    ['La Presse – Gourmand', 'https://www.lapresse.ca/gourmand/rss', 'fr'],
+    ['Trois fois par jour', 'https://www.troisfoisparjour.com/fr/feed/', 'fr'],
+    ['Bon Appétit', 'https://www.bonappetit.com/feed/rss', 'en'],
+    ['Smitten Kitchen', 'https://smittenkitchen.com/feed/', 'en'] ] },
+  { name: 'Voyage', icon: 'airplane', color: '#0EA5E9', feeds: [
+    ['La Presse – Voyage', 'https://www.lapresse.ca/voyage/rss', 'fr'],
+    ['The Guardian – Travel', 'https://www.theguardian.com/travel/rss', 'en'],
+    ['NYT – Travel', 'https://rss.nytimes.com/services/xml/rss/nyt/Travel.xml', 'en'],
+    ['Condé Nast Traveler', 'https://www.cntraveler.com/feed/rss', 'en'] ] },
+  { name: 'Maison et art de vivre', icon: 'house.fill', color: '#14B8A6', feeds: [
+    ['La Presse – Maison', 'https://www.lapresse.ca/maison/rss', 'fr'],
+    ['La Presse – Société', 'https://www.lapresse.ca/societe/rss', 'fr'],
+    ['Apartment Therapy', 'https://www.apartmenttherapy.com/main.rss', 'en'],
+    ['Dezeen', 'https://www.dezeen.com/feed/', 'en'] ] },
+  { name: 'Photo et design', icon: 'bookmark.fill', color: '#6366F1', feeds: [
+    ['Phototrend', 'https://phototrend.fr/feed/', 'fr'],
+    ['PetaPixel', 'https://petapixel.com/feed/', 'en'],
+    ['DPReview', 'https://www.dpreview.com/feeds/news.xml', 'en'],
+    ['Colossal', 'https://www.thisiscolossal.com/feed/', 'en'],
+    ['Creative Bloq', 'https://www.creativebloq.com/feeds/all', 'en'] ] },
+  { name: 'Humour', icon: 'megaphone.fill', color: '#F59E0B', feeds: [
+    ['Le Gorafi', 'https://www.legorafi.fr/feed/', 'fr'],
+    ['The Beaverton', 'https://www.thebeaverton.com/feed/', 'en'],
+    ['The Onion', 'https://theonion.com/feed/', 'en'],
+    ['xkcd', 'https://xkcd.com/rss.xml', 'en'] ] },
 ];
+
+/** Section de fils prête à l'emploi pour une catégorie : ses trois premiers fils dans la langue donnée (sinon les premiers). */
+export function categorySection(category, lang = 'fr') {
+  const own = category.feeds.filter((f) => f[2] === lang), picked = (own.length ? own : category.feeds).slice(0, 3);
+  const s = newSection('feed', { title: category.name, icon: category.icon, colorHex: category.color });
+  s.feed.sources = picked.map(([name, url]) => feedSource(name, url));
+  return s;
+}
 
 export const LEAGUES = {
   espn: [['LNH', 'hockey/nhl'], ['NFL', 'football/nfl'], ['NBA', 'basketball/nba'], ['MLB', 'baseball/mlb'], ['MLS', 'soccer/usa.1'],
@@ -81,7 +250,8 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
   notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false };   // ce qui déclenche une notification                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '',
-  notify: false };   // notification à chaque nouvel article (sur les appareils abonnés)
+  notify: false,     // notification à chaque nouvel article (sur les appareils abonnés)
+  youtube: false };  // section YouTube : les sources sont des chaînes
 const WEATHER = { locationName: 'Montréal, Québec', latitude: 45.5019, longitude: -73.5674, showDetails: true,
   showHourly: true, hourlyCount: 12, showDaily: true, dailyCount: 7, showAlerts: true };
 const COMMUTE = { routes: [], provider: 'osrm', showAlternates: true, tomtomKey: '', hassURL: '', hassToken: '' };
@@ -120,6 +290,37 @@ export function newSection(kind, overrides = {}) {
     page: '',     // page du tableau de bord (vide = première page)
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API), ...overrides };
+}
+
+// --- YouTube : chaque chaîne a un fil de ses dernières vidéos, sans clé ni compte ---
+const YT_FEED = 'https://www.youtube.com/feeds/videos.xml';
+/** Adresse du fil d'une chaîne. `videosOnly` : la liste « vidéos » de la chaîne, sans les Shorts ni les directs. */
+export const youtubeFeedURL = (channelID, videosOnly = false) => (videosOnly ? `${YT_FEED}?playlist_id=UULF${channelID.slice(2)}` : `${YT_FEED}?channel_id=${channelID}`);
+/** Identifiant de chaîne contenu dans l'adresse d'un fil YouTube, ou null. */
+export const youtubeChannelID = (url) => /channel_id=(UC[\w-]{22})/.exec(url)?.[1] ?? (/playlist_id=UULF([\w-]{22})/.exec(url) ? `UC${/playlist_id=UULF([\w-]{22})/.exec(url)[1]}` : null);
+
+/** Section YouTube : des vignettes, les plus récentes d'abord, sur deux colonnes. */
+export function youtubeSection() {
+  const s = newSection('feed', { title: 'YouTube', icon: 'film.fill', colorHex: '#EF4444', span: 2, maxItems: 8 });
+  Object.assign(s.feed, { youtube: true, layout: 'grid', ordering: 'newest', maxAgeHours: 168, showSource: true });
+  return s;
+}
+
+/**
+ * Chaînes d'un export Google Takeout (« abonnements.csv » / « subscriptions.csv ») : identifiant, adresse, titre.
+ * Renvoie [{ id, name }]. Les lignes qui ne ressemblent pas à une chaîne sont ignorées.
+ */
+export function parseSubscriptions(text) {
+  const channels = new Map();
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const id = /(?:^|,|\/channel\/)(UC[\w-]{22})(?=,|$|")/.exec(line)?.[1];
+    if (!id || channels.has(id)) continue;
+    // Le titre est la dernière colonne ; il peut être entre guillemets s'il contient une virgule.
+    const quoted = /,"((?:[^"]|"")*)"\s*$/.exec(line), plainTitle = /,([^,"]*)\s*$/.exec(line);
+    const name = (quoted ? quoted[1].replace(/""/g, '"') : plainTitle?.[1] ?? '').trim();
+    channels.set(id, { id, name: /^https?:|^UC[\w-]{22}$/.test(name) || !name ? id : name });
+  }
+  return [...channels.values()];
 }
 
 /** Nouvelle section prête à l'emploi pour un type donné. */

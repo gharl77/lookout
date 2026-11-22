@@ -1,9 +1,27 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid, SECRET_MASK } from './shared.js';
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid, SECRET_MASK,
+  categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions } from './shared.js';
 
 let closeCurrent = null;
+
+/**
+ * Menu « Ajouter une section » : les types de section, YouTube, puis les catégories de fils prêtes à l'emploi.
+ * `add(section)` reçoit la section créée (titre déjà dans la langue de l'interface).
+ */
+export function addSectionMenu(anchor, add) {
+  const lang = document.documentElement.lang;
+  const ready = (s) => { s.title = t(s.title); add(s); };
+  openMenu(anchor, [
+    ...Object.entries(KINDS).map(([kind, k]) => ({ label: k.label, detail: k.detail, icon: sfIcon(k.icon), action: () => ready(template(kind)) })),
+    { label: 'YouTube', detail: 'Dernières vidéos de vos chaînes et abonnements', icon: sfIcon('film.fill'), action: () => ready(youtubeSection()) },
+    '-',
+    { label: 'Fils par catégorie…', detail: 'Films, séries, culture, science, jeux vidéo…', icon: sfIcon('tag.fill'), action: () => openMenu(anchor, [
+      { heading: 'Section prête à l’emploi' },
+      ...FEED_CATALOG.map((c) => ({ label: c.name, icon: sfIcon(c.icon), action: () => ready(categorySection(c, lang)) }))]) },
+  ]);
+}
 
 export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   if (app.viewing) return;   // profil d'un autre, en lecture seule : aucun réglage à modifier
@@ -90,6 +108,51 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     ], KINDS[s.kind].detail);
   }
 
+  // --- YouTube : les sources sont des chaînes ---
+  const youtube = { note: null, busy: false };
+  function youtubeSources(s) {
+    const list = s.feed.sources, o = s.feed;
+    const videosOnly = list.length > 0 && list.every((src) => !youtubeChannelID(src.url) || src.url.includes('playlist_id='));
+    const has = (id) => list.some((src) => youtubeChannelID(src.url) === id);
+    const say = (text, ok = false) => { youtube.note = { text, ok }; render(); };
+    const input = h('input', { class: 'field', placeholder: t('Adresse de la chaîne ou @nom'), 'aria-label': 'Adresse de la chaîne ou @nom', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false' });
+    const addChannel = async (e) => {
+      e.preventDefault();
+      if (!input.value.trim() || youtube.busy) return;
+      youtube.busy = true;
+      try {
+        const channel = await api(`/api/youtube/channel?q=${encodeURIComponent(input.value.trim())}`);
+        if (has(channel.id)) say(t('{0} est déjà dans la liste.', channel.name));
+        else { list.push(feedSource(channel.name, youtubeFeedURL(channel.id, videosOnly))); commit(); say(t('Chaîne ajoutée : {0}', channel.name), true); }
+      } catch (error) { say(error.message); } finally { youtube.busy = false; }
+    };
+    const fileInput = h('input', { type: 'file', accept: '.csv,text/csv,text/plain', hidden: true, onChange: async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const channels = parseSubscriptions(await file.text()).filter((c) => !has(c.id));
+      if (!channels.length) return say(t("Aucune nouvelle chaîne trouvée dans ce fichier. Il faut le fichier « abonnements.csv » de Google Takeout."));
+      for (const c of channels) list.push(feedSource(c.name, youtubeFeedURL(c.id, videosOnly)));
+      commit();
+      say(t('{0} chaînes ajoutées.', channels.length), true);
+    } });
+    const note = noteView(youtube.note);
+    youtube.note = null;
+    return [group('Chaînes', [
+      list.map((src) => h('div', { class: 'item' },
+        toggle(src, 'enabled', { label: t('Activer {0}', src.name), rerender: true }),
+        h('div', { class: 'fields' }, text(src, 'name', { placeholder: 'Nom de la chaîne' })),
+        statusDot(s, src.id, src.enabled), rowControls(list, src))),
+      h('form', { class: 'line', novalidate: true, onSubmit: addChannel }, input, h('button', { class: 'btn', type: 'submit' }, icon('plus'), 'Ajouter')),
+      h('div', { class: 'line' }, h('div', {}, note),
+        h('button', { class: 'btn', onClick: () => fileInput.click() }, icon('upload'), 'Importer mes abonnements…'), fileInput),
+    ], "Collez l'adresse d'une chaîne (youtube.com/@nom) ou son @nom. Pour reprendre tous vos abonnements d'un coup : sur takeout.google.com, exportez seulement « YouTube » → « abonnements », puis importez ici le fichier abonnements.csv. Aucune clé ni connexion à votre compte Google n'est nécessaire ; la liste ne suit pas vos futurs abonnements."),
+    group('Vidéos', [
+      line('Masquer les Shorts et les directs', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: videosOnly, disabled: !list.length, 'aria-label': 'Masquer les Shorts et les directs',
+        onChange: (e) => { for (const src of list) { const id = youtubeChannelID(src.url); if (id) src.url = youtubeFeedURL(id, e.target.checked); } commit(); render(); } })),
+    ], o.sources.length > 60 ? "Avec autant de chaînes, chaque mise à jour interroge YouTube une fois par chaîne : gardez un intervalle d'au moins 30 minutes." : null)];
+  }
+
   function feedSources(s) {
     const list = s.feed.sources;
     return group('Sources', [
@@ -101,9 +164,14 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         statusDot(s, src.id, src.enabled), rowControls(list, src))),
       h('div', { class: 'line' },
         h('button', { class: 'btn', onClick: () => { list.push(feedSource('', '')); commit(); render(); } }, icon('plus'), 'Ajouter un fil RSS'),
-        h('button', { class: 'btn', onClick: (e) => openMenu(e.currentTarget, FEED_CATALOG.flatMap((c) => [{ heading: c.name },
-          ...c.feeds.map(([name, url]) => ({ label: name, disabled: list.some((x) => x.url === url),
-            action: () => { list.push(feedSource(name, url)); commit(); render(); } }))])) }, 'Suggestions', icon('down'))),
+        // Catalogue en deux temps : la catégorie, puis ses fils (dans la langue de l'interface d'abord).
+        h('button', { class: 'btn', onClick: (e) => {
+          const anchor = e.currentTarget, lang = document.documentElement.lang;
+          openMenu(anchor, [{ heading: 'Catégories' }, ...FEED_CATALOG.map((c) => ({ label: c.name, icon: sfIcon(c.icon), action: () => openMenu(anchor, [
+            { heading: c.name },
+            ...[...c.feeds].sort((x, y) => (y[2] === lang) - (x[2] === lang)).map(([name, url]) => ({ label: name, disabled: list.some((x) => x.url === url),
+              action: () => { list.push(feedSource(name, url)); commit(); render(); } }))]) }))]);
+        } }, 'Suggestions', icon('down'))),
     ], "Collez l'adresse de n'importe quel fil RSS ou Atom. L'ordre des sources sert à alterner les articles.");
   }
 
@@ -111,10 +179,10 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     const o = s.feed;
     return [
       group('Affichage', [
-        line('Présentation', select(o, 'layout', [['list', 'Liste'], ['headline', 'À la une'], ['compact', 'Titres seulement']], { rerender: true, label: 'Présentation' })),
+        line('Présentation', select(o, 'layout', [['list', 'Liste'], ['headline', 'À la une'], ['grid', 'Vignettes'], ['compact', 'Titres seulement']], { rerender: true, label: 'Présentation' })),
         isFeed && line('Ordre', select(o, 'ordering', [['newest', "Plus récents d'abord"], ['balanced', 'Alterner entre les sources']], { label: 'Ordre' })),
         o.layout !== 'compact' && line('Images', toggle(o, 'showImages', { label: 'Images' })),
-        o.layout === 'list' && line(isFeed ? 'Résumé' : 'Sous-titre', toggle(o, 'showSummary', { label: 'Résumé' })),
+        (o.layout === 'list') && line(isFeed ? 'Résumé' : 'Sous-titre', toggle(o, 'showSummary', { label: 'Résumé' })),
         isFeed && o.layout !== 'compact' && line('Nom de la source', toggle(o, 'showSource', { label: 'Nom de la source' })),
         line('Heure de publication', toggle(o, 'showTime', { label: 'Heure de publication' })),
       ]),
@@ -313,7 +381,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
 
   function editor(s) {
     return [commonGroup(s),
-      s.kind === 'feed' && [feedSources(s), articleDisplay(s, true)],
+      s.kind === 'feed' && [s.feed.youtube ? youtubeSources(s) : feedSources(s), articleDisplay(s, true)],
       s.kind === 'weather' && weatherEditor(s),
       s.kind === 'commute' && commuteEditor(s),
       s.kind === 'sports' && sportsEditor(s),
@@ -355,9 +423,8 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     const list = config().sections, selected = list.find((s) => s.id === ui.selected);
     listEl = h('ul', { role: 'listbox', 'aria-label': 'Sections' }, sectionItems());
     const foot = h('div', { class: 's-list-foot' },
-      h('button', { class: 'icon-btn', title: 'Ajouter une section', 'aria-label': 'Ajouter une section', onClick: (e) => openMenu(e.currentTarget,
-        Object.entries(KINDS).map(([kind, k]) => ({ label: k.label, detail: k.detail, action: () => {
-          const s = template(kind); s.title = t(s.title); s.page = app.currentPage(); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); } }))) }, icon('plus')),
+      h('button', { class: 'icon-btn', title: 'Ajouter une section', 'aria-label': 'Ajouter une section', onClick: (e) => addSectionMenu(e.currentTarget, (s) => {
+        s.page = app.currentPage(); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); }) }, icon('plus')),
       h('button', { class: 'icon-btn', title: 'Supprimer la section sélectionnée', 'aria-label': 'Supprimer la section', disabled: !selected, onClick: async () => {
         if (!await confirmDialog('Supprimer cette section ?', 'La section et ses sources seront supprimées. Pour la retirer temporairement, désactivez-la plutôt.', 'Supprimer')) return;
         const i = list.indexOf(selected);

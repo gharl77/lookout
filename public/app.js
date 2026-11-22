@@ -4,7 +4,7 @@ import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
 import { KINDS, template, fetchSignature } from './shared.js';
-import { openSettings } from './settings.js';
+import { openSettings, addSectionMenu as sectionMenu } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -318,16 +318,12 @@ function renderHero() {
 setInterval(() => state.config && renderHero(), 60e3);
 
 function addSectionMenu(anchor) {
-  openMenu(anchor, Object.entries(KINDS).map(([kind, k]) => ({
-    label: k.label, detail: k.detail, action: () => {
-      const s = template(kind);
-      s.title = t(s.title);
-      s.page = currentPage();
-      state.config.sections.push(s);
-      commit();
-      openSettings(app, { sectionID: s.id });
-    },
-  })));
+  sectionMenu(anchor, (s) => {
+    s.page = currentPage();
+    state.config.sections.push(s);
+    commit();
+    openSettings(app, { sectionID: s.id });
+  });
 }
 
 /** Onglets des pages, affichés seulement s'il y en a plus d'une. */

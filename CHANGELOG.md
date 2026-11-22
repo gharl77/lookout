@@ -12,6 +12,14 @@ En développement, pas encore publié. / In development, not yet released.
   articles des sections de votre choix (un toucher ouvre l'article), même page fermée. Exige HTTPS ; sur iPhone,
   Lookout doit d'abord être ajouté à l'écran d'accueil.
 - **Mode affichage** : plein écran pour un écran mural ou une télé, avec l'heure et la rotation des pages.
+- **Catalogue de fils** : 23 catégories et plus de 150 fils vérifiés (films, séries, culture, musique, livres, jeux
+  vidéo, science, espace, santé, environnement, auto, cuisine, voyage…), offertes aussi en sections prêtes à l'emploi.
+- **YouTube** : les dernières vidéos de vos chaînes, en vignettes. Ajout par adresse ou @nom, import de vos
+  abonnements depuis Google Takeout, option pour masquer les Shorts. Sans clé ni connexion à Google.
+- **Feed catalogue**: 23 categories and over 150 verified feeds (movies, series, culture, music, books, video
+  games, science, space, health, environment, cars, food, travel…), also offered as ready-made sections.
+- **YouTube**: the latest videos from your channels, as thumbnails. Add by address or @name, import your
+  subscriptions from Google Takeout, option to hide Shorts. No key or Google sign-in.
 - **Filters**: words hidden or highlighted in every feed (Settings → General), highlighting per section.
 - **Read later**: keep an article in one click; the list follows your profile on all your devices.
 - **Notifications** (iPhone, iPad, Mac, PC): weather alerts, start and final score of your teams' games, new

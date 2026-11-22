@@ -55,7 +55,10 @@ function articleRow(article, style, section, ctx) {
     && h('img', { class: cls, src: article.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
 
   let inner;
-  if (style === 'headline') {
+  if (style === 'grid') {
+    // Vignette : image au format vidéo (16:9), titre sur deux lignes, source et heure.
+    inner = h('div', { class: 'tile row-main' }, h('div', { class: 'tile-img' }, img('')), h('span', { class: 'a-title' }, article.title), metaLine);
+  } else if (style === 'headline') {
     inner = h('div', { class: 'headline row-main' }, img(''), h('span', { class: 'a-title' }, article.title),
       article.summary && h('span', { class: 'a-summary' }, article.summary), metaLine);
   } else if (style === 'compact') {
@@ -101,7 +104,7 @@ function articleList(section, articles, ctx) {
   const shown = shownArticles(section, articles, ctx.general);
   if (!shown.length) return h('div', { class: 'hint' }, 'Aucun article ne correspond aux filtres.');
   const layout = section.feed.layout;
-  return h('div', { class: 'rows' }, shown.map((a, i) => articleRow(a, layout === 'headline' ? (i === 0 ? 'headline' : 'list') : layout, section, ctx)));
+  return h('div', { class: `rows${layout === 'grid' ? ' grid' : ''}` }, shown.map((a, i) => articleRow(a, layout === 'headline' ? (i === 0 ? 'headline' : 'list') : layout, section, ctx)));
 }
 
 // --- Météo ---
