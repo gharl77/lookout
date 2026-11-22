@@ -18,6 +18,10 @@ import { Accounts, AUTH_EPOCH, SESSION_COOKIE, SESSION_MAX_AGE } from './lib/acc
 import { Push, cleanSubscription } from './lib/push.js';
 import { startWatcher } from './lib/notify.js';
 import { resolveChannel } from './lib/youtube.js';
+import { fetchReleases } from './lib/releases.js';
+import { fetchSummary } from './lib/summary.js';
+import * as google from './lib/google.js';
+import { articleFilter, youtubeFeedURL, youtubeChannelID } from './public/shared.js';
 
 installDnsCache();
 
@@ -88,7 +92,8 @@ setInterval(() => {
   }
 }, 3600e3).unref();
 
-const intervalMs = (section, config) => Math.max(1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
+// Le résumé appelle un service payant : jamais plus d'une fois par heure, quel que soit l'intervalle choisi.
+const intervalMs = (section, config) => Math.max(section?.kind === 'summary' ? 60 : 1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
   || (payload.routes ?? []).some((route) => route.error);
 /** Un match d'une équipe suivie est-il en cours ? (Toute la ligue compte si aucune équipe n'est choisie.) */
@@ -107,7 +112,8 @@ function hasLiveGame(payload, section) {
 /** Moment à partir duquel les sources d'une section pourront être réinterrogées. */
 function nextUpdate(entry, section, config) {
   let wait = intervalMs(section, config);
-  if (hasErrors(entry.payload)) wait = Math.min(wait, RETRY_MS);
+  // Après un échec, on réessaie vite — sauf pour le résumé, dont chaque essai peut être un appel payant.
+  if (hasErrors(entry.payload)) wait = Math.min(wait, section?.kind === 'summary' ? 15 * 60e3 : RETRY_MS);
   if (hasLiveGame(entry.payload, section)) wait = Math.min(wait, LIVE_MS);   // pendant un match : chaque minute
   return entry.time + wait;
 }
@@ -116,6 +122,63 @@ function nextUpdate(entry, section, config) {
 function logSourceErrors(section, sourceErrors = {}) {
   const names = new Map([...section.feed.sources, ...section.sports.leagues].map((x) => [x.id, x.name]));
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
+}
+
+/**
+ * Résumé du jour : rassemble les titres récents des fils du profil (ceux que leurs cartes afficheraient), puis les
+ * fait condenser. Les fils passent par le cache habituel : le résumé ne fait interroger aucune source plus souvent.
+ */
+async function summarize(section, config) {
+  const wanted = new Set(section.summary.sections);
+  const feeds = config.sections.filter((s) => s.enabled && (s.kind === 'feed' || s.kind === 'api') && !s.feed.youtube && (!wanted.size || wanted.has(s.id)));
+  const items = [];
+  for (const feed of feeds) {
+    const payload = await loadSection(feed, config);
+    const keep = articleFilter({ ...feed.feed, maxAgeHours: Math.min(feed.feed.maxAgeHours || 24, 24) }, config.general);
+    const recent = (payload.articles ?? []).filter(keep).sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).slice(0, 8);
+    for (const a of recent) items.push({ section: feed.title, source: a.source ?? '', title: a.title, link: a.link });
+  }
+  const result = await fetchSummary(section.id, { ...section.summary, points: section.maxItems }, withSharedKey(section.summary, 'anthropicKey').anthropicKey, items.slice(0, 90));
+  return { ...result, sourceErrors: {} };
+}
+
+// --- Compte Google relié : abonnements YouTube ---
+/** Adresse publique de ce serveur, telle que le navigateur la voit (derrière un proxy inverse ou non). */
+function publicOrigin(req) {
+  const proto = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim() || (req.socket.encrypted ? 'https' : 'http');
+  const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+const googleRedirect = (req) => `${publicOrigin(req)}/api/google/callback`;
+const googleStates = new Map();   // état aléatoire -> { userID, sectionID, expires } (protège le retour de Google)
+
+/**
+ * Met les chaînes d'une section YouTube à l'image des abonnements du compte Google relié : ajoute les nouvelles,
+ * retire celles dont on s'est désabonné, garde les réglages des autres (nom, activation, ordre).
+ */
+async function syncYouTube(userID, sectionID) {
+  const refreshToken = accounts.googleToken(userID);
+  if (!refreshToken) throw new BriefingError("Aucun compte Google n'est relié à ce profil");
+  let channels;
+  try {
+    const access = await google.refreshAccess(accounts.sharedKey('googleClientId'), accounts.sharedKey('googleClientSecret'), refreshToken);
+    channels = await google.listSubscriptions(access);
+  } catch (error) {
+    if (error.expired) accounts.setGoogleToken(userID, null);
+    throw error;
+  }
+  const config = structuredClone(accounts.profile(userID).config);
+  const section = config.sections.find((s) => s.id === sectionID && s.kind === 'feed');
+  if (!section) throw new BriefingError('Section introuvable');
+  const sources = section.feed.sources, subscribed = new Map(channels.map((c) => [c.id, c]));
+  const videosOnly = sources.length > 0 && sources.every((s) => !youtubeChannelID(s.url) || s.url.includes('playlist_id='));
+  const kept = sources.filter((s) => { const id = youtubeChannelID(s.url); return !id || subscribed.has(id); });
+  const known = new Set(kept.map((s) => youtubeChannelID(s.url)));
+  const added = channels.filter((c) => !known.has(c.id));
+  section.feed.sources = [...kept, ...added.map((c) => ({ id: crypto.randomUUID().toUpperCase(), name: c.name, url: youtubeFeedURL(c.id, videosOnly), enabled: true }))];
+  Object.assign(section.feed, { youtube: true, youtubeSync: true, youtubeSyncedAt: Date.now() });
+  accounts.saveConfig(userID, normalize(config));
+  return { added: added.length, removed: sources.length - kept.length, total: section.feed.sources.length };
 }
 
 /** Options d'une section, complétées par la clé partagée quand le profil n'a pas saisi la sienne. */
@@ -203,6 +266,8 @@ async function loadSection(section, config, force = false) {
         : section.kind === 'weather' ? await fetchWeather(section.weather, units)
         : section.kind === 'commute' ? await fetchCommute(withSharedKey(section.commute, 'tomtomKey'))
         : section.kind === 'sports' ? await fetchSports(withSharedKey(section.sports, 'apiSportsKey'))
+        : section.kind === 'releases' ? await fetchReleases(withSharedKey(section.releases, 'tmdbKey'))
+        : section.kind === 'summary' ? await summarize(section, config)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
       logSourceErrors(section, data.sourceErrors);
@@ -500,6 +565,46 @@ async function api(req, res, url) {
     if (body?.clear === true) return send(res, 200, accounts.dropArticles(user.id, null));
     if (Array.isArray(body?.remove)) return send(res, 200, accounts.dropArticles(user.id, body.remove.map(String)));
     throw new BriefingError('JSON invalide');
+  }
+  // --- Compte Google : relier, synchroniser, délier ---
+  if (route === 'GET /api/google/status') {
+    return send(res, 200, { configured: Boolean(accounts.sharedKey('googleClientId') && accounts.sharedKey('googleClientSecret')),
+      connected: Boolean(accounts.googleToken(user.id)), redirectURI: googleRedirect(req) });
+  }
+  if (route === 'GET /api/google/connect') {
+    const clientID = accounts.sharedKey('googleClientId');
+    if (!clientID || !accounts.sharedKey('googleClientSecret')) throw new BriefingError("La connexion à Google n'est pas configurée sur ce serveur");
+    const section = findSection(q.get('section'));
+    const state = crypto.randomBytes(24).toString('base64url');
+    for (const [key, value] of googleStates) if (value.expires < Date.now()) googleStates.delete(key);
+    googleStates.set(state, { userID: user.id, sectionID: section.id, expires: Date.now() + 10 * 60e3 });
+    res.writeHead(302, { Location: google.authURL(clientID, googleRedirect(req), state), 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+  if (route === 'GET /api/google/callback') {
+    // Retour de Google : l'état doit être celui que ce même profil vient de demander.
+    const asked = googleStates.get(q.get('state') ?? '');
+    googleStates.delete(q.get('state') ?? '');
+    const back = (outcome) => { res.writeHead(302, { Location: `${publicOrigin(req)}/?google=${outcome}`, 'Cache-Control': 'no-store' }); res.end(); };
+    if (!asked || asked.userID !== user.id || asked.expires < Date.now() || !q.get('code')) return back(q.get('error') === 'access_denied' ? 'refuse' : 'erreur');
+    try {
+      const tokens = await google.exchangeCode(accounts.sharedKey('googleClientId'), accounts.sharedKey('googleClientSecret'), googleRedirect(req), q.get('code'));
+      if (!tokens.refresh_token) return back('erreur');
+      accounts.setGoogleToken(user.id, tokens.refresh_token);
+      await syncYouTube(user.id, asked.sectionID);
+      console.log(`Compte Google relié pour « ${user.name} ».`);
+      return back('ok');
+    } catch (error) { console.warn(`Connexion Google de « ${user.name} » : ${error.message}`); return back('erreur'); }
+  }
+  if (route === 'POST /api/google/disconnect') {
+    const refreshToken = accounts.googleToken(user.id);
+    if (refreshToken) await google.revoke(refreshToken);
+    accounts.setGoogleToken(user.id, null);
+    return send(res, 200, { ok: true });
+  }
+  if (route === 'POST /api/youtube/sync') {
+    const done = await syncYouTube(user.id, String((await readBody(req))?.section ?? ''));
+    return send(res, 200, { ...done, config: redact(accounts.profile(user.id).config) });
   }
   if (route === 'GET /api/youtube/channel') return send(res, 200, await resolveChannel(q.get('q')));
   if (route === 'GET /api/weather/search') return send(res, 200, await searchPlaces(q.get('q') ?? ''));

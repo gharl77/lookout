@@ -119,6 +119,16 @@ body.signed-out #topbar, body.signed-out #main { display: none; }
   border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 14px; }
 #edit-banner .grow { flex: 1 1 220px; }
 
+/* --- Sorties et résumé --- */
+.rows.grid.posters { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+.posters .tile-img { aspect-ratio: 2 / 3; }
+ol.summary { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; }
+ol.summary li { line-height: 1.4; }
+ol.summary li::marker { color: var(--accent); font-weight: 700; }
+ol.summary a:hover { text-decoration: underline; }
+ol.summary .a-meta { display: block; margin-top: 2px; }
+.summary-foot { margin-top: 10px; }
+
 /* --- Recherche et lecteur vidéo --- */
 .search-input { font-size: 16px; padding: 10px 12px; }
 .search-results { min-height: 120px; }

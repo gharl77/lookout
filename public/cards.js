@@ -264,7 +264,36 @@ function commuteView(section, results, ctx) {
   }));
 }
 
+// --- Sorties : films et nouvelles saisons ---
+function releasesView(section, payload) {
+  const list = payload.releases.slice(0, Math.max(1, section.maxItems));
+  const day = (ms) => {
+    const days = Math.round((new Date(ms).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400e3);
+    return days === 0 ? t("aujourd'hui") : days === 1 ? t('demain') : days === -1 ? t('hier')
+      : new Intl.DateTimeFormat(document.documentElement.lang, { day: 'numeric', month: 'short' }).format(ms);
+  };
+  return [
+    !list.length && h('div', { class: 'hint' }, 'Aucune sortie dans la période choisie.'),
+    list.length > 0 && h('div', { class: 'rows grid posters' }, list.map((r) => h(r.link ? 'a' : 'div', { class: 'row', href: r.link, target: '_blank', rel: 'noopener noreferrer', title: r.title },
+      h('div', { class: 'tile' },
+        h('div', { class: 'tile-img' }, r.image && h('img', { src: r.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() })),
+        h('span', { class: 'a-title' }, r.title),
+        h('span', { class: 'a-meta' }, [r.kind === 'movie' ? t('Film') : t('Saison {0}', r.season), r.where, r.date && day(r.date)].filter(Boolean).join(' · ')))))),
+    payload.needsKey && h('div', { class: 'note' }, icon('key'), 'Pour afficher aussi les films, ajoutez une clé TMDB dans les réglages de la section.'),
+  ];
+}
+
+// --- Résumé du jour ---
+function summaryView(section, payload) {
+  return [h('ol', { class: 'summary' }, payload.summary.map((point) => h('li', {},
+    h(point.link ? 'a' : 'span', { href: point.link, target: '_blank', rel: 'noopener noreferrer' }, point.text),
+    point.source && h('span', { class: 'a-meta' }, point.source)))),
+  h('div', { class: 'a-meta summary-foot' }, t('Résumé de {0} titres par {1}', payload.basedOn, String(payload.model ?? '').replace(/^claude-/, 'Claude ').replace(/-/g, ' ')))];
+}
+
 export function cardBody(section, payload, ctx) {
+  if (payload.releases) return releasesView(section, payload);
+  if (payload.summary) return summaryView(section, payload);
   if (payload.articles) return articleList(section, payload.articles, ctx);
   if (payload.weather) return weatherView(section, payload.weather);
   if (payload.games) return sportsView(section, payload.games, ctx, payload.standings);

@@ -20,6 +20,18 @@ En développement, pas encore publié. / In development, not yet released.
   games, science, space, health, environment, cars, food, travel…), also offered as ready-made sections.
 - **YouTube**: the latest videos from your channels, as thumbnails. Add by address or @name, import your
   subscriptions from Google Takeout, option to hide Shorts. No key or Google sign-in.
+- **Recherche** dans les articles de toutes les sections et dans « À lire plus tard » (touche `/`).
+- **Sorties** : nouvelles saisons de séries (TVmaze, sans clé) et films en salle ou à venir (TMDB, clé gratuite).
+- **Résumé du jour** : l'essentiel de vos fils en quelques points, par Claude (clé Anthropic ; Opus 5.5 par défaut).
+- **YouTube** : lecture des vidéos dans Lookout ; liste des chaînes tenue à la main ou synchronisée avec un compte
+  Google (identifiant client fourni par l'administrateur).
+- **Santé des sources** : un onglet pour l'administrateur liste les sources en panne de tous les profils.
+- **Search** across the articles of every section and “Read later” (`/` key).
+- **Releases**: new series seasons (TVmaze, no key) and movies in theatres or upcoming (TMDB, free key).
+- **Daily summary**: the essentials of your feeds in a few points, by Claude (Anthropic key; Opus 5.5 by default).
+- **YouTube**: videos play inside Lookout; channel list maintained by hand or synced with a Google account
+  (client ID provided by the administrator).
+- **Source health**: an administrator tab lists the failing sources of every profile.
 - **Filters**: words hidden or highlighted in every feed (Settings → General), highlighting per section.
 - **Read later**: keep an article in one click; the list follows your profile on all your devices.
 - **Notifications** (iPhone, iPad, Mac, PC): weather alerts, start and final score of your teams' games, new

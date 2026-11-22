@@ -2,7 +2,7 @@
 import { h, icon, sfIcon, badge, fmt, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
 import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid, SECRET_MASK,
-  categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions } from './shared.js';
+  categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions, SUMMARY_MODELS } from './shared.js';
 
 let closeCurrent = null;
 
@@ -84,7 +84,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
   const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
   const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
-  const ITEMS_LABEL = { feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets' };
+  const ITEMS_LABEL = { feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points' };
 
   function iconPicker(s) {
     return h('button', { class: 'btn', 'aria-label': 'Choisir une icône', onClick: (e) => openPopover(e.currentTarget, (close) =>
@@ -152,6 +152,40 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
 
   // --- YouTube : les sources sont des chaînes ---
   const youtube = { note: null, busy: false };
+  let googleStatus = null, googleNote = null;   // { configured, connected, redirectURI }
+  /** Deux façons de tenir la liste des chaînes : à la main (adresse, @nom, fichier Takeout) ou d'après le compte Google. */
+  function googleSyncGroup(s) {
+    if (!googleStatus) {
+      api('/api/google/status').then((status) => { googleStatus = status; }).catch(() => { googleStatus = { configured: false, connected: false }; }).then(() => render());
+      return null;
+    }
+    const o = s.feed, synced = o.youtubeSync && googleStatus.connected;
+    const run = async (work, done) => {
+      try { await work(); googleNote = done ? { text: t(done), ok: true } : null; } catch (error) { googleNote = { text: error.message, ok: false }; }
+      googleStatus = null;
+      render();
+    };
+    const sync = () => run(async () => {
+      await app.saveNow();
+      const done = await api('/api/youtube/sync', { method: 'POST', body: { section: s.id } });
+      await app.replaceConfig(done.config);
+      googleNote = { text: t('Abonnements à jour : {0} chaînes ({1} ajoutées, {2} retirées).', done.total, done.added, done.removed), ok: true };
+    });
+    const note = noteView(googleNote);
+    googleNote = null;
+    return group('Mes abonnements', [
+      line('Liste des chaînes', h('span', {}, synced ? 'Tenue à jour par mon compte Google' : 'Tenue à la main')),
+      h('div', { class: 'line' },
+        h('div', {}, note ?? h('span', { class: 'sub-line' }, synced ? t('Synchronisé {0}', fmt.ago(o.youtubeSyncedAt)) : googleStatus.connected ? t('Compte Google relié.') : '')),
+        !googleStatus.configured ? null
+          : !googleStatus.connected ? h('button', { class: 'btn', onClick: async () => { await app.saveNow(); location.href = `api/google/connect?section=${encodeURIComponent(s.id)}`; } }, icon('link'), 'Relier mon compte Google')
+          : [h('button', { class: 'btn', onClick: sync }, icon('refresh'), synced ? 'Synchroniser maintenant' : 'Synchroniser avec mes abonnements'),
+            synced && h('button', { class: 'btn', onClick: () => { o.youtubeSync = false; commit(); render(); } }, 'Revenir à la liste manuelle'),
+            h('button', { class: 'btn', onClick: () => run(async () => { await api('/api/google/disconnect', { method: 'POST', body: {} }); o.youtubeSync = false; commit(); }, 'Compte Google délié.') }, 'Délier')]),
+    ], !googleStatus.configured ? "À la main : ajoutez les chaînes une à une ou importez le fichier de Google Takeout, ci-dessous. La synchronisation avec un compte Google n'est pas offerte sur ce serveur : un administrateur doit d'abord enregistrer un identifiant client Google (Réglages → Profils → Clés d'API partagées)."
+      : synced ? "La liste suit vos abonnements YouTube : elle est remise à jour une fois par jour, à l'ouverture de Lookout. Les chaînes ajoutées à la main qui ne font pas partie de vos abonnements sont retirées à chaque synchronisation."
+        : "À la main : ajoutez les chaînes une à une ou importez le fichier de Google Takeout, ci-dessous. Compte Google : Lookout lit la liste de vos abonnements (lecture seule, rien d'autre) et la tient à jour tout seul.");
+  }
   function youtubeSources(s) {
     const list = s.feed.sources, o = s.feed;
     const videosOnly = list.length > 0 && list.every((src) => !youtubeChannelID(src.url) || src.url.includes('playlist_id='));
@@ -180,7 +214,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     } });
     const note = noteView(youtube.note);
     youtube.note = null;
-    return [group('Chaînes', [
+    return [googleSyncGroup(s), group('Chaînes', [
       list.map((src) => h('div', { class: 'item' },
         toggle(src, 'enabled', { label: t('Activer {0}', src.name), rerender: true }),
         h('div', { class: 'fields' }, text(src, 'name', { placeholder: 'Nom de la chaîne' })),
@@ -423,13 +457,49 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     ];
   }
 
+  // --- Sorties : films et séries ---
+  function releasesEditor(s) {
+    const o = s.releases, shared = app.sharedKeys?.tmdbKey;
+    return [group('Contenu', [
+      line('Pays', select(o, 'country', [['CA', 'Canada'], ['US', 'États-Unis'], ['FR', 'France'], ['GB', 'Royaume-Uni'], ['BE', 'Belgique'], ['CH', 'Suisse']], { label: 'Pays' })),
+      line('Période', select(o, 'days', [[3, '3 jours'], [7, '7 jours'], [14, '14 jours'], [30, '30 jours']], { label: 'Période' })),
+      line('Nouvelles saisons de séries', toggle(o, 'showSeries', { label: 'Nouvelles saisons de séries' })),
+      line('Films en salle et à venir', toggle(o, 'showMovies', { label: 'Films en salle et à venir', rerender: true })),
+      o.showMovies && line('Clé TMDB', text(o, 'tmdbKey', { placeholder: shared ? "Fournie par l'administrateur" : 'Clé gratuite de themoviedb.org', mono: true })),
+      o.showMovies && !shared && h('div', { class: 'line' }, h('a', { href: 'https://www.themoviedb.org/settings/api', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
+        'Obtenir une clé gratuite sur themoviedb.org')),
+    ], "Les séries viennent de TVmaze, sans clé : premier épisode de chaque nouvelle saison, à la télé du pays choisi et sur les grands services en ligne. Les films viennent de TMDB et demandent une clé gratuite. Ce produit utilise l'API de TMDB mais n'est ni approuvé ni certifié par TMDB.")];
+  }
+
+  // --- Résumé du jour ---
+  function summaryEditor(s) {
+    const o = s.summary, shared = app.sharedKeys?.anthropicKey;
+    const feeds = config().sections.filter((x) => (x.kind === 'feed' || x.kind === 'api') && !x.feed.youtube);
+    const all = !o.sections.length;
+    return [group('Résumé', [
+      line('Modèle', select(o, 'model', SUMMARY_MODELS, { label: 'Modèle' })),
+      line('Clé Anthropic', text(o, 'anthropicKey', { placeholder: shared ? "Fournie par l'administrateur" : 'sk-ant-…', mono: true })),
+      !shared && h('div', { class: 'line' }, h('a', { href: 'https://platform.claude.com/settings/keys', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
+        'Créer une clé sur platform.claude.com')),
+      line('Accent particulier', text(o, 'focus', { placeholder: 'ex. le Québec et la techno d’abord', label: 'Accent particulier' })),
+    ], "Chaque mise à jour envoie à Anthropic les titres récents de vos fils (pas vos réglages ni vos clés) et coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku. Lookout ne redemande un résumé que si les titres ont changé, et jamais plus d'une fois par heure."),
+    group('Sections résumées', [
+      line('Tous mes fils', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: all, 'aria-label': 'Tous mes fils',
+        onChange: (e) => { o.sections = e.target.checked ? [] : feeds.map((x) => x.id); commit(); render(); } })),
+      !all && feeds.map((x) => line(x.title, h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: o.sections.includes(x.id), 'aria-label': x.title,
+        onChange: (e) => { o.sections = e.target.checked ? [...o.sections, x.id] : o.sections.filter((id) => id !== x.id); commit(); } }))),
+    ], "Seuls les articles des dernières 24 heures comptent, huit par section au plus. Les sections YouTube ne sont pas résumées.")];
+  }
+
   function editor(s) {
     return [commonGroup(s),
       s.kind === 'feed' && [s.feed.youtube ? youtubeSources(s) : feedSources(s), articleDisplay(s, true)],
       s.kind === 'weather' && weatherEditor(s),
       s.kind === 'commute' && commuteEditor(s),
       s.kind === 'sports' && sportsEditor(s),
-      s.kind === 'api' && [apiEditor(s), articleDisplay(s, false)]];
+      s.kind === 'api' && [apiEditor(s), articleDisplay(s, false)],
+      s.kind === 'releases' && releasesEditor(s),
+      s.kind === 'summary' && summaryEditor(s)];
   }
 
   // --- Liste des sections ---
@@ -856,10 +926,34 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     });
   }
 
+  /** Marche à suivre pour créer l'identifiant client Google qui permet de relier un compte YouTube. */
+  async function googleHelp() {
+    const { redirectURI } = await api('/api/google/status').catch(() => ({ redirectURI: `${location.origin}/api/google/callback` }));
+    const STEPS = [
+      "Ouvrez console.cloud.google.com et créez un projet (par exemple « Lookout »).",
+      "Dans « API et services » → « Bibliothèque », activez « YouTube Data API v3 ».",
+      "Dans « Écran de consentement OAuth », choisissez « Externe », donnez un nom à l'application et votre adresse de contact. Ajoutez la portée « youtube.readonly ».",
+      "Passez l'application « En production » (bouton « Publier l'application »). En mode « Test », Google déconnecte chaque compte au bout de 7 jours. Sans validation par Google, un écran d'avertissement s'affiche à la connexion : c'est normal pour un usage personnel.",
+      "Dans « Identifiants » → « Créer des identifiants » → « ID client OAuth », choisissez « Application Web ».",
+      "Sous « URI de redirection autorisés », ajoutez exactement l'adresse ci-dessous.",
+      "Copiez l'identifiant client et le secret client dans les deux champs Google, puis enregistrez.",
+    ];
+    openDialog((close) => [h('h3', {}, 'Créer un identifiant client Google'),
+      h('ol', { class: 'steps' }, STEPS.map((step) => h('li', {}, step))),
+      h('p', {}, 'Adresse de redirection à déclarer chez Google :'),
+      h('input', { class: 'field mono', readonly: true, value: redirectURI, 'aria-label': 'Adresse de redirection', onFocus: (e) => e.target.select() }),
+      h('p', {}, "Elle doit être en HTTPS et correspondre à l'adresse par laquelle vous ouvrez Lookout. Chaque profil relie ensuite son propre compte Google, depuis sa section YouTube."),
+      h('div', { class: 'actions' },
+        h('a', { class: 'btn', href: 'https://console.cloud.google.com/apis/credentials', target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Ouvrir Google Cloud'),
+        h('button', { class: 'btn primary', onClick: close }, 'Compris'))], { cls: 'dialog wide' });
+  }
+
   // --- Clés d'API partagées (administrateur) ---
   let sharedNote = null;
   function sharedKeysForm() {
-    const KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports']];
+    const KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports'],
+      ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé du jour'],
+      ['googleClientId', 'Google – identifiant client', 'Abonnements YouTube'], ['googleClientSecret', 'Google – secret client', 'Abonnements YouTube']];
     const inputs = KEYS.map(([key, label, use]) => h('input', { class: 'field bare mono', name: `shared-${key}`, value: app.sharedKeys?.[key] ? SECRET_MASK : '',
       placeholder: t(use), 'aria-label': label, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
       onFocus: (e) => { if (e.target.value === SECRET_MASK) e.target.select(); } }));
@@ -875,7 +969,9 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     sharedNote = null;   // affiché une seule fois
     return h('form', { novalidate: true, onSubmit: save }, group("Clés d'API partagées", [
       ...KEYS.map(([, label], i) => line(label, inputs[i])),
-      h('div', { class: 'line' }, h('div', {}, note), h('button', { class: 'btn', type: 'submit' }, icon('key'), 'Enregistrer les clés')),
+      h('div', { class: 'line' }, h('div', {}, note),
+        h('button', { class: 'info-btn', type: 'button', title: 'Comment obtenir un identifiant client Google', 'aria-label': 'Comment obtenir un identifiant client Google', onClick: googleHelp }, 'i'),
+        h('button', { class: 'btn', type: 'submit' }, icon('key'), 'Enregistrer les clés')),
     ], "Ces clés servent à tous les profils qui n'ont pas saisi la leur. Une fois enregistrées, elles restent sur le serveur et ne sont plus affichées à personne. Videz un champ pour retirer la clé."));
   }
 

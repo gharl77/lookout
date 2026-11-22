@@ -194,6 +194,26 @@ function playVideo(article) {
       h('button', { class: 'btn primary', onClick: close }, 'Fermer'))], { cls: 'dialog video' });
 }
 
+// --- Abonnements YouTube tenus à jour d'après le compte Google relié ---
+/** Au chargement : annonce le résultat d'une connexion à Google, puis resynchronise les sections qui datent de plus d'un jour. */
+async function googleFollowUp() {
+  const query = new URLSearchParams(location.search), outcome = query.get('google');
+  if (outcome) {
+    query.delete('google');
+    history.replaceState(null, '', `${location.pathname}${query.size ? `?${query}` : ''}`);
+    showNotice(t(outcome === 'ok' ? 'Compte Google relié : vos abonnements YouTube sont importés.'
+      : outcome === 'refuse' ? "Connexion à Google annulée : rien n'a été modifié." : 'La connexion à Google a échoué. Réessayez depuis les réglages de la section.'));
+  }
+  const stale = state.config.sections.filter((s) => s.kind === 'feed' && s.feed.youtubeSync && Date.now() - (s.feed.youtubeSyncedAt || 0) > 24 * 3600e3);
+  for (const s of stale) {
+    try {
+      await saveNow();
+      const done = await api('/api/youtube/sync', { method: 'POST', body: { section: s.id } });
+      await app.replaceConfig(done.config);
+    } catch { /* compte délié ou Google injoignable : la liste actuelle reste en place, l'erreur est visible dans les réglages */ }
+  }
+}
+
 // --- Recherche dans les articles ---
 // Cherche dans les articles de toutes les sections (toutes pages confondues) et dans « À lire plus tard ».
 // Les sections des autres pages sont demandées au serveur à l'ouverture ; il les sert depuis son cache.
@@ -563,7 +583,7 @@ function newBadge(s, payload) {
 
 function buildCard(s) {
   const payload = state.data.get(s.id), loading = state.loading.has(s.id);
-  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes);
+  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary);
   const errors = payload ? sourceErrorText(s, payload) : '';
 
   const controls = state.editing
@@ -928,6 +948,7 @@ document.addEventListener('keydown', (e) => {
     state.config = config;
     state.readIDs = new Set(read);
     if (!app.viewing) api('/api/saved').then(applySaved).catch(() => {});
+    if (!app.viewing) googleFollowUp();
     // Appareil abonné aux notifications : son service worker se met à jour avec l'application.
     navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => {});
     if (new URLSearchParams(location.search).has('affichage')) startDisplay({ fullscreen: false });
