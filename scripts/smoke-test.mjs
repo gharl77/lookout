@@ -242,6 +242,14 @@ await check('déconnexion : la session ne donne plus accès à rien', async () =
   expect(login.status === 200, 'reconnexion refusée');
   cookie = sessionFrom(login);
 });
+await check('à lire plus tard : la liste est propre au profil, bornée aux liens web', async () => {
+  const article = { id: 'article-1', title: 'Un article', link: 'https://exemple.test/a', source: 'Source', date: 1 };
+  expect((await request('/api/saved', { method: 'POST', ...json({ add: { ...article, link: 'javascript:alert(1)' } }) })).status === 400, 'lien non web accepté');
+  expect((await (await request('/api/saved', { method: 'POST', ...json({ add: article }) })).json()).length === 1, 'article non gardé');
+  expect((await (await request('/api/saved', { method: 'POST', ...json({ add: article }) })).json()).length === 1, 'article gardé en double');
+  expect((await (await request('/api/saved')).json())[0].title === 'Un article', 'liste inattendue');
+  expect((await (await request('/api/saved', { method: 'POST', ...json({ remove: ['article-1'] }) })).json()).length === 0, 'article non retiré');
+});
 await check('sauvegarde complète : téléchargement protégé, restauration fidèle, données précédentes mises de côté', async () => {
   expect((await request('/api/backup', { method: 'POST', ...json({ password: 'mauvais-mot-de-passe' }) })).status === 400, 'sauvegarde remise sans le bon mot de passe');
   const backup = await (await request('/api/backup', { method: 'POST', ...json({ password: ADMIN.password }) })).json();

@@ -122,6 +122,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Âge maximal', select(o, 'maxAgeHours', [[0, 'Aucune limite'], [12, '12 heures'], [24, '24 heures'], [48, '48 heures'], [72, '3 jours'], [168, '7 jours']], { label: 'Âge maximal' })),
         line('Doit contenir', text(o, 'includeKeywords', { placeholder: 'ex. Canadiens, budget', label: 'Doit contenir' })),
         line('Exclure', text(o, 'excludeKeywords', { placeholder: 'ex. horoscope, publicité', label: 'Exclure' })),
+        line('Mettre en évidence', text(o, 'highlightKeywords', { placeholder: 'ex. Montréal, grève', label: 'Mettre en évidence' })),
       ], 'Mots-clés séparés par des virgules, recherchés dans le titre et le résumé.'),
     ];
   }
@@ -433,7 +434,15 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       pagesGroup(),
       group('Lecture', [
         line('Atténuer les articles déjà lus', toggle(g, 'dimReadArticles', { label: 'Atténuer les articles lus' })),
-      ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."))));
+      ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."),
+      group('Filtres pour tous les fils', [
+        line('Masquer partout', text(g, 'muteKeywords', { placeholder: 'ex. horoscope, célébrités', label: 'Masquer partout' })),
+        line('Mettre en évidence partout', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mettre en évidence partout' })),
+      ], "Mots ou expressions séparés par des virgules, cherchés dans le titre et le résumé. Ils s'ajoutent aux filtres propres à chaque section."),
+      group('Mode affichage', [
+        line('Changer de page', select(g, 'displaySeconds', [[0, 'Jamais'], [15, 'Toutes les 15 secondes'], [30, 'Toutes les 30 secondes'], [60, 'Chaque minute'], [120, 'Toutes les 2 minutes'], [300, 'Toutes les 5 minutes']], { label: 'Changer de page' })),
+        line('Écran mural ou télé', h('button', { class: 'btn', onClick: () => { closeCurrent?.(); app.startDisplay(); } }, sfIcon('desktopcomputer'), 'Lancer le mode affichage')),
+      ], "Plein écran, sans boutons, avec l'heure. Les pages défilent l'une après l'autre et l'écran reste allumé. Pour en sortir : touche Échap, ou touchez l'écran puis « Quitter »."))));
   }
 
   // --- Données ---

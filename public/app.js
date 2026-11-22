@@ -1,5 +1,5 @@
 // Briefing — tableau de bord.
-import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay, whenSignedOut, viewProfile } from './ui.js';
+import { h, icon, sfIcon, badge, fmt, t, api, openMenu, openDialog, confirmDialog, hasOverlay, whenSignedOut, viewProfile } from './ui.js';
 import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
@@ -18,6 +18,7 @@ const state = {
   loading: new Set(),
   signatures: new Map(),  // id de section -> empreinte des dernières données demandées
   readIDs: new Set(),
+  saved: [],              // articles gardés « à lire plus tard »
   editing: false,
   page: remembered('lookout.page'),
   lastRefresh: null,
@@ -47,6 +48,9 @@ function applyLanguage() {
   $('btn-refresh').title = t('Recharger les sections (les sources sont interrogées selon leur intervalle)');
   $('btn-edit').title = t('Réorganiser, redimensionner ou masquer les sections');
   $('btn-settings').title = t('Configurer les sections et les sources');
+  $('btn-saved').title = t('À lire plus tard');
+  $('btn-saved').setAttribute('aria-label', t('À lire plus tard'));
+  $('display-exit').textContent = t('Quitter le mode affichage');
   return changed;
 }
 
@@ -136,6 +140,113 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && state.config) { refreshAll(); checkVersion(); }
 });
 
+// --- À lire plus tard ---
+// Les articles gardés sont enregistrés sur le serveur, par profil : on les retrouve sur tous ses appareils,
+// même une fois sortis des fils.
+function applySaved(list) {
+  state.saved = list;
+  const button = $('btn-saved');
+  button.hidden = !list.length || Boolean(app.viewing);
+  button.replaceChildren(sfIcon('bookmark.fill'), h('span', { class: 'count' }, String(list.length)));
+  for (const s of visible()) if (state.data.get(s.id)?.articles) renderCard(s.id);
+}
+async function toggleSaved(article, section) {
+  const saved = state.saved.some((a) => a.id === article.id);
+  try {
+    applySaved(await api('/api/saved', { method: 'POST', body: saved ? { remove: [article.id] }
+      : { add: { id: article.id, title: article.title, link: article.link, image: article.image, date: article.date, source: article.source || section?.title } } }));
+  } catch (error) { showSubtitle(error.message); }
+}
+function savedDialog() {
+  openDialog((close) => {
+    const body = h('div', { class: 'saved-list' });
+    const change = async (payload) => {
+      try { applySaved(await api('/api/saved', { method: 'POST', body: payload })); } catch (error) { showSubtitle(error.message); }
+      if (state.saved.length) draw(); else close();
+    };
+    const draw = () => body.replaceChildren(...state.saved.map((a) => h('div', { class: 'saved-item' },
+      h('a', { href: a.link, target: '_blank', rel: 'noopener noreferrer' }, h('span', { class: 'a-title' }, a.title || a.link),
+        h('span', { class: 'a-meta' }, [a.source, a.date && fmt.ago(a.date)].filter(Boolean).join(' · '))),
+      h('button', { class: 'icon-btn', title: 'Retirer de la liste', 'aria-label': t('Retirer {0}', a.title), onClick: () => change({ remove: [a.id] }) }, icon('close')))));
+    draw();
+    return [h('h3', {}, 'À lire plus tard'), body,
+      h('div', { class: 'actions' },
+        h('button', { class: 'btn', onClick: async () => {
+          if (await confirmDialog('Vider la liste ?', 'Tous les articles gardés seront retirés de la liste.', 'Vider')) change({ clear: true });
+        } }, 'Tout retirer'),
+        h('button', { class: 'btn primary', onClick: close }, 'Terminé'))];
+  }, { cls: 'dialog wide' });
+}
+
+// --- Mode affichage (écran mural, télé) ---
+// Plein écran, sans boutons, avec l'heure ; les pages défilent et l'écran reste allumé. L'adresse garde
+// « ?affichage=1 » : une tablette murale peut l'enregistrer en signet et y revenir après un redémarrage.
+let displayTimer = null, displaySeconds = null, clockTimer = null, wakeLock = null, exitTimer = null, wentFullscreen = false;
+const setDisplayParam = (on) => {
+  const query = new URLSearchParams(location.search);
+  if (on) query.set('affichage', '1'); else query.delete('affichage');
+  history.replaceState(null, '', `${location.pathname}${query.size ? `?${query}` : ''}`);
+};
+async function keepAwake() {
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* refusé ou non pris en charge : l'écran suivra ses réglages */ }
+}
+function tickClock() {
+  $('clock').textContent = new Intl.DateTimeFormat(document.documentElement.lang, { hour: 'numeric', minute: '2-digit' }).format(new Date());
+}
+function scheduleDisplay() {
+  const seconds = app.display && state.config ? Number(general().displaySeconds) || 0 : 0;
+  if (seconds === displaySeconds) return;   // rien n'a changé : la minuterie en cours continue
+  clearInterval(displayTimer);
+  displaySeconds = seconds;
+  if (!seconds) return;
+  displayTimer = setInterval(() => {
+    const list = pages();
+    if (list.length < 2 || hasOverlay()) return;
+    showPage(list[(list.findIndex((p) => p.id === currentPage()) + 1) % list.length].id);
+  }, seconds * 1000);
+}
+function startDisplay({ fullscreen = true } = {}) {
+  if (app.display) return;
+  app.display = true;
+  state.editing = false;
+  document.body.classList.add('display');
+  setDisplayParam(true);
+  // Le plein écran exige un geste de l'utilisateur : au chargement direct de l'adresse, on s'en passe.
+  if (fullscreen) document.documentElement.requestFullscreen?.().then(() => { wentFullscreen = true; }).catch(() => {});
+  keepAwake();
+  $('clock').hidden = false;
+  tickClock();
+  clockTimer = setInterval(tickClock, 5000);
+  scheduleDisplay();
+  if (state.config) renderAll();
+}
+function stopDisplay() {
+  if (!app.display) return;
+  app.display = false;
+  document.body.classList.remove('display');
+  setDisplayParam(false);
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  wakeLock?.release?.().catch(() => {});
+  wakeLock = null;
+  wentFullscreen = false;
+  scheduleDisplay();
+  clearInterval(clockTimer);
+  $('clock').hidden = true;
+  $('display-exit').hidden = true;
+  renderAll();
+}
+// Un mouvement de souris ou un toucher fait apparaître « Quitter » quelques secondes.
+for (const type of ['pointermove', 'pointerdown']) document.addEventListener(type, () => {
+  if (!app.display) return;
+  $('display-exit').hidden = false;
+  clearTimeout(exitTimer);
+  exitTimer = setTimeout(() => { $('display-exit').hidden = true; }, 4000);
+});
+// Sortir du plein écran (touche Échap) quitte aussi le mode affichage.
+document.addEventListener('fullscreenchange', () => { if (app.display && wentFullscreen && !document.fullscreenElement) stopDisplay(); });
+// L'écran peut relâcher le maintien en éveil quand l'onglet passe en arrière-plan : on le redemande au retour.
+document.addEventListener('visibilitychange', () => { if (app.display && !document.hidden) keepAwake(); });
+
 // --- Lecture des articles ---
 function setRead(ids, read) {
   if (app.viewing) return;   // on ne marque rien comme lu à la place de quelqu'un d'autre
@@ -164,6 +275,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs.has(id), setRead,
+  get canSave() { return !app.viewing && !app.display; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 
 // --- Barre supérieure et en-tête ---
@@ -458,6 +570,7 @@ function renderAll() {
   // Un changement de langue touche aussi les textes fournis par le serveur (erreurs, états des matchs).
   if (applyLanguage() && state.data.size) refreshAll();
   applyTheme();
+  scheduleDisplay();
   renderHero();
   renderPages();
   renderBanner();
@@ -506,7 +619,7 @@ function dragTransform() {
 function enableDrag(card, id) {
   const head = card.querySelector('.card-head');
   head.addEventListener('pointerdown', (e) => {
-    if (drag || app.viewing || e.target.closest('button, a, input')) return;
+    if (drag || app.viewing || app.display || e.target.closest('button, a, input')) return;
     if (e.pointerType === 'mouse' ? e.button !== 0 : !state.editing) return;
     if (!frames.has(id)) layout();   // mise en page pas encore calculée (onglet resté en arrière-plan)
     const frame = frames.get(id), rect = $('grid').getBoundingClientRect();
@@ -656,6 +769,8 @@ new ResizeObserver(scheduleLayout).observe($('grid'));
 const app = {
   user: null,
   sharedKeys: {},
+  display: false,   // mode affichage (écran mural)
+  startDisplay,
   viewing: null,   // { id, name } quand un administrateur consulte le profil d'un autre, en lecture seule
   version: '',
   build: '',
@@ -703,6 +818,7 @@ function renderUserButton() {
   ] : [
     { heading: app.user.name },
     { label: 'Mon compte…', icon: icon('user'), action: () => openSettings(app, { tab: 'account' }) },
+    { label: 'Mode affichage', icon: sfIcon('desktopcomputer'), action: () => startDisplay() },
     app.user.role === 'admin' && { label: 'Profils…', icon: icon('users'), action: () => openSettings(app, { tab: 'users' }) },
     '-',
     { label: 'Se déconnecter', icon: icon('signout'), action: signOut },
@@ -715,7 +831,10 @@ $('btn-settings').append(icon('gear-bold'));
 $('btn-refresh').addEventListener('click', () => refreshAll());
 $('btn-edit').addEventListener('click', () => setEditing(!state.editing));
 $('btn-settings').addEventListener('click', () => openSettings(app));
+$('btn-saved').addEventListener('click', savedDialog);
+$('display-exit').addEventListener('click', stopDisplay);
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && app.display && !hasOverlay() && !document.fullscreenElement) return stopDisplay();
   if (hasOverlay() || e.target.matches?.('input, textarea, select')) return;
   if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) refreshAll();
   if (e.key === ',' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSettings(app); }
@@ -750,6 +869,8 @@ document.addEventListener('keydown', (e) => {
     if (app.build !== about.build) checkVersion(true);   // page plus ancienne que le serveur : on se met à jour
     state.config = config;
     state.readIDs = new Set(read);
+    if (!app.viewing) api('/api/saved').then(applySaved).catch(() => {});
+    if (new URLSearchParams(location.search).has('affichage')) startDisplay({ fullscreen: false });
     renderAll();
     restartTimer();
     refreshAll();

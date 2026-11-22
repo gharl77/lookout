@@ -75,9 +75,11 @@ export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apispor
 
 const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appearance: 'system', accentHex: '#3B82F6',
   tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
-  dimReadArticles: true, units: 'metric' };
+  dimReadArticles: true, units: 'metric',
+  muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
+  displaySeconds: 30 };                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
-  showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '' };
+  showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '' };
 const WEATHER = { locationName: 'Montréal, Québec', latitude: 45.5019, longitude: -73.5674, showDetails: true,
   showHourly: true, hourlyCount: 12, showDaily: true, dailyCount: 7, showAlerts: true };
 const COMMUTE = { routes: [], provider: 'osrm', showAlternates: true, tomtomKey: '', hassURL: '', hassToken: '' };

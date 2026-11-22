@@ -395,6 +395,15 @@ async function api(req, res, url) {
     accounts.saveRead(user.id);
     return send(res, 200, { ok: true });
   }
+  // Articles gardés « à lire plus tard » : propres au profil, partagés entre ses appareils.
+  if (route === 'GET /api/saved') return send(res, 200, profile.saved);
+  if (route === 'POST /api/saved') {
+    const body = await readBody(req);
+    if (body?.add) return send(res, 200, accounts.keepArticle(user.id, body.add));
+    if (body?.clear === true) return send(res, 200, accounts.dropArticles(user.id, null));
+    if (Array.isArray(body?.remove)) return send(res, 200, accounts.dropArticles(user.id, body.remove.map(String)));
+    throw new BriefingError('JSON invalide');
+  }
   if (route === 'GET /api/weather/search') return send(res, 200, await searchPlaces(q.get('q') ?? ''));
   if (route === 'GET /api/teams') {
     const section = findSection(q.get('section'));

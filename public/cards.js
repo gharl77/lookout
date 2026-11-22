@@ -1,13 +1,14 @@
 // Contenu des cartes : articles, météo, pointages, trajets.
-import { h, icon, fmt, t, openMenu, copyText } from './ui.js';
+import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 
 // --- Articles (RSS et API JSON) ---
 
 const keywords = (s) => String(s ?? '').split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 
 /** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
-export function present(articles, options, sourceOrder, limit) {
-  const include = keywords(options.includeKeywords), exclude = keywords(options.excludeKeywords);
+export function present(articles, options, sourceOrder, limit, general = {}) {
+  // Les mots masqués dans les réglages généraux s'ajoutent à ceux de la section.
+  const include = keywords(options.includeKeywords), exclude = [...keywords(options.excludeKeywords), ...keywords(general.muteKeywords)];
   const cutoff = options.maxAgeHours > 0 ? Date.now() - options.maxAgeHours * 3600e3 : null;
   const seen = new Set();
   const sorted = articles.filter((a) => {
@@ -36,8 +37,21 @@ export function present(articles, options, sourceOrder, limit) {
   return out;
 }
 
+/** L'article contient-il un mot à mettre en évidence (réglages de la section ou réglages généraux) ? */
+function highlighted(article, section, general) {
+  const words = [...keywords(section.feed.highlightKeywords), ...keywords(general.highlightKeywords)];
+  if (!words.length) return false;
+  const haystack = `${article.title} ${article.summary}`.toLowerCase();
+  return words.some((k) => haystack.includes(k));
+}
+
 function articleRow(article, style, section, ctx) {
   const o = section.feed;
+  const saved = ctx.isSaved(article.id);
+  // Bouton « À lire plus tard » : visible au survol à la souris, toujours visible au doigt et une fois l'article gardé.
+  const keep = ctx.canSave && article.link && h('button', { class: `row-save${saved ? ' on' : ''}`, type: 'button', 'aria-pressed': String(saved),
+    title: t(saved ? 'Retirer de « À lire plus tard »' : 'À lire plus tard'), 'aria-label': t(saved ? 'Retirer de « À lire plus tard »' : 'À lire plus tard'),
+    onClick: (e) => { e.preventDefault(); e.stopPropagation(); ctx.toggleSaved(article, section); } }, sfIcon('bookmark.fill'));
   const read = ctx.isRead(article.id), fresh = ctx.isNew(article);
   const pill = fresh && h('span', { class: 'new-pill' }, 'Nouveau');
   const showSource = o.showSource && section.kind === 'feed' && o.sources.filter((s) => s.enabled).length > 1;
@@ -61,7 +75,7 @@ function articleRow(article, style, section, ctx) {
   }
 
   const row = h(article.link ? 'a' : 'div', {
-    class: `row${read && ctx.general.dimReadArticles ? ' read' : ''}`, href: article.link, target: '_blank', rel: 'noopener noreferrer',
+    class: `row${read && ctx.general.dimReadArticles ? ' read' : ''}${highlighted(article, section, ctx.general) ? ' hl' : ''}${keep ? ' can-save' : ''}`, href: article.link, target: '_blank', rel: 'noopener noreferrer',
     title: article.summary || article.title,
     onClick: () => ctx.setRead([article.id], true),
     onContextmenu: (e) => {
@@ -71,25 +85,26 @@ function articleRow(article, style, section, ctx) {
       openMenu(row, [
         article.link && { label: 'Ouvrir', icon: icon('open'), action: () => { window.open(article.link, '_blank', 'noopener'); ctx.setRead([article.id], true); } },
         article.link && { label: 'Copier le lien', icon: icon('link'), action: () => copyText(article.link) },
+        keep && { label: saved ? 'Retirer de « À lire plus tard »' : 'À lire plus tard', icon: sfIcon('bookmark.fill'), action: () => ctx.toggleSaved(article, section) },
         '-',
         { label: read ? 'Marquer comme non lu' : 'Marquer comme lu', icon: icon(read ? 'check-off' : 'check-on'), action: () => ctx.setRead([article.id], !read) },
       ]);
     },
-  }, inner);
+  }, inner, keep);
   return row;
 }
 
 /** Nombre d'articles affichés parus depuis la dernière visite. */
 export function countNew(section, articles, ctx) {
-  return shownArticles(section, articles).filter(ctx.isNew).length;
+  return shownArticles(section, articles, ctx.general).filter(ctx.isNew).length;
 }
 
-export function shownArticles(section, articles) {
-  return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems));
+export function shownArticles(section, articles, general) {
+  return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems), general);
 }
 
 function articleList(section, articles, ctx) {
-  const shown = shownArticles(section, articles);
+  const shown = shownArticles(section, articles, ctx.general);
   if (!shown.length) return h('div', { class: 'hint' }, 'Aucun article ne correspond aux filtres.');
   const layout = section.feed.layout;
   return h('div', { class: 'rows' }, shown.map((a, i) => articleRow(a, layout === 'headline' ? (i === 0 ? 'headline' : 'list') : layout, section, ctx)));
