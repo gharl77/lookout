@@ -86,15 +86,14 @@ Ouvrez ensuite `http://<ip-du-serveur>:8765` et cliquez sur l'engrenage pour con
 | Variable | Défaut | Description |
 |---|---|---|
 | `TZ` | `Etc/UTC` | Fuseau horaire, qui détermine ce qu'est « aujourd'hui » pour les pointages (ex. `America/Toronto`) |
-| `LOOKOUT_ADMIN_USER`, `LOOKOUT_ADMIN_PASSWORD` | *(aucun)* | Créent le compte administrateur au premier démarrage plutôt que dans le navigateur |
 | `LOOKOUT_PASSWORD` | *(aucun)* | Barrière supplémentaire facultative devant tout le reste (authentification HTTP Basic), en plus des comptes |
 | `LOOKOUT_USER` | `lookout` | Nom d'utilisateur associé à `LOOKOUT_PASSWORD` |
 | `PORT` | `8080` | Port d'écoute du serveur dans le conteneur |
 
 ## Comptes et profils
 
-Lookout est multiutilisateur. À la première visite, il demande de créer le compte **administrateur** ; une
-installation existante à un seul utilisateur devient le profil de ce compte, réglages intacts.
+Lookout est multiutilisateur. À la première ouverture, il demande de créer le compte **administrateur** (nom et
+mot de passe). Par la suite, seuls les administrateurs peuvent créer des comptes.
 
 - **Profils** : l'administrateur en crée un par personne (Réglages → Profils), à partir des réglages de départ
   ou en copie d'un autre profil. Il peut aussi réinitialiser un mot de passe, remplacer les réglages d'un profil
@@ -103,8 +102,8 @@ installation existante à un seul utilisateur devient le profil de ce compte, r�
   jour — jusqu'à ce qu'on se déconnecte ou que le mot de passe change. Les formulaires sont standards : le
   navigateur ou le gestionnaire de mots de passe peut enregistrer le mot de passe.
 - **Les mots de passe** sont enregistrés hachés (scrypt), jamais en clair. Les sessions utilisent un témoin `HttpOnly`.
-- **Créez l'administrateur sans tarder.** Tant qu'il n'existe pas, la première personne qui ouvre la page peut le
-  créer. Définissez `LOOKOUT_ADMIN_USER` et `LOOKOUT_ADMIN_PASSWORD` pour le créer au démarrage.
+- **Créez l'administrateur dès l'installation.** Tant qu'il n'existe pas, la première personne qui ouvre la page
+  peut le créer.
 
 ## Utilisateur et permissions
 

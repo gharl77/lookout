@@ -86,15 +86,14 @@ Then open `http://<server-ip>:8765` and click the gear icon to set up your secti
 | Variable | Default | Description |
 |---|---|---|
 | `TZ` | `Etc/UTC` | Time zone, used to decide what "today" means for scores (e.g. `America/Toronto`) |
-| `LOOKOUT_ADMIN_USER`, `LOOKOUT_ADMIN_PASSWORD` | *(none)* | Create the administrator account at first start instead of in the browser |
 | `LOOKOUT_PASSWORD` | *(none)* | Optional extra gate in front of everything (HTTP Basic authentication), on top of accounts |
 | `LOOKOUT_USER` | `lookout` | User name that goes with `LOOKOUT_PASSWORD` |
 | `PORT` | `8080` | Port the server listens on inside the container |
 
 ## Accounts and profiles
 
-Lookout is multi-user. On the first visit it asks you to create the **administrator** account; an existing
-single-user installation becomes that account's profile, with its settings intact.
+Lookout is multi-user. The first time it is opened, it asks you to create the **administrator** account (name
+and password). From then on, only administrators can create accounts.
 
 - **Profiles**: the administrator creates one per person (Settings → Profiles), either from the default
   settings or as a copy of another profile, and can reset passwords, replace a profile's settings with a copy
@@ -103,8 +102,7 @@ single-user installation becomes that account's profile, with its settings intac
   you sign out or your password changes. Sign-in forms are standard, so browsers and password managers can
   save the password.
 - **Passwords** are stored hashed (scrypt), never in plain text. Sessions use an `HttpOnly` cookie.
-- **Create the administrator early.** Until it exists, whoever opens the page first can create it. Set
-  `LOOKOUT_ADMIN_USER` and `LOOKOUT_ADMIN_PASSWORD` to create it at startup instead.
+- **Create the administrator right after installing.** Until it exists, whoever opens the page first can create it.
 
 ## User and permissions
 

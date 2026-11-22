@@ -51,18 +51,9 @@ initGeocodeCache(DATA);
 
 // --- Comptes et profils ---
 // Chaque utilisateur a ses propres réglages et son propre état de lecture (voir lib/accounts.js).
+// Le compte administrateur se crée à la première ouverture de la page ; ensuite, seuls les administrateurs
+// peuvent créer des comptes.
 const accounts = new Accounts(DATA);
-
-// Premier compte administrateur créé d'office si ces variables sont définies ; sinon il se crée à la
-// première visite, dans le navigateur.
-if (!accounts.hasUsers && process.env.LOOKOUT_ADMIN_USER && process.env.LOOKOUT_ADMIN_PASSWORD) {
-  try {
-    const admin = accounts.create({ name: process.env.LOOKOUT_ADMIN_USER, password: process.env.LOOKOUT_ADMIN_PASSWORD });
-    console.log(`Compte administrateur « ${admin.name} » créé à partir des variables d'environnement.`);
-  } catch (error) {
-    console.error('Compte administrateur non créé :', error.message);
-  }
-}
 
 // --- Données des sections ---
 // Chaque source n'est interrogée qu'une fois par intervalle : celui de sa section s'il est défini, sinon
