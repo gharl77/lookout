@@ -12,6 +12,10 @@ En développement, pas encore publié. / In development, not yet released.
 - **Multi-user**: accounts and profiles. Each person has their own settings; the administrator creates profiles
   (optionally as a copy of another), resets passwords and deletes profiles. Once signed in on a device, you stay
   signed in. The administrator account is created the first time the app is opened.
+- **Consultation en lecture seule** : un administrateur peut ouvrir le tableau de bord d'un autre profil, sans
+  pouvoir rien y modifier (Réglages → Profils → ⋯ → Voir son tableau de bord).
+- **Read-only view**: an administrator can open another profile's dashboard without being able to change anything
+  (Settings → Profiles → ⋯ → View their dashboard).
 
 ## 2026.11.1
 

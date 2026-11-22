@@ -171,13 +171,17 @@ export async function copyText(text) {
 
 // --- API du serveur ---
 let onSignedOut = null;
+// Profil consulté par un administrateur (lecture seule) : ses réglages et ses sections sont demandés à sa place.
+let viewedProfile = null;
+export function viewProfile(id) { viewedProfile = id; }
 /** Ce qu'il faut faire quand le serveur répond que la session n'est plus valide. */
 export function whenSignedOut(handler) { onSignedOut = handler; }
 
-export async function api(path, { method = 'GET', body } = {}) {
+export async function api(path, { method = 'GET', body, asViewed = true } = {}) {
   let response;
   try {
-    response = await fetch(path, { method, headers: { 'X-Lang': getLang(), 'X-Requested-With': 'lookout', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    response = await fetch(path, { method, headers: { 'X-Lang': getLang(), 'X-Requested-With': 'lookout', ...(viewedProfile && asViewed ? { 'X-View-As': viewedProfile } : {}),
+        ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
   } catch { throw new Error(t('Serveur Lookout injoignable')); }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {

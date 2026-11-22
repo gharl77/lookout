@@ -234,7 +234,20 @@ async function api(req, res, url) {
 
   // Tout le reste exige d'être connecté.
   if (!user) throw Object.assign(new BriefingError('Connexion requise'), { status: 401 });
-  const profile = accounts.profile(user.id);
+
+  // Un administrateur peut consulter le tableau de bord d'un autre profil, en lecture seule : l'interface
+  // l'indique par cet en-tête. Seule la lecture des réglages (clés masquées), des sections et de l'état de
+  // lecture est alors permise ; rien ne peut être modifié au nom de l'autre profil.
+  const viewedID = req.headers['x-view-as'];
+  let owner = user;
+  if (viewedID) {
+    requireAdmin(user);
+    owner = accounts.user(String(viewedID));
+    if (!owner) throw new BriefingError('Profil introuvable');
+    const readable = req.method === 'GET' && (route === 'GET /api/config' || route === 'GET /api/read' || url.pathname.startsWith('/api/section/'));
+    if (!readable) throw Object.assign(new BriefingError('Ce profil est affiché en lecture seule'), { status: 403 });
+  }
+  const profile = accounts.profile(owner.id);
   const findSection = (id) => {
     const section = profile.config.sections.find((s) => s.id === id);
     if (!section) throw new BriefingError('Section introuvable');

@@ -6,6 +6,7 @@ import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICE
 let closeCurrent = null;
 
 export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
+  if (app.viewing) return;   // profil d'un autre, en lecture seule : aucun réglage à modifier
   closeCurrent?.();
   const config = () => app.state.config;
   const ui = { tab, selected: sectionID ?? config().sections[0]?.id ?? null, detail: Boolean(sectionID) };
@@ -638,6 +639,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         h('select', { class: 'field', 'aria-label': 'Rôle', onChange: (e) => usersAction(() => api(path(u), { method: 'PATCH', body: { role: ROLES[e.target.selectedIndex][0] } })) },
           ROLES.map(([value, label]) => h('option', { selected: u.role === value }, label))),
         h('button', { class: 'icon-btn', 'aria-label': t('Actions pour {0}', u.name), onClick: (e) => openMenu(e.currentTarget, [
+          { label: 'Voir son tableau de bord', icon: icon('open'), disabled: u.id === app.user.id, action: () => { location.href = `${location.pathname}?voir=${encodeURIComponent(u.id)}`; } },
           { label: 'Appareils connectés…', icon: icon('users'), action: () => devicesDialog(u) },
           { label: 'Changer le mot de passe…', icon: icon('key'), action: () => passwordDialog(u) },
           users.length > 1 && { heading: 'Remplacer ses réglages par ceux de' },

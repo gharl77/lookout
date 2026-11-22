@@ -1,5 +1,5 @@
 // Briefing — tableau de bord.
-import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay, whenSignedOut } from './ui.js';
+import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay, whenSignedOut, viewProfile } from './ui.js';
 import { showAuth, signOut } from './auth.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
@@ -77,6 +77,7 @@ function saveNow() {
 let renderTimer = null, syncTimer = null;
 /** À appeler après toute modification de la configuration. */
 function commit() {
+  if (app.viewing) return;   // profil d'un autre, en lecture seule : rien n'est enregistré
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 400);
   clearTimeout(renderTimer);
@@ -137,6 +138,7 @@ document.addEventListener('visibilitychange', () => {
 
 // --- Lecture des articles ---
 function setRead(ids, read) {
+  if (app.viewing) return;   // on ne marque rien comme lu à la place de quelqu'un d'autre
   for (const id of ids) read ? state.readIDs.add(id) : state.readIDs.delete(id);
   api('/api/read', { method: 'POST', body: read ? { add: ids } : { remove: ids } }).catch(() => {});
   for (const s of visible()) if (state.data.get(s.id)?.articles) renderCard(s.id);
@@ -228,7 +230,7 @@ function renderPages() {
 function showPage(id) {
   if (id === currentPage()) return;
   state.page = id;
-  remember('lookout.page', id);
+  if (!app.viewing) remember('lookout.page', id);
   hideToast();
   renderAll();
   refreshAll();   // les sections de la page sont demandées au serveur (qui respecte leurs intervalles)
@@ -298,7 +300,9 @@ async function checkVersion(now = false) {
   // Recharge en changeant l'adresse de la page, pour contourner un éventuel cache de la page elle-même.
   const reload = () => {
     try { sessionStorage.setItem('lookout.reloadedFor', about.build); } catch { /* stockage indisponible */ }
-    location.replace(`${location.pathname}?v=${about.build}`);
+    const query = new URLSearchParams(location.search);
+    query.set('v', about.build);   // garde le reste de l'adresse (profil consulté, par exemple)
+    location.replace(`${location.pathname}?${query}`);
   };
   // Déjà rechargée pour cette version sans succès (un cache sert encore l'ancienne page) : on n'insiste pas,
   // pour ne jamais recharger en boucle. On le signale seulement.
@@ -336,6 +340,8 @@ const nextSpan = (span) => SPANS[(SPANS.findIndex(([value]) => value === span) +
 
 function cardMenu(anchor, s) {
   const payload = state.data.get(s.id);
+  // Profil d'un autre : on peut seulement redemander les données.
+  if (app.viewing) return openMenu(anchor, [{ label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) }]);
   openMenu(anchor, [
     { label: 'Mettre à jour maintenant', icon: icon('refresh'), action: () => loadSection(s.id, true) },
     payload?.articles && { label: 'Tout marquer comme lu', icon: icon('check-on'), action: () => setRead(shownArticles(s, payload.articles).map((a) => a.id), true) },
@@ -392,7 +398,7 @@ function buildCard(s) {
   } else if (payload?.error && !loading) {
     body = h('div', { class: 'error-state' }, icon('warning'), h('span', {}, payload.error),
       h('div', {}, h('button', { class: 'btn small', onClick: () => loadSection(s.id, true) }, 'Réessayer'), ' ',
-        h('button', { class: 'btn small', onClick: () => openSettings(app, { sectionID: s.id }) }, 'Configurer…')));
+        !app.viewing && h('button', { class: 'btn small', onClick: () => openSettings(app, { sectionID: s.id }) }, 'Configurer…')));
   } else {
     body = h('div', { class: 'skeleton', role: 'status', 'aria-label': 'Chargement' },
       Array.from({ length: (s.kind === 'weather' ? 3 : Math.min(s.maxItems, 5)) * 2 }, () => h('i')));
@@ -447,7 +453,8 @@ function renderAll() {
   const empty = $('empty');
   empty.hidden = list.length > 0;
   if (!list.length) {
-    empty.replaceChildren(h('div', { class: 'error-state' }, h('h2', { style: { margin: '0', color: 'var(--text)' } }, 'Votre tableau de bord est vide'),
+    if (app.viewing) empty.replaceChildren(h('div', { class: 'error-state' }, h('span', {}, 'Ce profil n’affiche aucune section sur cette page.')));
+    else empty.replaceChildren(h('div', { class: 'error-state' }, h('h2', { style: { margin: '0', color: 'var(--text)' } }, 'Votre tableau de bord est vide'),
       h('span', {}, 'Ajoutez ou réactivez des sections dans les réglages.'),
       h('button', { class: 'btn primary', onClick: () => openSettings(app) }, 'Ouvrir les réglages')));
   }
@@ -474,7 +481,7 @@ function dragTransform() {
 function enableDrag(card, id) {
   const head = card.querySelector('.card-head');
   head.addEventListener('pointerdown', (e) => {
-    if (drag || e.target.closest('button, a, input')) return;
+    if (drag || app.viewing || e.target.closest('button, a, input')) return;
     if (e.pointerType === 'mouse' ? e.button !== 0 : !state.editing) return;
     if (!frames.has(id)) layout();   // mise en page pas encore calculée (onglet resté en arrière-plan)
     const frame = frames.get(id), rect = $('grid').getBoundingClientRect();
@@ -623,6 +630,7 @@ new ResizeObserver(scheduleLayout).observe($('grid'));
 // --- Démarrage ---
 const app = {
   user: null,
+  viewing: null,   // { id, name } quand un administrateur consulte le profil d'un autre, en lecture seule
   version: '',
   build: '',
   state, commit, saveNow, loadSection, refreshAll, restartTimer, renderAll, currentPage,
@@ -636,13 +644,37 @@ const app = {
   },
 };
 
+/**
+ * Adresse « ?voir=<profil> » : un administrateur consulte le tableau de bord d'un autre profil.
+ * Tout est en lecture seule, et un bandeau le rappelle en permanence.
+ */
+async function enterViewMode() {
+  const id = new URLSearchParams(location.search).get('voir');
+  if (!id || id === app.user.id || app.user.role !== 'admin') return;
+  let target;
+  try { target = (await api('/api/users')).find((u) => u.id === id); } catch { return; }
+  if (!target) return;
+  app.viewing = { id: target.id, name: target.name };
+  viewProfile(target.id);
+  document.body.classList.add('viewing');
+  const leave = () => { location.href = location.pathname; };
+  $('view-banner').hidden = false;
+  $('view-banner').replaceChildren(icon('users'), h('span', { class: 'grow' }, t('Profil de {0} — lecture seule. Rien de ce que vous faites ici ne modifie ses réglages.', target.name)),
+    h('button', { class: 'btn primary', onClick: leave }, 'Revenir à mon profil'));
+}
+
 /** Pastille du compte, en haut à droite : initiale du nom, menu du compte. */
 function renderUserButton() {
   const button = $('btn-user');
   button.hidden = false;
   button.textContent = app.user.name.charAt(0).toUpperCase();
   button.title = app.user.name;
-  button.onclick = () => openMenu(button, [
+  button.onclick = () => openMenu(button, app.viewing ? [
+    { heading: app.user.name },
+    { label: 'Revenir à mon profil', icon: icon('back'), action: () => { location.href = location.pathname; } },
+    '-',
+    { label: 'Se déconnecter', icon: icon('signout'), action: signOut },
+  ] : [
     { heading: app.user.name },
     { label: 'Mon compte…', icon: icon('user'), action: () => openSettings(app, { tab: 'account' }) },
     app.user.role === 'admin' && { label: 'Profils…', icon: icon('users'), action: () => openSettings(app, { tab: 'users' }) },
@@ -677,6 +709,7 @@ document.addEventListener('keydown', (e) => {
     app.user = auth.user;
     whenSignedOut(() => location.reload());
     renderUserButton();
+    await enterViewMode();
     const [config, read, about] = await Promise.all([api('/api/config'), api('/api/read'), api('/api/about')]);
     app.version = about.version;
     // Version de l'interface réellement chargée : elle est dans l'adresse de ce script (« /v/<empreinte>/app.js »).

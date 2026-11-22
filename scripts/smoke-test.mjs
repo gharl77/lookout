@@ -151,6 +151,20 @@ await check('profils : copie des réglages, indépendance, droits et mots de pas
   await request('/api/config', { method: 'PUT', ...json(copy) }, guestCookie);
   expect((await (await request('/api/config')).json()).sections[0].title === 'Marque du profil admin', "un profil a modifié les réglages d'un autre");
 
+  // Consultation en lecture seule : un administrateur lit le tableau de bord d'un autre profil, sans rien pouvoir y changer.
+  const as = (id) => ({ headers: { 'X-View-As': id } });
+  const viewed = await request('/api/config', as(guest.id));
+  expect(viewed.status === 200 && (await viewed.json()).sections[0].title === 'Modifié par le profil invité', "l'administrateur ne lit pas les réglages du profil consulté");
+  expect((await request('/api/read', as(guest.id))).status === 200, "l'état de lecture du profil consulté est refusé");
+  const forbidden = { headers: { 'Content-Type': 'application/json', 'X-View-As': guest.id } };
+  expect((await request('/api/config', { method: 'PUT', ...forbidden, body: JSON.stringify(copy) })).status === 403, "des réglages ont été enregistrés au nom d'un autre profil");
+  expect((await request('/api/read', { method: 'POST', ...forbidden, body: '{"add":["x"]}' })).status === 403, "un article a été marqué lu au nom d'un autre profil");
+  expect((await request('/api/config/reset', { method: 'POST', ...forbidden, body: '{}' })).status === 403, "les réglages d'un autre profil ont été réinitialisés");
+  expect((await request('/api/users', as(guest.id))).status === 403, 'la consultation ouvre autre chose que la lecture du tableau de bord');
+  expect((await request('/api/config', as(me.id), guestCookie)).status === 403, "un simple utilisateur consulte le profil d'un autre");
+  expect((await request('/api/config', as('inconnu'))).status === 400, 'un profil inexistant est consultable');
+  expect((await (await request('/api/config', {}, guestCookie)).json()).sections[0].title === 'Modifié par le profil invité', 'la consultation a modifié le profil consulté');
+
   // Présence : l'administrateur voit qui est en ligne et depuis quels appareils.
   const seen = (await (await request('/api/users')).json()).find((u) => u.id === guest.id);
   expect(seen.online === true && seen.devices.length === 1 && typeof seen.devices[0].label === 'string', `présence inattendue : ${JSON.stringify(seen)}`);

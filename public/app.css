@@ -119,6 +119,14 @@ body.signed-out #topbar, body.signed-out #main { display: none; }
   border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 14px; }
 #edit-banner .grow { flex: 1 1 220px; }
 
+/* --- Profil d'un autre, consulté en lecture seule --- */
+#view-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 10px 14px; margin-bottom: calc(var(--grid-gap) + 2px);
+  border-radius: 14px; font-size: 14px; font-weight: 500; background: color-mix(in srgb, #f59e0b 18%, transparent); border: 0.5px solid color-mix(in srgb, #f59e0b 50%, transparent); }
+#view-banner > svg { font-size: 18px; color: #f59e0b; }
+#view-banner .grow { flex: 1 1 240px; }
+body.viewing #btn-edit, body.viewing #btn-settings { display: none; }
+body.viewing .card-head { cursor: default; }
+
 /* --- Onglets des pages --- */
 #pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: calc(var(--grid-gap) + 2px); }
 .page-tab { padding: 6px 14px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--text2); background: var(--card);
