@@ -95,7 +95,8 @@ Settings.
 **Creating and managing pages**
 
 - Page tabs are always visible in this mode, even with a single page.
-- *+ Page* creates a page, shows it and lets you type its name right away.
+- *+ Page* creates an empty page, which you name right away, or a **ready-made page**: Morning, News, Sports,
+  Movies and series, Tech, Culture, Videos.
 - **Double-click** a tab to rename it; **drag it** to reorder the pages.
 - The `⋯` button next to the active tab offers *Rename*, *Move left or right* and *Delete page*. The sections
   of a deleted page move to another page.
@@ -114,7 +115,7 @@ everything moves to a single column.
 
 ## Section types
 
-*Add a section* offers seven types, plus two shortcuts.
+*Add a section* offers eight types, plus two shortcuts.
 
 ### RSS feeds
 
@@ -180,6 +181,16 @@ Results, live and upcoming games, standings.
 A list taken from any API that returns JSON. You give the address, any headers and the path of the fields
 (list, title, subtitle, link, date, image). See [Sources and keys](sources.md#json-api).
 
+### Calendar
+
+The upcoming events of one or more calendars, grouped by day.
+
+- **Calendars**: paste the iCal address of each one (Google Calendar, iCloud, Outlook, or any `.ics` file).
+  The `i` button says where to find it. No key or sign-in: Lookout reads the calendar and never changes it.
+- The address gives access to the whole calendar: it is kept on the server and no longer shown once saved.
+- **Display**: period (today up to 30 days), location, today's events that have already ended.
+- Recurring events, exceptions and all-day events are handled.
+
 ### Releases
 
 Season premieres of series (TVmaze, no key) and movies in theatres or upcoming (TMDB, free key), for a country
@@ -199,6 +210,11 @@ the one the administrator has opened to you.
 ## Reading articles
 
 - A click opens the article in a new tab and marks it as read.
+- **Read here**: the book-shaped button on each article opens its text in a built-in reader, without leaving
+  Lookout. To make it the click behaviour: *Settings → Reading and filters → Open articles in Lookout*.
+  Cmd-click or Ctrl-click still opens a new tab.
+- Some sites refuse the reader or keep their articles for subscribers: a button then opens the article on the
+  site.
 - Read articles are dimmed (adjustable). The read state is stored on the server: it follows you across devices.
 - The **New** badge marks articles published since your previous visit on this device. The marker only moves
   forward if you were away for at least ten minutes.

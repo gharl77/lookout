@@ -15,7 +15,7 @@ SF = {
  "figure.run":"person-simple-run","dumbbell.fill":"barbell","chart.line.uptrend.xyaxis":"chart-line-up","dollarsign.circle.fill":"currency-circle-dollar",
  "briefcase.fill":"briefcase","cart.fill":"shopping-cart","house.fill":"house","heart.fill":"heart","film.fill":"film-strip","music.note":"music-note",
  "book.fill":"book","fork.knife":"fork-knife","cross.case.fill":"first-aid-kit","graduationcap.fill":"graduation-cap","star.fill":"star",
- "bookmark.fill":"bookmark","tag.fill":"tag","bell.fill":"bell","curlybraces":"brackets-curly","antenna.radiowaves.left.and.right":"broadcast",
+ "calendar":"calendar-dots","doc.text.fill":"article","bookmark.fill":"bookmark","tag.fill":"tag","bell.fill":"bell","curlybraces":"brackets-curly","antenna.radiowaves.left.and.right":"broadcast",
 }
 # Icônes d'interface : nom -> (style, icône Phosphor)
 UI = {
@@ -27,7 +27,7 @@ UI = {
  "close":("bold","x"),"search":("bold","magnifying-glass"),"pin":("fill","map-pin"),"arrow-up":("bold","arrow-up"),"arrow-down":("bold","arrow-down"),
  "wind":("regular","wind"),"drop":("fill","drop"),"sunset":("fill","sun-horizon"),"thermo":("regular","thermometer-simple"),
  "user":("bold","user"), "users":("regular","users"), "signout":("bold","sign-out"), "key":("regular","key"),
- "gear":("regular","gear"),"gear-bold":("bold","gear"),"drive":("regular","hard-drives"),"link":("bold","link"),"open":("regular","arrow-square-out"),
+ "reader":("regular","book-open-text"),"gear":("regular","gear"),"gear-bold":("bold","gear"),"drive":("regular","hard-drives"),"link":("bold","link"),"open":("regular","arrow-square-out"),
  "drag":("fill","hand-grabbing"),"offline":("bold","wifi-slash"),"image":("regular","image"),"shield":("fill","shield"),
  "walk":("fill","person-simple-walk"),"car":("fill","car"),"transit":("fill","tram"),"back":("bold","arrow-left"),
  "w-sun":("fill","sun"),"w-moon":("fill","moon-stars"),"w-cloud-sun":("fill","cloud-sun"),"w-cloud-moon":("fill","cloud-moon"),

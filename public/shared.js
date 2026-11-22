@@ -17,6 +17,7 @@ export const KINDS = {
   commute: { label: 'Trajets', detail: 'Temps de parcours (API OSRM, TomTom ou Home Assistant)', icon: 'car.fill', color: '#10B981', maxItems: 4 },
   sports: { label: 'Pointages sportifs', detail: 'Résultats et matchs à venir (API ESPN, HockeyTech ou API-Sports)', icon: 'sportscourt.fill', color: '#F59E0B', maxItems: 8 },
   api: { label: 'API JSON', detail: "Liste tirée de n'importe quelle API JSON", icon: 'curlybraces', color: '#8B5CF6', maxItems: 6 },
+  calendar: { label: 'Agenda', detail: 'Prochains événements de vos calendriers (adresse iCal : Google, iCloud, Outlook)', icon: 'calendar', color: '#EC4899', maxItems: 8 },
   releases: { label: 'Sorties', detail: 'Films en salle et nouvelles saisons de séries (TMDB, TVmaze)', icon: 'film.fill', color: '#F97316', maxItems: 12 },
   summary: { label: 'Résumé du jour', detail: "L'essentiel de vos fils, résumé par Claude (API Anthropic)", icon: 'bolt.fill', color: '#8B5CF6', maxItems: 5 },
 };
@@ -240,13 +241,14 @@ export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
  * Intervalle propre à un type de section, en minutes ; 0 = suivre l'intervalle par défaut des réglages.
  * Les pointages et les trajets changent vite : ils sont interrogés plus souvent que les nouvelles.
  */
-export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120 };
+export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120, calendar: 15 };
 
 export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apisports: 'API-Sports' };
 
 const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appearance: 'system', accentHex: '#3B82F6',
   tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
   dimReadArticles: true, units: 'metric',
+  readerDefault: false,   // un clic sur un article l'ouvre dans le lecteur intégré plutôt que dans un nouvel onglet
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
   displaySeconds: 30,
   notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false,
@@ -282,6 +284,8 @@ export function articleFilter(options, general = {}, now = Date.now()) {
   };
 }
 
+const CALENDAR = { calendars: [], days: 7, showLocation: true, showEnded: false };
+export const calendarSource = (name = '', url = '') => ({ id: uuid(), name, url, enabled: true, colorHex: '' });
 const RELEASES = { country: 'CA', days: 7, showMovies: true, showSeries: true, tmdbKey: '' };
 /** Modèles offerts pour le résumé, du plus capable au plus économique. */
 export const SUMMARY_MODELS = [['claude-opus-5-5', 'Claude Opus 5.5'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5'], ['claude-haiku-5-5', 'Claude Haiku 5.5']];
@@ -300,7 +304,7 @@ export function newSection(kind, overrides = {}) {
     page: '',     // page du tableau de bord (vide = première page)
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API),
-    releases: clone(RELEASES), summary: clone(SUMMARY), ...overrides };
+    releases: clone(RELEASES), summary: clone(SUMMARY), calendar: clone(CALENDAR), ...overrides };
 }
 
 /** Identifiant de la vidéo dans une adresse YouTube (vidéo, Short ou lien court), ou null. */
@@ -408,6 +412,8 @@ export function normalize(input) {
     s.sports.leagues = (s.sports.leagues ?? []).map((x) => ({ ...league('', ''), ...x, teams: Array.isArray(x.teams) ? x.teams : [] }));
     s.api = { ...API, ...(raw.api ?? {}) };
     s.releases = { ...RELEASES, ...(raw.releases ?? {}) };
+    s.calendar = { ...CALENDAR, ...(raw.calendar ?? {}) };
+    s.calendar.calendars = (Array.isArray(s.calendar.calendars) ? s.calendar.calendars : []).map((x) => ({ ...calendarSource(), ...x }));
     s.summary = { ...SUMMARY, ...(raw.summary ?? {}) };
     if (!Array.isArray(s.summary.sections)) s.summary.sections = [];
     if (!SUMMARY_MODELS.some(([id]) => id === s.summary.model)) s.summary.model = SUMMARY.model;
@@ -424,6 +430,7 @@ export function fetchSignature(s, units) {
     : s.kind === 'sports' ? [s.sports.leagues.map((l) => [l.id, l.path, l.enabled, l.provider, l.key]), s.sports.showYesterday, s.sports.showUpcoming, s.sports.apiSportsKey,
       s.sports.showStandings, s.sports.leagues.map((l) => l.teams.map((x) => x.id))]
     : s.kind === 'releases' ? s.releases
+    : s.kind === 'calendar' ? [s.calendar.calendars.map((c) => [c.id, c.url, c.enabled, c.name, c.colorHex]), s.calendar.days, s.calendar.showEnded]
     : s.kind === 'summary' ? [s.summary, s.maxItems]
     : [s.api, s.title];
   return JSON.stringify([s.kind, units, data]);

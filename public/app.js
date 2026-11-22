@@ -195,6 +195,51 @@ function playVideo(article) {
       h('button', { class: 'btn primary', onClick: close }, 'Fermer'))], { cls: 'dialog video' });
 }
 
+// --- Lecteur d'article ---
+// Le serveur extrait le texte principal de la page et le renvoie en blocs ; rien de la page d'origine n'est exécuté ici.
+function readArticle(article, section = null) {
+  const body = h('div', { class: 'reader-body' }, h('div', { class: 'skeleton', role: 'status', 'aria-label': 'Chargement' }, Array.from({ length: 12 }, () => h('i'))));
+  const meta = h('div', { class: 'a-meta' }, [article.source, article.date && fmt.ago(article.date)].filter(Boolean).join(' · '));
+  const title = h('h2', {}, article.title);
+  const images = section ? section.feed.showImages !== false : true;
+  const picture = (src, alt = '') => h('img', { src, alt, loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
+  let closed = false;
+  openDialog((close) => {
+    const saved = () => state.saved.some((a) => a.id === article.id);
+    const keep = !app.viewing && h('button', { class: 'btn', 'aria-pressed': String(saved()), onClick: (e) => {
+      toggleSaved(article, section);
+      e.currentTarget.setAttribute('aria-pressed', String(!saved()));
+    } }, sfIcon('bookmark.fill'), 'À lire plus tard');
+    return [
+      h('div', { class: 'reader-scroll' }, h('article', { class: 'reader-text' }, meta, title, body)),
+      h('div', { class: 'actions' }, keep, h('span', { class: 'grow' }),
+        h('a', { class: 'btn', href: article.link, target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Ouvrir sur le site'),
+        h('button', { class: 'btn primary', onClick: close }, 'Fermer'))].filter(Boolean);
+  }, { cls: 'dialog reader', onClose: () => { closed = true; } });
+  api('/api/reader', { method: 'POST', body: { url: article.link }, asViewed: false }).then((page) => {
+    if (closed) return;
+    meta.textContent = [page.site || article.source, page.byline, article.date && fmt.ago(article.date), t('{0} min de lecture', page.minutes)].filter(Boolean).join(' · ');
+    const lead = images && page.image && page.blocks[0]?.type !== 'img' && picture(page.image);
+    const blocks = page.blocks.filter((b) => b.type !== 'img' || (images && b.src !== page.image));
+    const out = [];
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (b.type === 'li') {   // les éléments de liste qui se suivent forment une seule liste
+        const items = [];
+        while (blocks[i]?.type === 'li') items.push(h('li', {}, document.createTextNode(blocks[i++].text)));
+        i--;
+        out.push(h('ul', {}, items));
+      } else if (b.type === 'img') out.push(h('figure', {}, picture(b.src, b.alt)));
+      else out.push(h(b.type === 'h' ? 'h3' : b.type === 'quote' ? 'blockquote' : b.type === 'pre' ? 'pre' : 'p', {}, document.createTextNode(b.text)));
+    }
+    body.replaceChildren(...[lead && h('figure', {}, lead), ...out].filter(Boolean));
+  }).catch((error) => {
+    if (closed) return;
+    body.replaceChildren(h('div', { class: 'error-state' }, icon('warning'), h('span', {}, document.createTextNode(error.message)),
+      h('a', { class: 'btn primary', href: article.link, target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Ouvrir sur le site')));
+  });
+}
+
 // --- Abonnements YouTube tenus à jour d'après le compte Google relié ---
 /** Au chargement : annonce le résultat d'une connexion à Google, puis resynchronise les sections qui datent de plus d'un jour. */
 async function googleFollowUp() {
@@ -355,7 +400,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs.has(id), setRead,
-  get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
+  get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, get readArticle() { return app.display ? null : readArticle; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 
 // --- Barre supérieure et en-tête ---
@@ -457,7 +502,7 @@ function renderPages() {
     enableTabDrag(tab, p.id);
     return p.id === current ? [tab, h('button', { class: 'page-more', title: 'Options de la page', 'aria-label': t('Options de la page {0}', pageName(p)),
       onClick: (e) => pageMenu(e.currentTarget, p) }, icon('more'))] : [tab];
-  }), editing && h('button', { class: 'page-tab add', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onClick: () => addPage() }, icon('plus'), h('span', {}, 'Page'))].filter(Boolean));
+  }), editing && h('button', { class: 'page-tab add', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onClick: (e) => addPageMenu(e.currentTarget) }, icon('plus'), h('span', {}, 'Page'))].filter(Boolean));
 }
 
 function showPage(id) {
@@ -497,19 +542,48 @@ function renamePage(id) {
   renderPages();
 }
 
-/** Crée une page, l'affiche et propose aussitôt de la nommer. `sectionID` : une section à y emporter. */
-function addPage(sectionID = null) {
-  const page = newPage(t('Nouvelle page'));
-  withUndo(sectionID ? 'Section déplacée vers une nouvelle page' : 'Page ajoutée', () => {
+// Pages déjà garnies : un point de départ qu'on ajuste ensuite comme n'importe quelle page.
+const PAGE_TEMPLATES = [
+  { name: 'Matin', icon: 'sun.max.fill', detail: 'Météo, trajets, agenda et grands titres', kinds: ['weather', 'commute', 'calendar'], feeds: ['Actualités'] },
+  { name: 'Actualités', icon: 'newspaper.fill', detail: 'À la une, international, politique, économie', feeds: ['Actualités', 'International', 'Politique', 'Économie'] },
+  { name: 'Sports', icon: 'sportscourt.fill', detail: 'Pointages et nouvelles du sport', kinds: ['sports'], feeds: ['Sports'] },
+  { name: 'Cinéma et séries', icon: 'film.fill', detail: 'Sorties de la semaine, films, séries', kinds: ['releases'], feeds: ['Films', 'Séries et télé'] },
+  { name: 'Techno', icon: 'cpu.fill', detail: 'Techno, intelligence artificielle, jeux vidéo', feeds: ['Techno', 'Intelligence artificielle', 'Jeux vidéo'] },
+  { name: 'Culture', icon: 'music.note', detail: 'Culture, musique, livres', feeds: ['Culture', 'Musique', 'Livres'] },
+  { name: 'Vidéos', icon: 'film.fill', detail: 'Les dernières vidéos de vos chaînes YouTube', youtube: true },
+];
+function templateSections(tpl) {
+  const lang = document.documentElement.lang;
+  const feeds = (tpl.feeds ?? []).map((name) => FEED_CATALOG.find((c) => c.name === name)).filter(Boolean).map((c) => categorySection(c, lang));
+  // Le premier fil d'une page d'actualités prend la place d'honneur.
+  if (feeds[0] && feeds.length + (tpl.kinds?.length ?? 0) > 2) Object.assign(feeds[0], { span: 2, maxItems: 7 }, { feed: { ...feeds[0].feed, layout: 'headline', showSummary: true } });
+  return [...(tpl.kinds ?? []).map((kind) => template(kind)), ...(tpl.youtube ? [youtubeSection()] : []), ...feeds].map((s) => ({ ...s, title: t(s.title) }));
+}
+
+/** Menu du bouton « + Page » : une page vide, ou une page déjà garnie. */
+function addPageMenu(anchor) {
+  openMenu(anchor, [
+    { label: 'Page vide', icon: icon('plus'), action: () => addPage() },
+    '-', { heading: 'Page déjà garnie' },
+    ...PAGE_TEMPLATES.map((tpl) => ({ label: tpl.name, detail: tpl.detail, icon: sfIcon(tpl.icon), action: () => addPage(null, tpl) })),
+  ]);
+}
+
+/** Crée une page et l'affiche. Vide : propose aussitôt de la nommer. `sectionID` : une section à y emporter. `tpl` : un modèle. */
+function addPage(sectionID = null, tpl = null) {
+  const page = newPage(t(tpl ? tpl.name : 'Nouvelle page'));
+  withUndo(sectionID ? 'Section déplacée vers une nouvelle page' : tpl ? t('Page « {0} » ajoutée', page.name) : 'Page ajoutée', () => {
     pages().push(page);
     const s = sectionID && section(sectionID);
     if (s) { s.page = page.id; s.column = -1; }
+    if (tpl) state.config.sections.push(...templateSections(tpl).map((x) => ({ ...x, page: page.id })));
   });
   state.page = page.id;
   remember('lookout.page', page.id);
   state.editing = true;
-  renaming = page.id;
+  renaming = tpl ? null : page.id;
   renderAll();
+  window.scrollTo({ top: 0 });
 }
 
 function movePage(p, direction) {
@@ -767,7 +841,7 @@ function newBadge(s, payload) {
 
 function buildCard(s) {
   const payload = state.data.get(s.id), loading = state.loading.has(s.id);
-  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary);
+  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary || payload.events);
   const errors = payload ? sourceErrorText(s, payload) : '';
 
   const controls = state.editing

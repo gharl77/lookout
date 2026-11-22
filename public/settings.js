@@ -1,7 +1,7 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, fmt, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid, SECRET_MASK,
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, calendarSource, newPage, uuid, SECRET_MASK,
   categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions, SUMMARY_MODELS } from './shared.js';
 
 let closeCurrent = null;
@@ -85,7 +85,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
   const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
   const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
-  const ITEMS_LABEL = { feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points' };
+  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points' };
 
   function iconPicker(s) {
     return h('button', { class: 'btn', 'aria-label': 'Choisir une icône', onClick: (e) => openPopover(e.currentTarget, (close) =>
@@ -472,6 +472,40 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     ], "Les séries viennent de TVmaze, sans clé : premier épisode de chaque nouvelle saison, à la télé du pays choisi et sur les grands services en ligne. Les films viennent de TMDB et demandent une clé gratuite. Ce produit utilise l'API de TMDB mais n'est ni approuvé ni certifié par TMDB.")];
   }
 
+  // --- Agenda ---
+  function calendarHelp() {
+    const WHERE = [
+      ['Google Agenda', "Sur ordinateur : Paramètres → cliquez le calendrier dans la colonne de gauche → « Intégrer l'agenda » → copiez l'« Adresse secrète au format iCal »."],
+      ['iCloud', "Dans l'app Calendrier ou sur icloud.com : partagez le calendrier, cochez « Calendrier public », puis copiez le lien (il commence par webcal://)."],
+      ['Outlook', "Sur outlook.com : Paramètres → Calendrier → Calendriers partagés → « Publier un calendrier » → copiez le lien ICS."],
+    ];
+    openDialog((close) => [h('h3', {}, "Trouver l'adresse d'un calendrier"),
+      h('ol', { class: 'steps' }, WHERE.map(([name, how]) => h('li', {}, h('b', {}, name), ' — ', how))),
+      h('p', {}, "Cette adresse donne accès à tout le calendrier en lecture : ne la partagez pas. Lookout la garde sur le serveur et ne l'affiche plus une fois enregistrée."),
+      h('div', { class: 'actions' }, h('button', { class: 'btn primary', onClick: close }, 'Fermer'))], { cls: 'dialog wide' });
+  }
+  function calendarEditor(s) {
+    const o = s.calendar, list = o.calendars;
+    return [group('Calendriers', [
+      list.map((c) => h('div', { class: 'item' },
+        toggle(c, 'enabled', { label: t('Activer {0}', c.name), rerender: true }),
+        h('div', { class: 'fields' }, text(c, 'name', { placeholder: 'Nom du calendrier' }),
+          h('input', { class: 'sub mono', value: c.url, placeholder: 'https://… ou webcal://… (.ics)', 'aria-label': 'Adresse du calendrier', inputmode: 'url',
+            autocapitalize: 'off', spellcheck: 'false', onFocus: (e) => e.target.select(), onInput: (e) => { c.url = e.target.value.trim(); commit(); } })),
+        h('input', { class: 'cal-color', type: 'color', value: /^#[0-9a-f]{6}$/i.test(c.colorHex) ? c.colorHex : s.colorHex, title: 'Couleur', 'aria-label': 'Couleur',
+          onInput: (e) => { c.colorHex = e.target.value.toUpperCase(); commit(); } }),
+        statusDot(s, c.id, c.enabled), rowControls(list, c))),
+      h('div', { class: 'line' },
+        h('button', { class: 'btn', onClick: () => { list.push(calendarSource()); commit(); render(); } }, icon('plus'), 'Ajouter un calendrier'),
+        h('button', { class: 'info-btn', title: "Où trouver l'adresse de mon calendrier", 'aria-label': "Où trouver l'adresse de mon calendrier", onClick: calendarHelp }, 'i')),
+    ], "Collez l'adresse iCal de chaque calendrier (Google, iCloud, Outlook…). Aucune clé ni connexion : Lookout lit le calendrier, sans jamais le modifier. L'adresse n'est plus affichée une fois enregistrée."),
+    group('Affichage', [
+      line('Période', select(o, 'days', [[1, "Aujourd'hui"], [2, '2 jours'], [3, '3 jours'], [7, '7 jours'], [14, '14 jours'], [30, '30 jours']], { label: 'Période' })),
+      line('Lieu', toggle(o, 'showLocation', { label: 'Lieu' })),
+      line("Événements d'aujourd'hui déjà terminés", toggle(o, 'showEnded', { label: "Événements d'aujourd'hui déjà terminés" })),
+    ])];
+  }
+
   // --- Résumé du jour ---
   function summaryEditor(s) {
     const o = s.summary, shared = app.sharedKeys?.anthropicKey;
@@ -500,6 +534,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       s.kind === 'sports' && sportsEditor(s),
       s.kind === 'api' && [apiEditor(s), articleDisplay(s, false)],
       s.kind === 'releases' && releasesEditor(s),
+      s.kind === 'calendar' && calendarEditor(s),
       s.kind === 'summary' && summaryEditor(s)];
   }
 
@@ -508,7 +543,6 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   // On glisse une section pour la changer de place ou de page ; une page repliée reste une cible de dépôt.
   let listEl = null;
   const collapsed = new Set();   // pages repliées (le temps que les réglages restent ouverts)
-  let dragged = null;            // id de la section en cours de glisser
   const clearMarks = () => { for (const el of listEl?.querySelectorAll('.drop-before, .drop-after, .drop-into') ?? []) el.classList.remove('drop-before', 'drop-after', 'drop-into'); };
 
   /** Déplace une section : devant ou derrière une autre (`anchorID`), ou à la fin d'une page. Elle prend la page d'arrivée. */
@@ -523,34 +557,98 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     collapsed.delete(pageID);
     commit(); render();
   }
-  /** Fait d'un élément une cible de dépôt. `where(e)` dit où la section atterrirait : { page, anchor?, after? }. */
-  function dropZone(el, where, mark) {
-    el.addEventListener('dragover', (e) => { if (!dragged) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; clearMarks(); mark(e); });
-    el.addEventListener('dragleave', (e) => { if (!el.contains(e.relatedTarget)) clearMarks(); });
-    el.addEventListener('drop', (e) => {
-      if (!dragged) return;
-      e.preventDefault(); e.stopPropagation();
-      const target = where(e), id = dragged;
-      dragged = null;
-      clearMarks();
-      if (target.page === '+') {
-        const page = newPage(t('Nouvelle page'));
-        config().pages.push(page);
-        target.page = page.id;
-      }
-      moveSection(id, target.page, target.anchor, target.after);
-    });
+
+  // Glisser une section dans la liste, à la souris comme au doigt. À la souris, on la saisit n'importe où ;
+  // au doigt, par sa poignée (à droite), pour que la liste continue de défiler normalement sous le pouce.
+  let listDrag = null, skipClick = false;
+  /** Où la section atterrirait si on la lâchait à cet endroit : une autre section (avant ou après), ou une page. */
+  function listTarget(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el || !listEl?.contains(el)) return null;
+    const item = el.closest('.s-item');
+    if (item) {
+      const r = item.getBoundingClientRect(), after = y > r.top + r.height / 2;
+      return { el: item, mark: after ? 'drop-after' : 'drop-before', page: item.dataset.page, anchor: item.dataset.section, after };
+    }
+    const group = el.closest('.s-group');
+    return group ? { el: group, mark: 'drop-into', page: group.dataset.page } : null;
   }
-  const lowerHalf = (el, e) => { const r = el.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
+  function moveListDrag(e) {
+    const d = listDrag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    d.x = e.clientX; d.y = e.clientY;
+    if (!d.active) {
+      if (Math.hypot(d.x - d.startX, d.y - d.startY) < 6) return;
+      d.active = true;
+      const r = d.item.getBoundingClientRect();
+      d.ghost = d.item.cloneNode(true);
+      d.ghost.classList.add('s-ghost');
+      d.ghost.style.width = `${r.width}px`;
+      d.dx = d.startX - r.left; d.dy = d.startY - r.top;
+      document.body.append(d.ghost);
+      d.item.classList.add('dragging');
+      document.body.classList.add('is-dragging');
+      const loop = () => {
+        if (listDrag !== d) return;
+        // Près du haut ou du bas de la liste : elle défile toute seule.
+        const r2 = listEl.getBoundingClientRect(), edge = 36;
+        if (d.y < r2.top + edge) listEl.scrollTop -= 8; else if (d.y > r2.bottom - edge) listEl.scrollTop += 8;
+        requestAnimationFrame(loop);
+      };
+      loop();
+    }
+    e.preventDefault();
+    d.ghost.style.transform = `translate(${d.x - d.dx}px, ${d.y - d.dy}px)`;
+    clearMarks();
+    d.target = listTarget(d.x, d.y);
+    if (d.target && d.target.anchor !== d.id) d.target.el.classList.add(d.target.mark); else if (d.target?.anchor === d.id) d.target = null;
+  }
+  function endListDrag(e) {
+    const d = listDrag;
+    if (!d || (e && e.pointerId !== d.pointerId)) return;
+    listDrag = null;
+    window.removeEventListener('pointermove', moveListDrag);
+    window.removeEventListener('pointerup', endListDrag);
+    window.removeEventListener('pointercancel', endListDrag);
+    if (!d.active) return;
+    d.ghost.remove();
+    d.item.classList.remove('dragging');
+    document.body.classList.remove('is-dragging');
+    clearMarks();
+    skipClick = true;
+    setTimeout(() => { skipClick = false; }, 50);
+    const target = e?.type === 'pointerup' ? d.target : null;
+    if (!target) return;
+    let page = target.page;
+    if (page === '+') {
+      const created = newPage(t('Nouvelle page'));
+      config().pages.push(created);
+      page = created.id;
+    }
+    moveSection(d.id, page, target.anchor, target.after);
+  }
+  function enableListDrag(item, s, handle) {
+    const start = (e) => {
+      if (listDrag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      // Au doigt, seule la poignée lance le déplacement.
+      if (e.pointerType === 'touch' && !handle.contains(e.target)) return;
+      listDrag = { id: s.id, item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, active: false, target: null };
+      window.addEventListener('pointermove', moveListDrag, { passive: false });
+      window.addEventListener('pointerup', endListDrag);
+      window.addEventListener('pointercancel', endListDrag);
+    };
+    item.addEventListener('pointerdown', start);
+  }
 
   function sectionItem(s) {
-    const item = h('button', { class: `s-item${s.enabled ? '' : ' off'}`, role: 'option', 'aria-selected': String(s.id === ui.selected), draggable: 'true',
-      onClick: () => { ui.selected = s.id; ui.detail = true; render(); } },
+    const handle = h('span', { class: 's-grip', title: 'Glisser pour déplacer', 'aria-hidden': 'true' }, icon('drag'));
+    const item = h('button', { class: `s-item${s.enabled ? '' : ' off'}`, role: 'option', 'aria-selected': String(s.id === ui.selected),
+      onClick: () => { if (skipClick) return; ui.selected = s.id; ui.detail = true; render(); } },
     badge(s, true), h('span', { class: 'names' }, h('span', {}, s.title || 'Sans titre'), h('small', {}, t(KINDS[s.kind].label))),
-    !s.enabled && h('span', { title: 'Section masquée' }, icon('hide')));
-    item.addEventListener('dragstart', (e) => { dragged = s.id; e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; item.classList.add('dragging'); });
-    item.addEventListener('dragend', () => { dragged = null; item.classList.remove('dragging'); clearMarks(); });
-    dropZone(item, (e) => ({ page: s.page, anchor: s.id, after: lowerHalf(item, e) }), (e) => item.classList.add(lowerHalf(item, e) ? 'drop-after' : 'drop-before'));
+    !s.enabled && h('span', { title: 'Section masquée' }, icon('hide')), handle);
+    item.dataset.section = s.id;
+    item.dataset.page = s.page;
+    enableListDrag(item, s, handle);
     return h('li', {}, item);
   }
   function sectionItems() {
@@ -563,13 +661,12 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       const group = h('li', { class: 's-group' }, head,
         open && h('ul', { role: 'group', 'aria-label': p.name }, mine.map(sectionItem),
           !mine.length && h('li', { class: 's-empty' }, 'Glissez une section ici')));
-      // Sur l'en-tête, ou dans le vide de la page : la section se range à la fin de cette page.
-      dropZone(group, () => ({ page: p.id }), () => group.classList.add('drop-into'));
+      group.dataset.page = p.id;   // sur l'en-tête, ou dans le vide de la page : la section se range à la fin
       return group;
     });
     const add = h('li', { class: 's-group' }, h('button', { class: 's-page add', title: 'Ajouter une page',
       onClick: () => { config().pages.push(newPage(t('Nouvelle page'))); commit(); ui.tab = 'pages'; render(); } }, icon('plus'), h('span', { class: 'grow' }, 'Nouvelle page')));
-    dropZone(add, () => ({ page: '+' }), () => add.classList.add('drop-into'));
+    add.dataset.page = '+';
     return [...groups, add];
   }
   function refreshList() { listEl?.replaceChildren(...sectionItems()); }
@@ -685,6 +782,9 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       group('Lecture', [
         line('Atténuer les articles déjà lus', toggle(g, 'dimReadArticles', { label: 'Atténuer les articles lus' })),
       ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."),
+      group('Lecteur intégré', [
+        line('Ouvrir les articles dans Lookout', toggle(g, 'readerDefault', { label: 'Ouvrir les articles dans Lookout' })),
+      ], "Le lecteur affiche le texte de l'article sans quitter Lookout. Activé, un clic sur un article l'ouvre dans le lecteur ; sinon, utilisez le bouton en forme de livre sur chaque article. Certains sites réservés aux abonnés ne s'y prêtent pas : un bouton ouvre alors l'article sur le site."),
       group('Filtres pour tous les fils', [
         line('Masquer partout', text(g, 'muteKeywords', { placeholder: 'ex. horoscope, célébrités', label: 'Masquer partout' })),
         line('Mettre en évidence partout', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mettre en évidence partout' })),

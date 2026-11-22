@@ -46,6 +46,10 @@ function articleRow(article, style, section, ctx) {
   const keep = ctx.canSave && article.link && h('button', { class: `row-save${saved ? ' on' : ''}`, type: 'button', 'aria-pressed': String(saved),
     title: t(saved ? 'Retirer de « À lire plus tard »' : 'À lire plus tard'), 'aria-label': t(saved ? 'Retirer de « À lire plus tard »' : 'À lire plus tard'),
     onClick: (e) => { e.preventDefault(); e.stopPropagation(); ctx.toggleSaved(article, section); } }, sfIcon('bookmark.fill'));
+  // Bouton « Lire ici » : ouvre le texte de l'article dans le lecteur intégré (pas pour les vidéos).
+  const canRead = ctx.readArticle && article.link && !youtubeVideoID(article.link);
+  const reader = canRead && h('button', { class: 'row-save row-read', type: 'button', title: 'Lire ici', 'aria-label': 'Lire ici',
+    onClick: (e) => { e.preventDefault(); e.stopPropagation(); ctx.setRead([article.id], true); ctx.readArticle(article, section); } }, icon('reader'));
   const read = ctx.isRead(article.id), fresh = ctx.isNew(article);
   const pill = fresh && h('span', { class: 'new-pill' }, 'Nouveau');
   const showSource = o.showSource && section.kind === 'feed' && o.sources.filter((s) => s.enabled).length > 1;
@@ -76,18 +80,21 @@ function articleRow(article, style, section, ctx) {
   }
 
   const row = h(article.link ? 'a' : 'div', {
-    class: `row${read && ctx.general.dimReadArticles ? ' read' : ''}${highlighted(article, section, ctx.general) ? ' hl' : ''}${keep ? ' can-save' : ''}`, href: article.link, target: '_blank', rel: 'noopener noreferrer',
+    class: `row${read && ctx.general.dimReadArticles ? ' read' : ''}${highlighted(article, section, ctx.general) ? ' hl' : ''}${keep || reader ? ' can-save' : ''}`, href: article.link, target: '_blank', rel: 'noopener noreferrer',
     title: article.summary || article.title,
     onClick: (e) => {
       ctx.setRead([article.id], true);
       // Vidéo YouTube : lecture sur place, sauf si l'on demande un nouvel onglet (Cmd/Ctrl-clic, clic du milieu).
       if (o.playInline !== false && !e.metaKey && !e.ctrlKey && !e.shiftKey && youtubeVideoID(article.link) && ctx.playVideo) { e.preventDefault(); ctx.playVideo(article); }
+      // Lecteur intégré choisi par défaut : même règle, un nouvel onglet reste possible avec Cmd/Ctrl-clic.
+      else if (canRead && ctx.general.readerDefault && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); ctx.readArticle(article, section); }
     },
     onContextmenu: (e) => {
       // Sur ordinateur : menu contextuel. Sur iPhone, l'appui long garde le menu natif du lien.
       if (matchMedia('(pointer: coarse)').matches) return;
       e.preventDefault();
       openMenu(row, [
+        canRead && { label: 'Lire ici', icon: icon('reader'), action: () => { ctx.setRead([article.id], true); ctx.readArticle(article, section); } },
         article.link && { label: 'Ouvrir', icon: icon('open'), action: () => { window.open(article.link, '_blank', 'noopener'); ctx.setRead([article.id], true); } },
         article.link && { label: 'Copier le lien', icon: icon('link'), action: () => copyText(article.link) },
         keep && { label: saved ? 'Retirer de « À lire plus tard »' : 'À lire plus tard', icon: sfIcon('bookmark.fill'), action: () => ctx.toggleSaved(article, section) },
@@ -95,7 +102,7 @@ function articleRow(article, style, section, ctx) {
         { label: read ? 'Marquer comme non lu' : 'Marquer comme lu', icon: icon(read ? 'check-off' : 'check-on'), action: () => ctx.setRead([article.id], !read) },
       ]);
     },
-  }, inner, keep);
+  }, inner, reader, keep);
   return row;
 }
 
@@ -287,6 +294,34 @@ function releasesView(section, payload) {
   ];
 }
 
+// --- Agenda ---
+function calendarView(section, payload) {
+  const o = section.calendar, lang = document.documentElement.lang;
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = ymd(new Date()), tomorrow = ymd(new Date(Date.now() + 86400e3));
+  // Journée entière : une date sans fuseau (minuit UTC côté serveur). Sinon, le jour local du début.
+  // Un événement commencé avant aujourd'hui (voyage, congé) se range sous aujourd'hui.
+  const dayOf = (e) => { const key = e.allDay ? new Date(e.start).toISOString().slice(0, 10) : ymd(new Date(e.start)); return key < today ? today : key; };
+  const dayLabel = (key) => (key === today ? t("Aujourd'hui") : key === tomorrow ? t('Demain')
+    : new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${key}T12:00:00Z`)));
+  const list = payload.events.slice(0, Math.max(1, section.maxItems)), days = new Map();
+  for (const e of list) { const key = dayOf(e); if (!days.has(key)) days.set(key, []); days.get(key).push(e); }
+  const several = new Set(payload.events.map((e) => e.calendar)).size > 1;
+  return [
+    !list.length && h('div', { class: 'hint' }, 'Rien de prévu dans la période choisie.'),
+    [...days].map(([key, events]) => h('div', { class: 'agenda-day' },
+      h('h3', { class: key === today ? 'today' : null }, dayLabel(key)),
+      events.map((e) => {
+        const sub = [several && e.calendar, o.showLocation && e.location].filter(Boolean).join(' · ');
+        return h(e.link ? 'a' : 'div', { class: `agenda-row${!e.allDay && e.end < Date.now() ? ' past' : ''}`, href: e.link, target: '_blank', rel: 'noopener noreferrer',
+          style: { '--c': e.colorHex || section.colorHex }, title: e.allDay ? null : `${fmt.time(e.start)} – ${fmt.time(e.end)}` },
+        h('time', {}, e.allDay ? t('Journée') : (dayOf(e) === ymd(new Date(e.start)) ? fmt.time(e.start) : t('En cours'))),
+        h('span', { class: 'agenda-text' }, h('span', { class: 'a-title' }, e.title || t('(sans titre)')), sub && h('span', { class: 'a-meta' }, sub)));
+      }))),
+    payload.events.length > list.length && h('div', { class: 'a-meta more' }, t('et {0} autres', payload.events.length - list.length)),
+  ];
+}
+
 // --- Résumé du jour ---
 function summaryView(section, payload) {
   return [h('ol', { class: 'summary' }, payload.summary.map((point) => h('li', {},
@@ -297,6 +332,7 @@ function summaryView(section, payload) {
 
 export function cardBody(section, payload, ctx) {
   if (payload.releases) return releasesView(section, payload);
+  if (payload.events) return calendarView(section, payload);
   if (payload.summary) return summaryView(section, payload);
   if (payload.articles) return articleList(section, payload.articles, ctx);
   if (payload.weather) return weatherView(section, payload.weather);

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { setLangProvider, t } from './public/i18n.js';
 import { defaultConfig, normalize, fetchSignature } from './public/shared.js';
-import { BriefingError } from './lib/util.js';
+import { BriefingError, checkURL } from './lib/util.js';
 import { fetchFeeds, fetchJSONAPI } from './lib/feeds.js';
 import { fetchWeather, searchPlaces } from './lib/weather.js';
 import { fetchSports, fetchTeams, searchAPISportsLeagues } from './lib/sports.js';
@@ -19,6 +19,8 @@ import { Push, cleanSubscription } from './lib/push.js';
 import { startWatcher } from './lib/notify.js';
 import { resolveChannel } from './lib/youtube.js';
 import { fetchReleases } from './lib/releases.js';
+import { fetchCalendar } from './lib/calendar.js';
+import { readArticle } from './lib/reader.js';
 import { fetchSummary } from './lib/summary.js';
 import * as google from './lib/google.js';
 import { articleFilter, youtubeFeedURL, youtubeChannelID } from './public/shared.js';
@@ -243,6 +245,7 @@ function noteHealth(section, payload) {
   for (const source of [...section.feed.sources, ...section.sports.leagues]) {
     if (source.enabled !== false && (section.kind === 'feed' || section.kind === 'sports')) mark(source.id, payload.sourceErrors?.[source.id] ?? null);
   }
+  if (section.kind === 'calendar') for (const c of section.calendar.calendars) if (c.enabled !== false && c.url) mark(c.id, payload.sourceErrors?.[c.id] ?? null);
   for (const route of payload.routes ?? []) if (route.id) mark(route.id, route.error ?? null);
 }
 setInterval(() => {
@@ -260,7 +263,7 @@ function healthReport() {
     for (const section of accounts.profile(user.id).config.sections) {
       if (!section.enabled) continue;
       const parts = [{ id: '', name: null },
-        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'commute' ? section.commute.routes : [])
+        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'commute' ? section.commute.routes : section.kind === 'calendar' ? section.calendar.calendars : [])
           .filter((x) => x.enabled !== false)];
       for (const part of parts) {
         const entry = health.get(`${section.id}|${part.id}`);
@@ -305,6 +308,7 @@ async function loadSection(section, config, force = false) {
         : section.kind === 'commute' ? await fetchCommute(withSharedKey(section.commute, 'tomtomKey'))
         : section.kind === 'sports' ? await fetchSports(withSharedKey(section.sports, 'apiSportsKey'))
         : section.kind === 'releases' ? await fetchReleases(withSharedKey(section.releases, 'tmdbKey'))
+        : section.kind === 'calendar' ? await fetchCalendar(section.calendar, process.env.TZ)
         : section.kind === 'summary' ? await summarize(section, config)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
@@ -602,6 +606,11 @@ async function api(req, res, url) {
   }
 
   // Articles gardés « à lire plus tard » : propres au profil, partagés entre ses appareils.
+  // Lecteur d'article : le texte principal d'une page, pour le lire sans quitter Lookout.
+  if (route === 'POST /api/reader') {
+    const body = await readBody(req);
+    return send(res, 200, await readArticle(checkURL(body?.url).href));
+  }
   if (route === 'GET /api/saved') return send(res, 200, profile.saved);
   if (route === 'POST /api/saved') {
     const body = await readBody(req);

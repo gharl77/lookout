@@ -17,6 +17,7 @@ D'où viennent les données de chaque section, ce qui demande une clé, et comme
 | Trajets | Home Assistant | Adresse et jeton | Le vôtre |
 | Pointages | ESPN, HockeyTech | Aucune | Gratuit |
 | Pointages | API-Sports | Clé | Forfait gratuit : 100 requêtes par jour et par sport |
+| Agenda | L'adresse iCal de chaque calendrier | Aucune | Gratuit |
 | Sorties, séries | TVmaze | Aucune | Gratuit |
 | Sorties, films | TMDB | Clé | Gratuit |
 | Résumé du jour | API d'Anthropic (Claude) | Clé | **Payant à l'usage** |

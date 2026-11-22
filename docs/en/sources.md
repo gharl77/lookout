@@ -17,6 +17,7 @@ Where each section's data comes from, what needs a key, and how to get it.
 | Commute | Home Assistant | Address and token | Yours |
 | Scores | ESPN, HockeyTech | None | Free |
 | Scores | API-Sports | Key | Free tier: 100 requests per day and per sport |
+| Calendar | Each calendar's iCal address | None | Free |
 | Releases, series | TVmaze | None | Free |
 | Releases, movies | TMDB | Key | Free |
 | Daily summary | Anthropic API (Claude) | Key | **Billed per use** |

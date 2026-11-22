@@ -99,7 +99,8 @@ passer par les réglages.
 **Créer et gérer les pages**
 
 - Les onglets des pages sont toujours visibles dans ce mode, même s'il n'y en a qu'une.
-- *+ Page* crée une page, l'affiche et vous laisse aussitôt taper son nom.
+- *+ Page* crée une page vide, que vous nommez aussitôt, ou une **page déjà garnie** : Matin, Actualités,
+  Sports, Cinéma et séries, Techno, Culture, Vidéos.
 - **Double-cliquez** un onglet pour le renommer ; **glissez-le** pour changer l'ordre des pages.
 - Le bouton `⋯` à côté de l'onglet actif offre *Renommer*, *Déplacer à gauche ou à droite* et *Supprimer la
   page*. Les sections d'une page supprimée passent sur une autre page.
@@ -118,7 +119,7 @@ tout passe sur une colonne.
 
 ## Les types de section
 
-*Ajouter une section* propose sept types, plus deux raccourcis.
+*Ajouter une section* propose huit types, plus deux raccourcis.
 
 ### Fils RSS
 
@@ -186,6 +187,17 @@ Résultats, matchs en cours et à venir, classement.
 Une liste tirée de n'importe quelle API qui renvoie du JSON. Vous indiquez l'adresse, les en-têtes éventuels
 et le chemin des champs (liste, titre, sous-titre, lien, date, image). Voir [Sources et clés](sources.md#api-json).
 
+### Agenda
+
+Les prochains événements d'un ou plusieurs calendriers, regroupés par jour.
+
+- **Calendriers** : collez l'adresse iCal de chacun (Google Agenda, iCloud, Outlook, ou tout fichier `.ics`).
+  Le bouton `i` indique où la trouver. Aucune clé ni connexion : Lookout lit le calendrier, sans le modifier.
+- L'adresse donne accès à tout le calendrier : elle est gardée sur le serveur et n'est plus affichée une fois
+  enregistrée.
+- **Affichage** : période (d'aujourd'hui à 30 jours), lieu, événements d'aujourd'hui déjà terminés.
+- Les événements répétés, les exceptions et les journées entières sont pris en compte.
+
 ### Sorties
 
 Les premières de saisons de séries (TVmaze, sans clé) et les films en salle ou à venir (TMDB, clé gratuite),
@@ -205,6 +217,11 @@ que l'administrateur vous a ouverte.
 ## Lire les articles
 
 - Un clic ouvre l'article dans un nouvel onglet et le marque comme lu.
+- **Lire ici** : le bouton en forme de livre, sur chaque article, ouvre son texte dans un lecteur intégré, sans
+  quitter Lookout. Pour en faire le comportement du clic : *Réglages → Lecture et filtres → Ouvrir les articles
+  dans Lookout*. Cmd-clic ou Ctrl-clic ouvre toujours un nouvel onglet.
+- Certains sites refusent le lecteur ou réservent leurs articles aux abonnés : un bouton ouvre alors l'article
+  sur le site.
 - Les articles lus sont atténués (réglable). L'état « lu » est enregistré sur le serveur : il vous suit sur
   tous vos appareils.
 - La pastille **Nouveau** signale les articles parus depuis votre visite précédente sur cet appareil. Le repère

@@ -6,6 +6,12 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ### Français
 
+- **Section Agenda** : les prochains événements de vos calendriers par leur adresse iCal (Google, iCloud,
+  Outlook), sans clé ni connexion.
+- **Lecteur d'article intégré** : le bouton *Lire ici* ouvre le texte d'un article sans quitter Lookout ;
+  une option en fait le comportement du clic.
+- **Pages déjà garnies** : *+ Page* propose Matin, Actualités, Sports, Cinéma et séries, Techno, Culture, Vidéos.
+- **Glisser au doigt** dans la liste des sections des réglages, par une poignée.
 - **Mode Organiser repensé** : une palette de sections à cliquer ou à glisser sur la page, à l'endroit voulu.
 - **Pages modifiables sur place** : *+ Page* pour en créer une, double-clic pour renommer, glisser un onglet
   pour changer l'ordre, menu `⋯` pour supprimer.
@@ -18,6 +24,12 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ### English
 
+- **Calendar section**: upcoming events from your calendars by their iCal address (Google, iCloud, Outlook),
+  with no key or sign-in.
+- **Built-in article reader**: the *Read here* button opens an article's text without leaving Lookout; an
+  option makes it the click behaviour.
+- **Ready-made pages**: *+ Page* offers Morning, News, Sports, Movies and series, Tech, Culture, Videos.
+- **Touch dragging** in the Settings section list, by a handle.
 - **Redesigned Arrange mode**: a palette of sections to click or drag onto the page, right where you want them.
 - **Pages edited in place**: *+ Page* to create one, double-click to rename, drag a tab to reorder, `⋯` menu
   to delete.
