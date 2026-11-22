@@ -16,6 +16,14 @@ En développement, pas encore publié. / In development, not yet released.
   pouvoir rien y modifier (Réglages → Profils → ⋯ → Voir son tableau de bord).
 - **Read-only view**: an administrator can open another profile's dashboard without being able to change anything
   (Settings → Profiles → ⋯ → View their dashboard).
+- **Mot de passe provisoire** : le mot de passe donné par un administrateur (nouveau profil ou réinitialisation)
+  doit être remplacé par la personne à sa connexion suivante.
+- **Clés d'API partagées** : un administrateur peut fournir une clé TomTom et une clé API-Sports à tous les profils
+  qui n'ont pas la leur (Réglages → Profils). Elles ne sont jamais réaffichées.
+- **Temporary password**: a password set by an administrator (new profile or reset) must be replaced by the person
+  at their next sign-in.
+- **Shared API keys**: an administrator can provide a TomTom key and an API-Sports key to every profile that has
+  none of its own (Settings → Profiles). They are never displayed again.
 
 ## 2026.11.1
 

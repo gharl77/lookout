@@ -103,6 +103,11 @@ function logSourceErrors(section, sourceErrors = {}) {
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
 
+/** Options d'une section, complétées par la clé partagée quand le profil n'a pas saisi la sienne. */
+function withSharedKey(options, name) {
+  return String(options[name] ?? '').trim() ? options : { ...options, [name]: accounts.sharedKey(name) };
+}
+
 async function loadSection(section, config, force = false) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
@@ -117,8 +122,8 @@ async function loadSection(section, config, force = false) {
     try {
       const data = section.kind === 'feed' ? await fetchFeeds(section.feed.sources)
         : section.kind === 'weather' ? await fetchWeather(section.weather, units)
-        : section.kind === 'commute' ? await fetchCommute(section.commute)
-        : section.kind === 'sports' ? await fetchSports(section.sports)
+        : section.kind === 'commute' ? await fetchCommute(withSharedKey(section.commute, 'tomtomKey'))
+        : section.kind === 'sports' ? await fetchSports(withSharedKey(section.sports, 'apiSportsKey'))
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
       logSourceErrors(section, data.sourceErrors);
@@ -235,6 +240,16 @@ async function api(req, res, url) {
   // Tout le reste exige d'être connecté.
   if (!user) throw Object.assign(new BriefingError('Connexion requise'), { status: 401 });
 
+  if (route === 'POST /api/auth/password') {
+    const body = await readBody(req);
+    // Mot de passe provisoire : la personne vient de le saisir pour se connecter, on ne le redemande pas.
+    if (!user.mustChangePassword && !accounts.checkOwnPassword(user.id, body?.current)) throw new BriefingError('Mot de passe actuel incorrect');
+    accounts.update(user.id, { password: body?.next }, token);
+    return send(res, 200, { ok: true });
+  }
+  // Tant que le mot de passe provisoire n'est pas remplacé, rien d'autre n'est accessible.
+  if (user.mustChangePassword) throw Object.assign(new BriefingError('Choisissez d’abord votre mot de passe'), { status: 403 });
+
   // Un administrateur peut consulter le tableau de bord d'un autre profil, en lecture seule : l'interface
   // l'indique par cet en-tête. Seule la lecture des réglages (clés masquées), des sections et de l'état de
   // lecture est alors permise ; rien ne peut être modifié au nom de l'autre profil.
@@ -254,11 +269,14 @@ async function api(req, res, url) {
     return section;
   };
 
-  if (route === 'POST /api/auth/password') {
-    const body = await readBody(req);
-    if (!accounts.checkOwnPassword(user.id, body?.current)) throw new BriefingError('Mot de passe actuel incorrect');
-    accounts.update(user.id, { password: body?.next }, token);
-    return send(res, 200, { ok: true });
+  // --- Clés d'API partagées : tout le monde sait lesquelles existent, seul un administrateur les définit ---
+  if (route === 'GET /api/shared-keys') return send(res, 200, accounts.sharedKeysSet);
+  if (route === 'PUT /api/shared-keys') {
+    requireAdmin(user);
+    const set = accounts.setSharedKeys(await readBody(req));
+    // Les sections restées en erreur (clé manquante ou refusée) sont redemandées dès le prochain affichage.
+    for (const [key, entry] of cache) if (hasErrors(entry.payload)) cache.delete(key);
+    return send(res, 200, set);
   }
 
   // --- Profils (administrateur) ---
@@ -277,7 +295,8 @@ async function api(req, res, url) {
       const body = await readBody(req);
       const changes = {};
       for (const field of ['name', 'role', 'password']) if (body?.[field] !== undefined) changes[field] = body[field];
-      return send(res, 200, accounts.describe(accounts.update(id, changes, id === user.id ? token : null)));
+      // Mot de passe donné à quelqu'un d'autre : provisoire, à remplacer à sa prochaine connexion.
+      return send(res, 200, accounts.describe(accounts.update(id, changes, id === user.id ? token : null, id !== user.id)));
     }
     if (req.method === 'POST' && userRoute[2]) {
       const body = await readBody(req);
@@ -324,11 +343,11 @@ async function api(req, res, url) {
     const section = findSection(q.get('section'));
     const league = section.sports.leagues.find((l) => l.id === q.get('league'));
     if (!league) throw new BriefingError('Ligue introuvable');
-    return send(res, 200, await fetchTeams(league, section.sports.apiSportsKey));
+    return send(res, 200, await fetchTeams(league, withSharedKey(section.sports, 'apiSportsKey').apiSportsKey));
   }
   if (route === 'GET /api/apisports/leagues') {
     const section = findSection(q.get('section'));
-    return send(res, 200, await searchAPISportsLeagues(q.get('sport') ?? '', q.get('q') ?? '', section.sports.apiSportsKey));
+    return send(res, 200, await searchAPISportsLeagues(q.get('sport') ?? '', q.get('q') ?? '', withSharedKey(section.sports, 'apiSportsKey').apiSportsKey));
   }
   return send(res, 404, { error: t('Introuvable') });
 }

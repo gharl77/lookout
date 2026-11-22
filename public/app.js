@@ -1,6 +1,6 @@
 // Briefing — tableau de bord.
 import { h, icon, badge, fmt, t, api, openMenu, confirmDialog, hasOverlay, whenSignedOut, viewProfile } from './ui.js';
-import { showAuth, signOut } from './auth.js';
+import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
 import { KINDS, template, fetchSignature } from './shared.js';
@@ -630,6 +630,7 @@ new ResizeObserver(scheduleLayout).observe($('grid'));
 // --- Démarrage ---
 const app = {
   user: null,
+  sharedKeys: {},
   viewing: null,   // { id, name } quand un administrateur consulte le profil d'un autre, en lecture seule
   version: '',
   build: '',
@@ -706,11 +707,18 @@ document.addEventListener('keydown', (e) => {
       Object.assign(document.documentElement.dataset, { theme: darkQuery.matches ? 'dark' : 'light', tinted: 'true' });
       return showAuth(auth);
     }
+    // Mot de passe provisoire donné par un administrateur : on choisit le sien avant d'aller plus loin.
+    if (auth.user.mustChangePassword) {
+      Object.assign(document.documentElement.dataset, { theme: darkQuery.matches ? 'dark' : 'light', tinted: 'true' });
+      return showPasswordChange(auth.user);
+    }
     app.user = auth.user;
     whenSignedOut(() => location.reload());
     renderUserButton();
     await enterViewMode();
-    const [config, read, about] = await Promise.all([api('/api/config'), api('/api/read'), api('/api/about')]);
+    const [config, read, about, sharedKeys] = await Promise.all([api('/api/config'), api('/api/read'), api('/api/about'),
+      api('/api/shared-keys', { asViewed: false }).catch(() => ({}))]);
+    app.sharedKeys = sharedKeys;   // clés d'API fournies par l'administrateur : { tomtomKey: true, … }
     app.version = about.version;
     // Version de l'interface réellement chargée : elle est dans l'adresse de ce script (« /v/<empreinte>/app.js »).
     app.build = /\/v\/([0-9a-f]{12})\//.exec(import.meta.url)?.[1] ?? about.build;

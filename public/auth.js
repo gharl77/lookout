@@ -67,6 +67,35 @@ export function showAuth({ setup, profiles }) {
   document.body.append(h('main', { class: 'auth-screen' }, form));
 }
 
+/**
+ * Mot de passe provisoire (donné par un administrateur) : la personne choisit le sien avant d'entrer.
+ * Le champ du nom, invisible, permet au gestionnaire de mots de passe d'enregistrer le nouveau mot de passe.
+ */
+export function showPasswordChange(user) {
+  document.body.classList.add('signed-out');
+  const error = h('p', { class: 'auth-error', role: 'alert', hidden: true });
+  const fail = (message) => { error.textContent = message; error.hidden = false; };
+  const input = (label, name, focus = false) => h('label', { class: 'auth-field' }, h('span', {}, label),
+    h('input', { class: 'field', required: true, name, type: 'password', autocomplete: 'new-password', minlength: '6', autofocus: focus }));
+  const next = input('Nouveau mot de passe', 'new-password', true), confirm = input('Confirmer le mot de passe', 'confirm-password');
+  document.body.append(h('main', { class: 'auth-screen' }, h('form', { class: 'auth-card', onSubmit: async (e) => {
+    e.preventDefault();
+    const [p, c] = [next, confirm].map((x) => x.querySelector('input').value);
+    if (p !== c) return fail(t('Les deux mots de passe ne sont pas identiques'));
+    try {
+      await api('/api/auth/password', { method: 'POST', body: { next: p } });
+      location.reload();
+    } catch (err) { fail(err.message); }
+  } },
+  h('img', { src: new URL('logo.svg', import.meta.url).href, alt: '', width: '64', height: '64' }),
+  h('h1', {}, t('Bonjour {0}', user.name)),
+  h('p', {}, "Le mot de passe que vous venez d'utiliser est provisoire. Choisissez le vôtre : vous seul le connaîtrez."),
+  h('input', { type: 'text', name: 'username', autocomplete: 'username', value: user.name, hidden: true }),
+  next, confirm, error,
+  h('button', { class: 'btn primary', type: 'submit' }, 'Enregistrer et continuer'),
+  h('button', { class: 'btn', type: 'button', style: { justifyContent: 'center' }, onClick: signOut }, 'Se déconnecter'))));
+}
+
 export async function signOut() {
   try { await api('/api/auth/logout', { method: 'POST', body: {} }); } catch { /* le témoin est effacé de toute façon au prochain chargement */ }
   location.reload();

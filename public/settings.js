@@ -1,7 +1,7 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid } from './shared.js';
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid, SECRET_MASK } from './shared.js';
 
 let closeCurrent = null;
 
@@ -177,7 +177,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         : 'Entrez des adresses complètes ou des noms de lieux. Le temps de parcours est calculé pour un départ immédiat.'),
       group('Calcul', [
         line('Service', select(o, 'provider', [['osrm', 'OSRM (sans circulation)'], ['tomtom', 'TomTom (avec circulation)'], ['hass', 'Home Assistant (Waze)']], { rerender: true, label: 'Service' })),
-        o.provider === 'tomtom' && line('Clé TomTom', text(o, 'tomtomKey', { placeholder: 'Clé gratuite de developer.tomtom.com', mono: true })),
+        o.provider === 'tomtom' && line('Clé TomTom', text(o, 'tomtomKey', { placeholder: app.sharedKeys?.tomtomKey ? "Fournie par l'administrateur" : 'Clé gratuite de developer.tomtom.com', mono: true })),
         hass && line('Adresse', text(o, 'hassURL', { placeholder: 'http://homeassistant.local:8123', mono: true })),
         hass && line('Jeton', text(o, 'hassToken', { placeholder: "Jeton d'accès longue durée", mono: true })),
         !hass && line('Afficher les itinéraires de rechange', toggle(o, 'showAlternates', { label: 'Itinéraires de rechange' })),
@@ -251,7 +251,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   }
 
   function sportsEditor(s) {
-    const o = s.sports, list = o.leagues, hasKey = Boolean(o.apiSportsKey.trim());
+    const o = s.sports, list = o.leagues, hasKey = Boolean(o.apiSportsKey.trim()) || Boolean(app.sharedKeys?.apiSportsKey);
     const has = (provider, path) => list.some((l) => l.provider === provider && l.path === path);
     const add = (lg) => { list.push(lg); commit(); render(); };
     return [
@@ -274,7 +274,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         ]) }, icon('plus'), 'Ajouter une ligue')),
       ], 'Pour chaque ligue, choisissez « Toutes les équipes » ou seulement celles que vous suivez. Chemin ESPN : sport/ligue (ex. hockey/nhl, soccer/ita.1).'),
       group('API-Sports', [
-        line('Clé API-Sports', text(o, 'apiSportsKey', { placeholder: 'Facultatif', mono: true, onInput: () => {} })),
+        line('Clé API-Sports', text(o, 'apiSportsKey', { placeholder: app.sharedKeys?.apiSportsKey ? "Fournie par l'administrateur" : 'Facultatif', mono: true, onInput: () => {} })),
         h('div', { class: 'line' }, h('a', { href: 'https://dashboard.api-football.com/register', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
           'Obtenir une clé gratuite sur api-sports.io')),
       ], 'Nécessaire seulement pour les ligues API-Sports. Le forfait gratuit permet 100 requêtes par jour et par sport ; Lookout met les réponses en cache pour le respecter. Une fois enregistrée, la clé reste sur le serveur et n\'est plus affichée.'),
@@ -589,7 +589,8 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         try {
           await api(`/api/users/${encodeURIComponent(user.id)}`, { method: 'PATCH', body: { password: input.value } });
           close();
-          usersNote = { text: t('Mot de passe de {0} modifié. Ses appareils devront se reconnecter.', user.name), ok: true };
+          usersNote = { text: user.id === app.user.id ? t('Mot de passe modifié. Vos autres appareils devront se reconnecter.')
+            : t('Mot de passe provisoire de {0} enregistré. Il devra choisir le sien à sa prochaine connexion.', user.name), ok: true };
           render();
         } catch (err) { error.replaceChildren(noteView({ text: err.message, ok: false })); }
       } },
@@ -598,13 +599,36 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     });
   }
 
+  // --- Clés d'API partagées (administrateur) ---
+  let sharedNote = null;
+  function sharedKeysForm() {
+    const KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports']];
+    const inputs = KEYS.map(([key, label, use]) => h('input', { class: 'field bare mono', name: `shared-${key}`, value: app.sharedKeys?.[key] ? SECRET_MASK : '',
+      placeholder: t(use), 'aria-label': label, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
+      onFocus: (e) => { if (e.target.value === SECRET_MASK) e.target.select(); } }));
+    const save = async (e) => {
+      e.preventDefault();
+      try {
+        app.sharedKeys = await api('/api/shared-keys', { method: 'PUT', body: Object.fromEntries(KEYS.map(([key], i) => [key, inputs[i].value])) });
+        sharedNote = { text: t('Clés partagées enregistrées.'), ok: true };
+      } catch (error) { sharedNote = { text: error.message, ok: false }; }
+      render();
+    };
+    const note = noteView(sharedNote);
+    sharedNote = null;   // affiché une seule fois
+    return h('form', { novalidate: true, onSubmit: save }, group("Clés d'API partagées", [
+      ...KEYS.map(([, label], i) => line(label, inputs[i])),
+      h('div', { class: 'line' }, h('div', {}, note), h('button', { class: 'btn', type: 'submit' }, icon('key'), 'Enregistrer les clés')),
+    ], "Ces clés servent à tous les profils qui n'ont pas saisi la leur. Une fois enregistrées, elles restent sur le serveur et ne sont plus affichées à personne. Videz un champ pour retirer la clé."));
+  }
+
   function usersTab() {
     if (!users) { loadUsers(); return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('span', { class: 'spinner' }))); }
     const ROLES = [['user', 'Utilisateur'], ['admin', 'Administrateur']];
     const path = (u) => `/api/users/${encodeURIComponent(u.id)}`;
     const draft = { role: 'user', copyFrom: '' };
     const nameInput = h('input', { class: 'field', name: 'new-profile-name', placeholder: t('Nom'), 'aria-label': 'Nom', maxlength: '32', autocomplete: 'off', required: true });
-    const passInput = h('input', { class: 'field', name: 'new-profile-password', type: 'password', placeholder: t('Mot de passe (6 caractères ou plus)'), 'aria-label': 'Mot de passe', autocomplete: 'new-password', required: true });
+    const passInput = h('input', { class: 'field', name: 'new-profile-password', type: 'password', placeholder: t('Mot de passe provisoire (6 caractères ou plus)'), 'aria-label': 'Mot de passe', autocomplete: 'new-password', required: true });
     const createNote = h('div', {});
     const createFail = (message, input) => {
       // Un échec efface le message de réussite précédent, pour ne pas afficher les deux à la fois.
@@ -624,7 +648,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       } catch (error) {
         return createFail(error.message, /mot de passe|password/i.test(error.message) ? passInput : nameInput);   // les champs restent remplis
       }
-      usersNote = { text: t('Profil « {0} » créé. Il peut maintenant se connecter avec ce nom et ce mot de passe.', name), ok: true };
+      usersNote = { text: t('Profil « {0} » créé. Ce mot de passe est provisoire : la personne choisira le sien à sa première connexion.', name), ok: true };
       await loadUsers();
     };
 
@@ -661,6 +685,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Réglages de départ', select(draft, 'copyFrom', [['', 'Réglages par défaut'], ...users.map((u) => [u.id, t('Copie de {0}', u.name)])], { label: 'Réglages de départ' })),
         h('div', { class: 'line' }, createNote, h('button', { class: 'btn primary', type: 'submit' }, icon('plus'), 'Créer le profil')),
       ], "Une copie reprend les sections, les sources et les clés d'API de l'autre profil. Chacun évolue ensuite de son côté.")),
+      sharedKeysForm(),
       )));
   }
 

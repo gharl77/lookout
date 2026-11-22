@@ -145,6 +145,23 @@ await check('profils : copie des réglages, indépendance, droits et mots de pas
   expect(login.status === 200, 'connexion du nouveau profil refusée');
   const guestCookie = sessionFrom(login);
 
+  // Mot de passe provisoire : le profil doit choisir le sien avant d'accéder à quoi que ce soit.
+  expect((await login.json()).user.mustChangePassword === true, 'le mot de passe donné par un administrateur doit être provisoire');
+  expect((await request('/api/config', {}, guestCookie)).status === 403, 'accès accordé avant le choix du mot de passe');
+  expect((await request('/api/auth/password', { method: 'POST', ...json({ next: 'invitee-123' }) }, guestCookie)).status === 400, 'le mot de passe provisoire a été repris tel quel');
+  expect((await request('/api/auth/password', { method: 'POST', ...json({ next: 'invitee-456' }) }, guestCookie)).status === 200, 'choix du mot de passe refusé');
+  expect((await (await request('/api/auth/state', {}, guestCookie)).json()).user.mustChangePassword === false, 'le mot de passe est encore marqué provisoire');
+  expect((await request('/api/auth/password', { method: 'POST', ...json({ next: 'invitee-789' }) }, guestCookie)).status === 400, 'mot de passe changé sans donner le mot de passe actuel');
+
+  // Clés d'API partagées : seul un administrateur les définit, et personne ne peut les relire.
+  expect((await request('/api/shared-keys', { method: 'PUT', ...json({ tomtomKey: 'cle-partagee-secrete' }) }, guestCookie)).status === 403, 'un simple utilisateur a défini une clé partagée');
+  const sharedSet = await request('/api/shared-keys', { method: 'PUT', ...json({ tomtomKey: 'cle-partagee-secrete' }) });
+  expect(sharedSet.status === 200 && !(await sharedSet.text()).includes('cle-partagee-secrete'), 'la clé partagée est renvoyée en clair');
+  const sharedSeen = await (await request('/api/shared-keys', {}, guestCookie)).text();
+  expect(sharedSeen.includes('"tomtomKey":true') && sharedSeen.includes('"apiSportsKey":false') && !sharedSeen.includes('secrete'), `clés partagées inattendues : ${sharedSeen}`);
+  expect((await (await request('/api/shared-keys', { method: 'PUT', ...json({ tomtomKey: '••••••••' }) })).json()).tomtomKey === true, 'le masque a effacé la clé partagée');
+  expect((await (await request('/api/shared-keys', { method: 'PUT', ...json({ tomtomKey: '' }) })).json()).tomtomKey === false, 'la clé partagée ne se retire pas');
+
   const copy = await (await request('/api/config', {}, guestCookie)).json();
   expect(copy.sections[0].title === 'Marque du profil admin', 'les réglages ne sont pas une copie du profil choisi');
   copy.sections[0].title = 'Modifié par le profil invité';
@@ -178,6 +195,8 @@ await check('profils : copie des réglages, indépendance, droits et mots de pas
   // Mot de passe réinitialisé par l'administrateur : les appareils du profil sont déconnectés.
   expect((await request(`/api/users/${guest.id}`, { method: 'PATCH', ...json({ password: 'nouveau-12345' }) })).status === 200, 'réinitialisation refusée');
   expect((await request('/api/config', {}, guestCookie)).status === 401, "l'ancienne session survit au changement de mot de passe");
+  const again = await request('/api/auth/login', { method: 'POST', ...json({ name: 'Invitée', password: 'nouveau-12345' }) }, '');
+  expect((await again.json()).user.mustChangePassword === true, 'un mot de passe réinitialisé doit être provisoire');
   expect((await request(`/api/users/${guest.id}`, { method: 'DELETE' })).status === 200, 'suppression du profil refusée');
   expect((await request('/api/auth/login', { method: 'POST', ...json({ name: 'Invitée', password: 'nouveau-12345' }) }, '')).status === 401, 'un profil supprimé peut encore se connecter');
 
