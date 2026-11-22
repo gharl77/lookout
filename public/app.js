@@ -3,7 +3,7 @@ import { h, icon, sfIcon, badge, fmt, t, api, openMenu, openDialog, confirmDialo
 import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
-import { KINDS, template, fetchSignature } from './shared.js';
+import { KINDS, template, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
 import { openSettings, addSectionMenu as sectionMenu } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -49,6 +49,8 @@ function applyLanguage() {
   $('btn-edit').title = t('Réorganiser, redimensionner ou masquer les sections');
   $('btn-settings').title = t('Configurer les sections et les sources');
   $('btn-saved').title = t('À lire plus tard');
+  $('btn-search').title = t('Rechercher dans les articles ( / )');
+  $('btn-search').setAttribute('aria-label', t('Rechercher dans les articles'));
   $('btn-saved').setAttribute('aria-label', t('À lire plus tard'));
   $('display-exit').textContent = t('Quitter le mode affichage');
   return changed;
@@ -178,6 +180,63 @@ function savedDialog() {
   }, { cls: 'dialog wide' });
 }
 
+// --- Lecture d'une vidéo YouTube sans quitter Lookout ---
+function playVideo(article) {
+  const id = youtubeVideoID(article.link);
+  if (!id) return;
+  openDialog((close) => [
+    h('div', { class: 'video-frame' }, h('iframe', { src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`, title: article.title,
+      allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin' })),
+    h('h3', {}, article.title),
+    h('div', { class: 'actions' },
+      h('span', { class: 'a-meta grow' }, [article.source, article.date && fmt.ago(article.date)].filter(Boolean).join(' · ')),
+      h('a', { class: 'btn', href: article.link, target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Ouvrir sur YouTube'),
+      h('button', { class: 'btn primary', onClick: close }, 'Fermer'))], { cls: 'dialog video' });
+}
+
+// --- Recherche dans les articles ---
+// Cherche dans les articles de toutes les sections (toutes pages confondues) et dans « À lire plus tard ».
+// Les sections des autres pages sont demandées au serveur à l'ouverture ; il les sert depuis son cache.
+function searchDialog() {
+  if (hasOverlay()) return;
+  const feeds = state.config.sections.filter((s) => s.enabled && (s.kind === 'feed' || s.kind === 'api'));
+  for (const s of feeds) if (!state.data.has(s.id) && !state.loading.has(s.id)) loadSection(s.id);
+  let timer = null;
+  openDialog((close) => {
+    const input = h('input', { class: 'field search-input', type: 'search', placeholder: t('Rechercher dans les articles'), 'aria-label': 'Rechercher dans les articles', autofocus: true,
+      autocomplete: 'off', spellcheck: 'false', onInput: () => draw() });
+    const results = h('div', { class: 'saved-list search-results' }), status = h('p', { class: 'a-meta' });
+    const draw = () => {
+      const words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+      const found = new Map();
+      if (words.length) {
+        const match = (a) => { const text = `${a.title} ${a.summary ?? ''} ${a.source ?? ''}`.toLowerCase(); return words.every((w) => text.includes(w)); };
+        for (const s of feeds) {
+          const keep = articleFilter({ ...s.feed, maxAgeHours: 0 }, general());   // les mots masqués le restent ; l'âge ne compte pas
+          for (const a of state.data.get(s.id)?.articles ?? []) if (keep(a) && match(a) && !found.has(a.link ?? a.id)) found.set(a.link ?? a.id, { ...a, where: s.title, section: s });
+        }
+        for (const a of state.saved) if (match(a) && !found.has(a.link)) found.set(a.link, { ...a, where: t('À lire plus tard') });
+      }
+      const list = [...found.values()].sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).slice(0, 60);
+      results.replaceChildren(...list.map((a) => h(a.link ? 'a' : 'div', { class: 'saved-item search-item', href: a.link, target: '_blank', rel: 'noopener noreferrer',
+        onClick: (e) => {
+          if (a.section) setRead([a.id], true);
+          if (a.section?.feed.playInline !== false && youtubeVideoID(a.link) && !e.metaKey && !e.ctrlKey) { e.preventDefault(); close(); playVideo(a); }
+        } },
+      h('span', { class: 'a-title' }, a.title), h('span', { class: 'a-meta' }, [a.where, a.source !== a.where && a.source, a.date && fmt.ago(a.date)].filter(Boolean).join(' · ')))));
+      const pendingCount = feeds.filter((s) => state.loading.has(s.id)).length;
+      status.textContent = !words.length ? t('Tapez un ou plusieurs mots. La recherche couvre toutes vos sections et « À lire plus tard ».')
+        : pendingCount ? t('{0} résultats — chargement des autres sections…', list.length)
+        : list.length ? t('{0} résultats', list.length) : t('Aucun article ne contient ces mots.');
+      // Tant que des sections arrivent, les résultats se complètent d'eux-mêmes.
+      clearTimeout(timer);
+      if (pendingCount) timer = setTimeout(draw, 600);
+    };
+    draw();
+    return [input, status, results, h('div', { class: 'actions' }, h('button', { class: 'btn primary', onClick: close }, 'Fermer'))];
+  }, { cls: 'dialog wide', onClose: () => clearTimeout(timer) });
+}
+
 // --- Mode affichage (écran mural, télé) ---
 // Plein écran, sans boutons, avec l'heure ; les pages défilent et l'écran reste allumé. L'adresse garde
 // « ?affichage=1 » : une tablette murale peut l'enregistrer en signet et y revenir après un redémarrage.
@@ -275,7 +334,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 const ctx = { get general() { return general(); }, isRead: (id) => state.readIDs.has(id), setRead,
-  get canSave() { return !app.viewing && !app.display; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
+  get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 
 // --- Barre supérieure et en-tête ---
@@ -828,11 +887,14 @@ $('btn-refresh').addEventListener('click', () => refreshAll());
 $('btn-edit').addEventListener('click', () => setEditing(!state.editing));
 $('btn-settings').addEventListener('click', () => openSettings(app));
 $('btn-saved').addEventListener('click', savedDialog);
+$('btn-search').append(icon('search'));
+$('btn-search').addEventListener('click', searchDialog);
 $('display-exit').addEventListener('click', stopDisplay);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && app.display && !hasOverlay() && !document.fullscreenElement) return stopDisplay();
   if (hasOverlay() || e.target.matches?.('input, textarea, select')) return;
   if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) refreshAll();
+  if ((e.key === '/' && !e.metaKey && !e.ctrlKey) || (e.key === 'k' && (e.metaKey || e.ctrlKey))) { e.preventDefault(); if (state.config && !app.display) searchDialog(); }
   if (e.key === ',' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSettings(app); }
 });
 

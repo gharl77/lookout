@@ -3,7 +3,7 @@ import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 
 // --- Articles (RSS et API JSON) ---
 
-import { keywords, articleFilter } from './shared.js';
+import { keywords, articleFilter, youtubeVideoID } from './shared.js';
 
 /** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
 export function present(articles, options, sourceOrder, limit, general = {}) {
@@ -74,7 +74,11 @@ function articleRow(article, style, section, ctx) {
   const row = h(article.link ? 'a' : 'div', {
     class: `row${read && ctx.general.dimReadArticles ? ' read' : ''}${highlighted(article, section, ctx.general) ? ' hl' : ''}${keep ? ' can-save' : ''}`, href: article.link, target: '_blank', rel: 'noopener noreferrer',
     title: article.summary || article.title,
-    onClick: () => ctx.setRead([article.id], true),
+    onClick: (e) => {
+      ctx.setRead([article.id], true);
+      // Vidéo YouTube : lecture sur place, sauf si l'on demande un nouvel onglet (Cmd/Ctrl-clic, clic du milieu).
+      if (o.playInline !== false && !e.metaKey && !e.ctrlKey && !e.shiftKey && youtubeVideoID(article.link) && ctx.playVideo) { e.preventDefault(); ctx.playVideo(article); }
+    },
     onContextmenu: (e) => {
       // Sur ordinateur : menu contextuel. Sur iPhone, l'appui long garde le menu natif du lien.
       if (matchMedia('(pointer: coarse)').matches) return;

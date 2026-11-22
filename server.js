@@ -123,6 +123,55 @@ function withSharedKey(options, name) {
   return String(options[name] ?? '').trim() ? options : { ...options, [name]: accounts.sharedKey(name) };
 }
 
+// --- Santé des sources ---
+// Pour chaque source (fil, ligue, trajet) et chaque section : depuis quand elle est en panne, et quand elle a
+// répondu pour la dernière fois. Un administrateur y voit d'un coup d'œil les sources mortes de tous les profils.
+const HEALTH_FILE = path.join(DATA, 'health.json');
+let health = new Map(), healthDirty = false;
+try { health = new Map(Object.entries(JSON.parse(fs.readFileSync(HEALTH_FILE, 'utf8')))); } catch { /* premier démarrage */ }
+function noteHealth(section, payload) {
+  const now = Date.now();
+  const mark = (id, error) => {
+    const key = `${section.id}|${id}`, before = health.get(key);
+    health.set(key, error ? { since: before?.since ?? now, error: String(error).slice(0, 200), lastOK: before?.lastOK ?? null, seen: now }
+      : { since: null, error: null, lastOK: now, seen: now });
+    healthDirty = true;
+  };
+  mark('', payload.error);
+  if (payload.error) return;   // toute la section a échoué : on ne sait rien de plus sur chaque source
+  for (const source of [...section.feed.sources, ...section.sports.leagues]) {
+    if (source.enabled !== false && (section.kind === 'feed' || section.kind === 'sports')) mark(source.id, payload.sourceErrors?.[source.id] ?? null);
+  }
+  for (const route of payload.routes ?? []) if (route.id) mark(route.id, route.error ?? null);
+}
+setInterval(() => {
+  if (!healthDirty) return;
+  healthDirty = false;
+  for (const [key, entry] of health) if (Date.now() - entry.seen > 30 * 24 * 3600e3) health.delete(key);   // sections disparues
+  fs.promises.writeFile(HEALTH_FILE, JSON.stringify(Object.fromEntries(health))).catch(() => {});
+}, 5 * 60e3).unref();
+
+/** Sources en panne de tous les profils, les plus anciennes d'abord (pour l'administrateur). */
+function healthReport() {
+  const failing = [];
+  let watched = 0;
+  for (const user of accounts.list()) {
+    for (const section of accounts.profile(user.id).config.sections) {
+      if (!section.enabled) continue;
+      const parts = [{ id: '', name: null },
+        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'commute' ? section.commute.routes : [])
+          .filter((x) => x.enabled !== false)];
+      for (const part of parts) {
+        const entry = health.get(`${section.id}|${part.id}`);
+        if (!entry) continue;
+        if (part.id) watched++;
+        if (entry.error) failing.push({ profile: user.name, section: section.title, source: part.name, error: entry.error, since: entry.since, lastOK: entry.lastOK });
+      }
+    }
+  }
+  return { watched, failing: failing.sort((a, b) => a.since - b.since) };
+}
+
 /** Envoie une notification à tous les appareils abonnés d'un profil ; oublie ceux qui n'existent plus. */
 async function notify(userID, message, only = null) {
   const result = { devices: 0, delivered: 0, error: null, expired: false };
@@ -169,6 +218,7 @@ async function loadSection(section, config, force = false) {
     // Les échecs sont mémorisés aussi : une source en panne n'est pas redemandée à chaque chargement de page.
     const entry = { time: Date.now(), payload };
     cache.set(key, entry);
+    noteHealth(section, payload);
     return { ...payload, nextUpdateAt: nextUpdate(entry, section, config) };
   })().finally(() => pending.delete(key));
   pending.set(key, job);
@@ -331,6 +381,8 @@ async function api(req, res, url) {
     console.log(`Sauvegarde restaurée par « ${user.name} » : ${done.users} profil(s). Les données précédentes sont mises de côté.`);
     return send(res, 200, done, { 'Set-Cookie': sessionCookie(req, null) });
   }
+
+  if (route === 'GET /api/health') { requireAdmin(user); return send(res, 200, healthReport()); }
 
   // --- Profils (administrateur) ---
   if (route === 'GET /api/users') { requireAdmin(user); return send(res, 200, accounts.list()); }

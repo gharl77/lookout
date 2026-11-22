@@ -251,7 +251,8 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '',
   notify: false,     // notification à chaque nouvel article (sur les appareils abonnés)
-  youtube: false };  // section YouTube : les sources sont des chaînes
+  youtube: false,    // section YouTube : les sources sont des chaînes
+  playInline: true };  // un clic sur une vidéo YouTube l'ouvre dans Lookout plutôt que sur youtube.com
 const WEATHER = { locationName: 'Montréal, Québec', latitude: 45.5019, longitude: -73.5674, showDetails: true,
   showHourly: true, hourlyCount: 12, showDaily: true, dailyCount: 7, showAlerts: true };
 const COMMUTE = { routes: [], provider: 'osrm', showAlternates: true, tomtomKey: '', hassURL: '', hassToken: '' };
@@ -291,6 +292,9 @@ export function newSection(kind, overrides = {}) {
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API), ...overrides };
 }
+
+/** Identifiant de la vidéo dans une adresse YouTube (vidéo, Short ou lien court), ou null. */
+export const youtubeVideoID = (url) => /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/.exec(String(url ?? ''))?.[1] ?? null;
 
 // --- YouTube : chaque chaîne a un fil de ses dernières vidéos, sans clé ni compte ---
 const YT_FEED = 'https://www.youtube.com/feeds/videos.xml';

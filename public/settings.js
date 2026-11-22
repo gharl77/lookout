@@ -1,5 +1,5 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
-import { h, icon, sfIcon, badge, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
+import { h, icon, sfIcon, badge, fmt, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
 import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, newPage, uuid, SECRET_MASK,
   categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions } from './shared.js';
@@ -131,6 +131,25 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     }, { onClose: () => resolve(answer) });
   });
 
+  /** Marche à suivre pour exporter ses abonnements YouTube depuis Google Takeout. */
+  function takeoutHelp() {
+    const STEPS = [
+      "Ouvrez takeout.google.com, connecté au compte Google que vous utilisez sur YouTube.",
+      "Cliquez « Tout désélectionner », en haut de la liste des produits.",
+      "Tout en bas de la liste, cochez « YouTube et YouTube Music ».",
+      "Sur cette même ligne, cliquez « Toutes les données YouTube incluses », puis « Tout désélectionner », et cochez seulement « abonnements ». Validez.",
+      "Cliquez « Étape suivante », puis « Créer une exportation ». Google vous envoie un courriel quand l'archive est prête, d'ordinaire en quelques minutes.",
+      "Téléchargez l'archive et ouvrez-la : le fichier se trouve dans Takeout → YouTube et YouTube Music → abonnements → abonnements.csv.",
+      "Revenez ici et choisissez ce fichier avec « Importer mes abonnements… ».",
+    ];
+    openDialog((close) => [h('h3', {}, 'Exporter mes abonnements YouTube'),
+      h('ol', { class: 'steps' }, STEPS.map((step) => h('li', {}, step))),
+      h('p', {}, "Le fichier ne contient que la liste de vos chaînes. Lookout n'a jamais accès à votre compte Google."),
+      h('div', { class: 'actions' },
+        h('a', { class: 'btn', href: 'https://takeout.google.com/', target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Ouvrir Google Takeout'),
+        h('button', { class: 'btn primary', onClick: close }, 'Compris'))], { cls: 'dialog wide' });
+  }
+
   // --- YouTube : les sources sont des chaînes ---
   const youtube = { note: null, busy: false };
   function youtubeSources(s) {
@@ -168,9 +187,11 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         statusDot(s, src.id, src.enabled), rowControls(list, src))),
       h('form', { class: 'line', novalidate: true, onSubmit: addChannel }, input, h('button', { class: 'btn', type: 'submit' }, icon('plus'), 'Ajouter')),
       h('div', { class: 'line' }, h('div', {}, note),
+        h('button', { class: 'info-btn', title: "Comment obtenir le fichier de mes abonnements", 'aria-label': "Comment obtenir le fichier de mes abonnements", onClick: takeoutHelp }, 'i'),
         h('button', { class: 'btn', onClick: () => fileInput.click() }, icon('upload'), 'Importer mes abonnements…'), fileInput),
     ], "Collez l'adresse d'une chaîne (youtube.com/@nom) ou son @nom. Pour reprendre tous vos abonnements d'un coup : sur takeout.google.com, exportez seulement « YouTube » → « abonnements », puis importez ici le fichier abonnements.csv. Aucune clé ni connexion à votre compte Google n'est nécessaire ; la liste ne suit pas vos futurs abonnements."),
     group('Vidéos', [
+      line('Lire les vidéos dans Lookout', toggle(o, 'playInline', { label: 'Lire les vidéos dans Lookout' })),
       line('Masquer les Shorts et les directs', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: videosOnly, disabled: !list.length, 'aria-label': 'Masquer les Shorts et les directs',
         onChange: (e) => { for (const src of list) { const id = youtubeChannelID(src.url); if (id) src.url = youtubeFeedURL(id, e.target.checked); } commit(); render(); } })),
     ], o.sources.length > 60 ? "Avec autant de chaînes, chaque mise à jour interroge YouTube une fois par chaîne : gardez un intervalle d'au moins 30 minutes." : null)];
@@ -925,13 +946,39 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       )));
   }
 
+  // --- Santé des sources (administrateur) ---
+  let healthData = null;
+  function healthTab() {
+    if (!healthData) {
+      api('/api/health').then((data) => { healthData = data; }).catch((error) => { healthData = { watched: 0, failing: [], error: error.message }; })
+        .then(() => { if (ui.tab === 'health') render(); });
+      return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('span', { class: 'spinner' })));
+    }
+    const { failing, watched } = healthData;
+    const days = (since) => Math.floor((Date.now() - since) / 86400e3);
+    const duration = (since) => (days(since) >= 1 ? t('en panne depuis {0} j', days(since)) : t("en panne depuis aujourd'hui"));
+    const reload = h('button', { class: 'btn', onClick: () => { healthData = null; render(); } }, icon('refresh'), 'Actualiser');
+    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '680px', margin: '0 auto' } },
+      healthData.error && noteView({ text: healthData.error, ok: false }),
+      group(failing.length ? t('{0} sources en panne', failing.length) : 'Sources en panne', [
+        !failing.length && h('div', { class: 'line' }, h('span', { class: 'lbl' }, icon('check-on'), ' ', t('Aucune source en panne parmi les {0} sources suivies.', watched))),
+        failing.map((f) => h('div', { class: 'item' },
+          h('span', { class: `health-dot${days(f.since) >= 3 ? ' old' : ''}` }),
+          h('div', { class: 'fields' },
+            h('div', { class: 'health-name' }, f.source ? `${f.source} — ${f.section}` : f.section),
+            h('div', { class: 'sub-line' }, [f.profile, duration(f.since), f.lastOK ? t('dernière réponse {0}', fmt.ago(f.lastOK)) : t("n'a jamais répondu")].join(' · ')),
+            h('div', { class: 'sub-line' }, f.error)))),
+        h('div', { class: 'line' }, h('span', {}), reload),
+      ], "Tous profils confondus. Une source n'est connue qu'une fois sa section chargée ; une panne de quelques heures est souvent passagère, une panne de plusieurs jours signale d'ordinaire une adresse qui a changé."))));
+  }
+
   // --- Fenêtre ---
   const TABS = [['sections', 'Sections', 'grid'], ['general', 'Général', 'gear'], ['data', 'Données', 'drive'], ['account', 'Compte', 'user'],
-    ...(app.user?.role === 'admin' ? [['users', 'Profils', 'users']] : [])];
+    ...(app.user?.role === 'admin' ? [['users', 'Profils', 'users'], ['health', 'Sources', 'shield']] : [])];
   function render() {
     const pane = root.querySelector('.s-pane'), scroll = pane?.scrollTop ?? 0, sameView = root.dataset.view === `${ui.tab}/${ui.selected}`;
     const body = ui.tab === 'sections' ? sectionsTab() : ui.tab === 'general' ? generalTab() : ui.tab === 'account' ? accountTab()
-      : ui.tab === 'users' ? usersTab() : dataTab();
+      : ui.tab === 'users' ? usersTab() : ui.tab === 'health' ? healthTab() : dataTab();
     const detail = ui.tab === 'sections' && ui.detail && config().sections.some((s) => s.id === ui.selected);
     root.replaceChildren(h('div', { class: `settings${detail ? ' detail' : ''}` },
       h('div', { class: 'settings-head' },
