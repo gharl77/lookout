@@ -26,12 +26,18 @@ voir [Sources et clés](sources.md).
 Un administrateur vous crée un profil et vous donne un nom et un mot de passe **provisoire**. À votre première
 connexion, Lookout vous demande de choisir votre propre mot de passe : l'administrateur ne le connaît pas.
 
+![Choix du mot de passe à la première connexion](../images/fr/mot-de-passe-provisoire.jpg)
+
 Si votre profil est tout neuf, quelques questions préparent ensuite votre tableau de bord :
+
+![Questions d'accueil : prénom et ville](../images/fr/accueil-1.jpg)
 
 1. votre prénom et la ville de votre météo ;
 2. les sujets qui vous intéressent (chacun devient une section de fils) ;
 3. les ligues sportives que vous suivez ;
 4. vos équipes dans ces ligues.
+
+![Questions d'accueil : le choix des sujets](../images/fr/accueil-2.jpg)
 
 Vous pouvez passer ces questions à tout moment. Tout ce qu'elles règlent reste modifiable dans les réglages.
 
@@ -39,6 +45,8 @@ Une fois connecté sur un appareil, vous le restez, même après un redémarrage
 jusqu'à ce que vous vous déconnectiez ou que votre mot de passe change.
 
 ## Le tableau de bord
+
+![Le tableau de bord](../images/fr/tableau-de-bord.jpg)
 
 - **En haut à gauche** : le logo, puis l'heure de la dernière mise à jour et celle de la prochaine.
 - **En haut à droite**, dans l'ordre : *À lire plus tard* (visible dès qu'un article est gardé), *Rechercher*,
@@ -60,6 +68,8 @@ ouvre son menu :
 | Envoyer à un profil… | Administrateurs seulement : dépose une copie chez un autre profil |
 | Masquer | Retire la carte sans supprimer la section |
 
+![Le menu d'une carte](../images/fr/menu-carte.jpg)
+
 La pastille du compte donne accès à *Mon compte*, au *Mode affichage*, aux *Profils* (administrateurs) et à la
 déconnexion.
 
@@ -72,6 +82,8 @@ déconnexion.
   quelques secondes.
 - En mode *Organiser*, un bandeau offre *Réorganiser automatiquement* (replace les cartes dans les colonnes les
   moins remplies), *Ajouter une section* et *Terminé*.
+
+![Le mode Organiser](../images/fr/organiser.jpg)
 
 Le nombre de colonnes suit la largeur de l'écran, ou se fixe dans *Réglages → Apparence*. Sur un écran étroit,
 tout passe sur une colonne.
@@ -94,12 +106,16 @@ Des articles tirés d'un ou plusieurs fils RSS ou Atom.
   virgules et sont cherchés dans le titre et le résumé.
 - **Notifications** : *Notifier les nouveaux articles* (voir [Notifications](#notifications)).
 
+![Réglages d'une section de fils](../images/fr/reglages-fils.jpg)
+
 *Fils par catégorie…* crée d'un coup une section prête à l'emploi pour un sujet (Films, Séries et télé,
 Culture, Science, Jeux vidéo, etc.), avec trois sources dans la langue de l'interface.
 
 ### YouTube
 
 Les dernières vidéos de vos chaînes, en vignettes. Aucune clé n'est nécessaire.
+
+![Une section YouTube](../images/fr/youtube.jpg)
 
 - **Ajouter une chaîne** : collez son adresse (`youtube.com/@nom`) ou son `@nom`.
 - **Importer mes abonnements…** : reprend toutes vos chaînes d'un coup à partir d'un fichier de Google Takeout.
@@ -167,10 +183,14 @@ que l'administrateur vous a ouverte.
   n'avance que si vous êtes parti au moins dix minutes.
 - Clic droit sur un article (ordinateur) : ouvrir, copier le lien, garder pour plus tard, marquer lu ou non lu.
 
+![La rubrique Lecture et filtres](../images/fr/reglages-lecture.jpg)
+
 ## Recherche
 
 La loupe, ou la touche `/`, cherche dans les articles de **toutes** vos sections, toutes pages confondues, et
 dans *À lire plus tard*. Plusieurs mots doivent tous être présents.
+
+![La recherche](../images/fr/recherche.jpg)
 
 ## À lire plus tard
 
@@ -178,9 +198,13 @@ Le signet sur un article le garde dans une liste personnelle. Il apparaît au su
 toujours visible au doigt. La liste (200 articles au plus) est enregistrée sur le serveur et commune à vos
 appareils. Elle s'ouvre par le bouton à signet de la barre du haut.
 
+![La liste « À lire plus tard »](../images/fr/a-lire-plus-tard.jpg)
+
 ## Notifications
 
 *Réglages → Notifications.* Lookout peut vous prévenir même quand la page est fermée.
+
+![Réglages des notifications](../images/fr/reglages-notifications.jpg)
 
 **Conditions**
 - L'adresse doit être en **HTTPS**.
@@ -203,14 +227,20 @@ pour cet appareil. Le délai d'une notification d'article dépend de l'intervall
 Pour un écran mural, une tablette ou une télé : plein écran, sans boutons, avec l'heure. Les pages défilent
 (durée réglable dans *Réglages → Mode affichage*) et l'écran reste allumé.
 
+![Le mode affichage](../images/fr/mode-affichage.jpg)
+
 - **Entrer** : pastille du compte → *Mode affichage*, ou les réglages.
 - **Sortir** : touche `Échap`, ou touchez l'écran puis *Quitter*.
 - L'adresse garde `?affichage=1` : enregistrez-la en signet pour y revenir directement.
+
+![La rubrique Mode affichage](../images/fr/reglages-affichage.jpg)
 
 ## Les réglages
 
 L'engrenage, ou `Cmd`+`,`. Les changements sont enregistrés automatiquement. Un champ de recherche en haut de
 la navigation retrouve un réglage par mot-clé.
+
+![Les réglages](../images/fr/reglages-sections.jpg)
 
 | Groupe | Rubrique | Ce qu'on y trouve |
 |---|---|---|
@@ -226,6 +256,8 @@ la navigation retrouve un réglage par mot-clé.
 | — | À propos | Version, emplacement des réglages, liens |
 
 Les administrateurs voient en plus le groupe *Administration* : voir le [guide d'administration](administration.md).
+
+![La rubrique Apparence](../images/fr/reglages-apparence.jpg)
 
 **Mise à jour des sources.** Chaque source est interrogée au plus une fois par intervalle, même si vous
 rechargez la page plus souvent : cela évite qu'un site vous bloque. L'intervalle par défaut est de 30 minutes ;
@@ -248,3 +280,5 @@ clés ni vos jetons.
 Dans Safari : *Partager → Sur l'écran d'accueil*. Lookout s'ouvre alors comme une app, en plein écran, et peut
 recevoir des notifications. Les cartes passent sur une colonne et les réglages s'affichent une rubrique à la
 fois, avec un bouton *Retour*.
+
+<p><img src="../images/fr/telephone-tableau-de-bord.jpg" alt="Lookout sur téléphone" width="270"> <img src="../images/fr/telephone-reglages.jpg" alt="Lookout sur téléphone" width="270"> <img src="../images/fr/telephone-reglages-rubrique.jpg" alt="Lookout sur téléphone" width="270"></p>

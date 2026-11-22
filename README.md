@@ -11,6 +11,8 @@ Lookout is a self-hosted personal dashboard: news, weather, commute times, sport
 on a single page. Everything is configured from the web UI — sections, their order, size and sources — and
 every source is either an RSS feed or an API.
 
+![The Lookout dashboard](docs/images/en/tableau-de-bord.jpg)
+
 **Full documentation:** [user guide](docs/en/guide.md) ·
 [administration guide](docs/en/administration.md) · [sources and keys](docs/en/sources.md)
 

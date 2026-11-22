@@ -21,6 +21,8 @@ For the person who installs Lookout and manages profiles. The quick start is in 
 
 ## Installation and first run
 
+![The sign-in screen](../images/en/connexion.jpg)
+
 1. Start the container as shown in the [README](../../README.md#quick-start).
 2. Open the page **right away** and create the administrator account. Until it exists, whoever opens the page
    first can create it.
@@ -48,6 +50,8 @@ Proxies that cache static files are not a problem: the address of the interface 
 
 *Settings → Profiles.*
 
+![The Profiles pane](../images/en/reglages-profils.jpg)
+
 - **Create a profile**: name, temporary password, role, and starting settings (the defaults, or a copy of
   another profile, keys included). The person chooses their own password at first sign-in.
 - **Roles**: *User* or *Administrator*. At least one administrator must always remain.
@@ -71,6 +75,8 @@ Proxies that cache static files are not a problem: the address of the interface 
 
 *Settings → Shared keys.* What you provide once for the whole installation. A profile that enters its own key
 in a section keeps its own.
+
+![The Shared keys pane](../images/en/reglages-cles.jpg)
 
 | Key | Used for | Who may use it |
 |---|---|---|
@@ -117,6 +123,8 @@ the full backup: after a restore, everyone links their account again.
 *Settings → Source status.* The list of feeds, leagues and routes that no longer answer, **across all
 profiles**, with how long they have been failing and when they last answered.
 
+![The Source status pane](../images/en/reglages-sources.jpg)
+
 - A source is only known once its section has been loaded at least once.
 - An outage of a few hours is often temporary.
 - An outage of several days (red dot from three days on) usually means an address has changed.
@@ -130,6 +138,8 @@ Three levels, from simplest to most complete.
 | *My data → Export* | One profile's configuration | No |
 | *Backup → Download* | Every account, profile, “read later” list and the shared keys | Yes |
 | Copy of the `/data` folder | Everything, including notification subscriptions and Google tokens | Yes |
+
+![The Backup pane](../images/en/reglages-sauvegarde.jpg)
 
 **Full backup** (*Settings → Backup*)
 - Your password is asked again to download as well as to restore.

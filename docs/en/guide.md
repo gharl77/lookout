@@ -26,12 +26,18 @@ the [administration guide](administration.md); for external services and their k
 An administrator creates your profile and gives you a name and a **temporary** password. The first time you
 sign in, Lookout asks you to choose your own password: the administrator does not know it.
 
+![Choosing your password at first sign-in](../images/en/mot-de-passe-provisoire.jpg)
+
 If your profile is brand new, a few questions then set up your dashboard:
+
+![Welcome questions: first name and city](../images/en/accueil-1.jpg)
 
 1. your first name and the city for your weather;
 2. the topics you care about (each becomes a feed section);
 3. the sports leagues you follow;
 4. your teams in those leagues.
+
+![Welcome questions: choosing topics](../images/en/accueil-2.jpg)
 
 You can skip these questions at any point. Everything they set can be changed later in the settings.
 
@@ -39,6 +45,8 @@ Once signed in on a device you stay signed in, across server restarts and update
 password changes.
 
 ## The dashboard
+
+![The dashboard](../images/en/tableau-de-bord.jpg)
 
 - **Top left**: the logo, then the time of the last update and of the next one.
 - **Top right**, in order: *Read later* (shown once an article is saved), *Search*, *Refresh*, *Arrange*,
@@ -59,6 +67,8 @@ Each card has two buttons in its header: the circular arrow updates that section
 | Send to a profile… | Administrators only: drops a copy into another profile |
 | Hide | Removes the card without deleting the section |
 
+![A card's menu](../images/en/menu-carte.jpg)
+
 The account badge leads to *My account*, *Display mode*, *Profiles* (administrators) and sign-out.
 
 ## Arranging cards
@@ -69,6 +79,8 @@ The account badge leads to *My account*, *Display mode*, *Profiles* (administrat
 - After a move, a hide or a width change, a banner offers to **undo** for a few seconds.
 - In *Arrange* mode, a banner offers *Auto-arrange* (puts cards back into the least-filled columns),
   *Add a section* and *Done*.
+
+![Arrange mode](../images/en/organiser.jpg)
 
 The number of columns follows the screen width, or can be fixed in *Settings → Appearance*. On a narrow screen
 everything moves to a single column.
@@ -90,12 +102,16 @@ Articles from one or more RSS or Atom feeds.
   and searched in the title and summary.
 - **Notifications**: *Notify about new articles* (see [Notifications](#notifications)).
 
+![Settings of a feed section](../images/en/reglages-fils.jpg)
+
 *Feeds by category…* creates a ready-made section for a topic in one step (Movies, Series and TV, Culture,
 Science, Video games and so on), with three sources in the interface language.
 
 ### YouTube
 
 The latest videos from your channels, as thumbnails. No key is needed.
+
+![A YouTube section](../images/en/youtube.jpg)
 
 - **Add a channel**: paste its address (`youtube.com/@name`) or its `@name`.
 - **Import my subscriptions…**: brings in all your channels at once from a Google Takeout file. The `i` button
@@ -161,10 +177,14 @@ the one the administrator has opened to you.
   forward if you were away for at least ten minutes.
 - Right-click an article (desktop): open, copy link, save for later, mark read or unread.
 
+![The Reading and filters pane](../images/en/reglages-lecture.jpg)
+
 ## Search
 
 The magnifying glass, or the `/` key, searches the articles of **all** your sections, across every page, and
 *Read later*. With several words, all must be present.
+
+![Search](../images/en/recherche.jpg)
 
 ## Read later
 
@@ -172,9 +192,13 @@ The bookmark on an article keeps it in a personal list. It appears on hover with
 on touch screens. The list (200 articles at most) is stored on the server and shared across your devices. Open
 it with the bookmark button in the top bar.
 
+![The “Read later” list](../images/en/a-lire-plus-tard.jpg)
+
 ## Notifications
 
 *Settings → Notifications.* Lookout can alert you even when the page is closed.
+
+![Notification settings](../images/en/reglages-notifications.jpg)
 
 **Requirements**
 - The address must be **HTTPS**.
@@ -197,14 +221,20 @@ How quickly an article notification arrives depends on the section's interval.
 For a wall screen, a tablet or a TV: full screen, no buttons, with the time. Pages rotate (duration set in
 *Settings → Display mode*) and the screen stays on.
 
+![Display mode](../images/en/mode-affichage.jpg)
+
 - **Enter**: account badge → *Display mode*, or the settings.
 - **Leave**: `Escape`, or touch the screen then *Leave*.
 - The address keeps `?affichage=1`: bookmark it to come straight back.
+
+![The Display mode pane](../images/en/reglages-affichage.jpg)
 
 ## Settings
 
 The gear, or `Cmd`+`,`. Changes are saved automatically. A search field at the top of the navigation finds a
 setting by keyword.
+
+![Settings](../images/en/reglages-sections.jpg)
 
 | Group | Pane | What it holds |
 |---|---|---|
@@ -220,6 +250,8 @@ setting by keyword.
 | — | About | Version, location of your settings, links |
 
 Administrators also see the *Administration* group: see the [administration guide](administration.md).
+
+![The Appearance pane](../images/en/reglages-apparence.jpg)
 
 **Updating sources.** Each source is queried at most once per interval, even if you reload the page more
 often: this keeps sites from blocking you. The default interval is 30 minutes; scores and commutes use
@@ -241,3 +273,5 @@ keys nor your tokens.
 
 In Safari: *Share → Add to Home Screen*. Lookout then opens like an app, full screen, and can receive
 notifications. Cards move to a single column and settings show one pane at a time, with a *Back* button.
+
+<p><img src="../images/en/telephone-tableau-de-bord.jpg" alt="Lookout on a phone" width="270"> <img src="../images/en/telephone-reglages.jpg" alt="Lookout on a phone" width="270"> <img src="../images/en/telephone-reglages-rubrique.jpg" alt="Lookout on a phone" width="270"></p>

@@ -21,6 +21,8 @@ Pour la personne qui installe Lookout et qui gère les profils. L'installation r
 
 ## Installation et première ouverture
 
+![L'écran de connexion](../images/fr/connexion.jpg)
+
 1. Lancez le conteneur comme indiqué dans le [README](../../README.fr.md#démarrage-rapide).
 2. Ouvrez la page **tout de suite** et créez le compte administrateur. Tant qu'il n'existe pas, la première
    personne qui ouvre la page peut le créer.
@@ -49,6 +51,8 @@ fichiers de l'interface change à chaque version.
 
 *Réglages → Profils.*
 
+![La rubrique Profils](../images/fr/reglages-profils.jpg)
+
 - **Créer un profil** : nom, mot de passe provisoire, rôle, et réglages de départ (ceux par défaut, ou une
   copie d'un autre profil, clés comprises). La personne choisit son propre mot de passe à sa première connexion.
 - **Rôles** : *Utilisateur* ou *Administrateur*. Il doit toujours rester au moins un administrateur.
@@ -72,6 +76,8 @@ fichiers de l'interface change à chaque version.
 
 *Réglages → Clés partagées.* Ce que vous fournissez une fois pour toute l'installation. Un profil qui saisit sa
 propre clé dans une section garde la sienne.
+
+![La rubrique Clés partagées](../images/fr/reglages-cles.jpg)
 
 | Clé | Sert à | Qui peut l'utiliser |
 |---|---|---|
@@ -121,6 +127,8 @@ n'entre pas dans la sauvegarde complète : après une restauration, chacun relie
 *Réglages → État des sources.* La liste des fils, ligues et trajets qui ne répondent plus, **tous profils
 confondus**, avec la durée de la panne et la dernière réponse reçue.
 
+![La rubrique État des sources](../images/fr/reglages-sources.jpg)
+
 - Une source n'est connue qu'une fois sa section chargée au moins une fois.
 - Une panne de quelques heures est souvent passagère.
 - Une panne de plusieurs jours (pastille rouge à partir de trois jours) signale d'ordinaire une adresse qui a
@@ -135,6 +143,8 @@ Trois niveaux, du plus simple au plus complet.
 | *Mes données → Exporter* | La configuration d'un seul profil | Non |
 | *Sauvegarde → Télécharger* | Tous les comptes, profils, listes « à lire plus tard » et clés partagées | Oui |
 | Copie du dossier `/data` | Tout, y compris les abonnements aux notifications et les jetons Google | Oui |
+
+![La rubrique Sauvegarde](../images/fr/reglages-sauvegarde.jpg)
 
 **Sauvegarde complète** (*Réglages → Sauvegarde*)
 - Votre mot de passe est redemandé pour télécharger comme pour restaurer.

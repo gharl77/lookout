@@ -19,3 +19,9 @@ Voir aussi : [installation rapide](../README.fr.md) · [notes de version](../CHA
 | [Sources and keys](en/sources.md) | Everyone | Where the data comes from, which keys are needed and how to get them |
 
 See also: [quick start](../README.md) · [release notes](../CHANGELOG.md)
+
+---
+
+Les captures d'écran viennent d'une instance de démonstration ; elles se régénèrent avec
+`node scripts/doc-screenshots.mjs` (voir l'en-tête du script). / Screenshots come from a demonstration
+instance; regenerate them with `node scripts/doc-screenshots.mjs` (see the script header).

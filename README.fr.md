@@ -11,6 +11,8 @@ Lookout est un tableau de bord personnel auto-hébergé : actualités, météo, 
 vidéos et sorties sur une seule page. Tout se configure dans l'interface web — les sections, leur ordre, leur
 taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 
+![Le tableau de bord de Lookout](docs/images/fr/tableau-de-bord.jpg)
+
 **Documentation complète :** [guide d'utilisation](docs/fr/guide.md) ·
 [guide d'administration](docs/fr/administration.md) · [sources et clés](docs/fr/sources.md)
 
