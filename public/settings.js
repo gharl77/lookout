@@ -483,15 +483,17 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   function accountTab() {
     const current = passwordField('Mot de passe actuel', 'current-password'), next = passwordField('Nouveau mot de passe', 'new-password'),
       confirm = passwordField('Confirmer le nouveau mot de passe', 'new-password');
-    const note = h('p', {});
+    const note = h('div', {});
+    const say = (text, ok = false) => note.replaceChildren(noteView({ text, ok }));
     const change = async (e) => {
       e.preventDefault();
-      if (next.value !== confirm.value) { note.textContent = t('Les deux mots de passe ne sont pas identiques'); return; }
+      if (next.value.length < 6) return say(t('Le mot de passe doit compter au moins 6 caractères'));
+      if (next.value !== confirm.value) return say(t('Les deux mots de passe ne sont pas identiques'));
       try {
         await api('/api/auth/password', { method: 'POST', body: { current: current.value, next: next.value } });
         for (const input of [current, next, confirm]) input.value = '';
-        note.textContent = t('Mot de passe modifié. Vos autres appareils devront se reconnecter.');
-      } catch (error) { note.textContent = error.message; }
+        say(t('Mot de passe modifié. Vos autres appareils devront se reconnecter.'), true);
+      } catch (error) { say(error.message); }
     };
     return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '640px', margin: '0 auto' } },
       group('Mon profil', [
@@ -502,38 +504,39 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         // Champ du nom, invisible : il permet au gestionnaire de mots de passe d'associer le nouveau mot de passe au bon compte.
         h('input', { type: 'text', name: 'username', autocomplete: 'username', value: app.user.name, hidden: true }),
         h('div', { class: 'line stack' }, current, next, confirm),
-        h('div', { class: 'line' }, h('span', {}), h('button', { class: 'btn', type: 'submit' }, icon('key'), 'Changer le mot de passe')),
+        h('div', { class: 'line' }, note, h('button', { class: 'btn', type: 'submit' }, icon('key'), 'Changer le mot de passe')),
       ])),
-      note,
       group('Session', [
         line('Se déconnecter de cet appareil', h('button', { class: 'btn', onClick: signOut }, icon('signout'), 'Se déconnecter')),
       ], "Vous restez connecté sur cet appareil tant que vous ne vous déconnectez pas, même après une mise à jour de Lookout."))));
   }
 
   // --- Profils (administrateur) ---
-  let users = null, usersNote = '';
+  let users = null, usersNote = null;   // { text, ok }
+  const noteView = (note) => note && h('p', { class: `form-note ${note.ok ? 'ok' : 'error'}`, role: note.ok ? 'status' : 'alert' }, icon(note.ok ? 'check-on' : 'warning'), ' ', note.text);
   async function loadUsers() {
-    try { users = await api('/api/users'); } catch (error) { users = []; usersNote = error.message; }
+    try { users = await api('/api/users'); } catch (error) { users = []; usersNote = { text: error.message, ok: false }; }
     if (ui.tab === 'users') render();
   }
   /** Lance une action sur les profils, recharge la liste et affiche le résultat. */
   async function usersAction(action, done) {
-    try { await action(); usersNote = done ? t(done) : ''; } catch (error) { usersNote = error.message; }
+    try { await action(); usersNote = done ? { text: t(done), ok: true } : null; } catch (error) { usersNote = { text: error.message, ok: false }; }
     await loadUsers();
   }
 
   function passwordDialog(user) {
     openDialog((close) => {
       const input = passwordField('Nouveau mot de passe', 'new-password');
-      const error = h('p', {});
-      return h('form', { style: { display: 'contents' }, onSubmit: async (e) => {
+      const error = h('div', {});
+      return h('form', { style: { display: 'contents' }, novalidate: true, onSubmit: async (e) => {
         e.preventDefault();
+        if (input.value.length < 6) return error.replaceChildren(noteView({ text: t('Le mot de passe doit compter au moins 6 caractères'), ok: false }));
         try {
           await api(`/api/users/${encodeURIComponent(user.id)}`, { method: 'PATCH', body: { password: input.value } });
           close();
-          usersNote = t('Mot de passe de {0} modifié. Ses appareils devront se reconnecter.', user.name);
+          usersNote = { text: t('Mot de passe de {0} modifié. Ses appareils devront se reconnecter.', user.name), ok: true };
           render();
-        } catch (err) { error.textContent = err.message; }
+        } catch (err) { error.replaceChildren(noteView({ text: err.message, ok: false })); }
       } },
       h('h3', {}, t('Mot de passe de {0}', user.name)), input, error,
       h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onClick: close }, 'Annuler'), h('button', { class: 'btn primary', type: 'submit' }, 'Enregistrer')));
@@ -544,11 +547,34 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     if (!users) { loadUsers(); return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('span', { class: 'spinner' }))); }
     const ROLES = [['user', 'Utilisateur'], ['admin', 'Administrateur']];
     const path = (u) => `/api/users/${encodeURIComponent(u.id)}`;
-    const draft = { name: '', password: '', role: 'user', copyFrom: '' };
-    const nameInput = h('input', { class: 'field', placeholder: t('Nom'), 'aria-label': 'Nom', maxlength: '32', autocomplete: 'off', onInput: (e) => { draft.name = e.target.value; } });
-    const passInput = h('input', { class: 'field', type: 'password', placeholder: t('Mot de passe (6 caractères ou plus)'), 'aria-label': 'Mot de passe', autocomplete: 'new-password', onInput: (e) => { draft.password = e.target.value; } });
+    const draft = { role: 'user', copyFrom: '' };
+    const nameInput = h('input', { class: 'field', name: 'new-profile-name', placeholder: t('Nom'), 'aria-label': 'Nom', maxlength: '32', autocomplete: 'off', required: true });
+    const passInput = h('input', { class: 'field', name: 'new-profile-password', type: 'password', placeholder: t('Mot de passe (6 caractères ou plus)'), 'aria-label': 'Mot de passe', autocomplete: 'new-password', required: true });
+    const createNote = h('div', {});
+    const createFail = (message, input) => {
+      // Un échec efface le message de réussite précédent, pour ne pas afficher les deux à la fois.
+      usersNote = null;
+      root.querySelector('.s-pane .form-note.ok')?.remove();
+      createNote.replaceChildren(noteView({ text: message, ok: false }));
+      input?.focus();
+    };
+    const create = async (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim(), password = passInput.value;
+      // Vérifié ici d'abord, pour répondre tout de suite ; le serveur revérifie de toute façon.
+      if (!name) return createFail(t('Entrez un nom pour le profil'), nameInput);
+      if (password.length < 6) return createFail(t('Le mot de passe doit compter au moins 6 caractères'), passInput);
+      try {
+        await api('/api/users', { method: 'POST', body: { name, password, role: draft.role, copyFrom: draft.copyFrom || null } });
+      } catch (error) {
+        return createFail(error.message, /mot de passe|password/i.test(error.message) ? passInput : nameInput);   // les champs restent remplis
+      }
+      usersNote = { text: t('Profil « {0} » créé. Il peut maintenant se connecter avec ce nom et ce mot de passe.', name), ok: true };
+      await loadUsers();
+    };
 
     return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '680px', margin: '0 auto' } },
+      noteView(usersNote),
       group('Profils', users.map((u) => h('div', { class: 'item' },
         h('span', { class: 'avatar-dot' }, u.name.charAt(0).toUpperCase()),
         h('div', { class: 'fields' },
@@ -572,16 +598,13 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
           } },
         ]) }, icon('more')))),
       "Chaque profil a ses propres sections, sources et préférences. Un administrateur peut créer, modifier et supprimer des profils."),
-      h('form', { onSubmit: (e) => {
-        e.preventDefault();
-        usersAction(() => api('/api/users', { method: 'POST', body: { ...draft, copyFrom: draft.copyFrom || null } }), 'Profil créé.');
-      } }, group('Nouveau profil', [
+      h('form', { novalidate: true, onSubmit: create }, group('Nouveau profil', [
         h('div', { class: 'line stack' }, nameInput, passInput),
         line('Rôle', select(draft, 'role', ROLES, { label: 'Rôle' })),
         line('Réglages de départ', select(draft, 'copyFrom', [['', 'Réglages par défaut'], ...users.map((u) => [u.id, t('Copie de {0}', u.name)])], { label: 'Réglages de départ' })),
-        h('div', { class: 'line' }, h('span', {}), h('button', { class: 'btn primary', type: 'submit' }, icon('plus'), 'Créer le profil')),
+        h('div', { class: 'line' }, createNote, h('button', { class: 'btn primary', type: 'submit' }, icon('plus'), 'Créer le profil')),
       ], "Une copie reprend les sections, les sources et les clés d'API de l'autre profil. Chacun évolue ensuite de son côté.")),
-      h('p', {}, usersNote))));
+      )));
   }
 
   // --- Fenêtre ---

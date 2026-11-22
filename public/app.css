@@ -399,6 +399,13 @@ select.field { width: auto; max-width: 100%; padding-right: 26px; appearance: no
 .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-back { display: none; }
 
+/* Message d'un formulaire : succès en vert, erreur en rouge, toujours à côté de ce qui l'a provoqué. */
+.form-note { display: flex; align-items: flex-start; gap: 7px; margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 14px; font-weight: 500; text-align: left; }
+.form-note svg { flex: none; font-size: 17px; margin-top: 1px; }
+.form-note.ok { color: #16a34a; background: color-mix(in srgb, #22c55e 14%, transparent); }
+.form-note.error { color: #ef4444; background: color-mix(in srgb, #ef4444 13%, transparent); }
+.line .form-note { margin: 0; flex: 1; }
+
 /* --- Téléphone --- */
 @media (max-width: 720px) {
   #main { padding-left: calc(14px + env(safe-area-inset-left)); padding-right: calc(14px + env(safe-area-inset-right)); padding-top: 14px; }
