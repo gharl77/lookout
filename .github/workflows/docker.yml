@@ -2,7 +2,8 @@ name: Image Docker
 
 on:
   push:
-    branches: [main]
+    # main publie « latest » ; la branche de développement publie « test », pour essayer avant une version.
+    branches: [main, multi-utilisateur]
     # Versions officielles au format année.mois.numéro (ex. 2026.11.1).
     tags: ['20[0-9][0-9].*']
     paths-ignore: ['**.md', 'compose.yaml']
@@ -88,6 +89,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=test,enable=${{ github.ref == 'refs/heads/multi-utilisateur' }}
             type=ref,event=tag
       - name: Publier l'image (amd64 et arm64)
         if: github.event_name != 'pull_request'
