@@ -417,6 +417,7 @@ async function api(req, res, url) {
   if (route === 'POST /api/push/subscribe') {
     const body = await readBody(req);
     accounts.addPush(user.id, token, cleanSubscription(body?.subscription), body?.lang);
+    console.log(`Notifications : appareil abonné pour « ${user.name} » (${new URL(body.subscription.endpoint).hostname}).`);
     return send(res, 200, { ok: true });
   }
   if (route === 'POST /api/push/unsubscribe') {
