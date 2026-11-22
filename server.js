@@ -123,14 +123,16 @@ function withSharedKey(options, name) {
 }
 
 /** Envoie une notification à tous les appareils abonnés d'un profil ; oublie ceux qui n'existent plus. */
-async function notify(userID, message) {
+async function notify(userID, message, only = null) {
   const result = { devices: 0, delivered: 0, error: null };
   for (const subscription of accounts.pushSubscriptions(userID)) {
+    if (only && subscription.endpoint !== only) continue;
     result.devices++;
     const sent = await push.send(subscription, message);
-    if (sent.ok) result.delivered++;
-    else if (sent.gone) accounts.removePush(userID, subscription.endpoint);
-    else { result.error = sent.error; console.warn(`Notification non remise (${new URL(subscription.endpoint).hostname}) : ${sent.error}`); }
+    if (sent.ok) { result.delivered++; continue; }
+    result.error = sent.error;
+    console.warn(`Notification non remise (${new URL(subscription.endpoint).hostname}) : ${sent.error}${sent.gone ? ' — abonnement oublié' : ''}`);
+    if (sent.gone) accounts.removePush(userID, subscription.endpoint);
   }
   return result;
 }
@@ -425,8 +427,10 @@ async function api(req, res, url) {
     return send(res, 200, { ok: true });
   }
   if (route === 'POST /api/push/test') {
-    const sent = await notify(user.id, { title: 'Lookout', body: t('Les notifications fonctionnent sur cet appareil.'), tag: 'essai' });
-    if (!sent.devices) throw new BriefingError('Aucun appareil abonné aux notifications');
+    // L'essai ne vise que l'appareil qui le demande : la réponse dit ce qui s'est passé pour lui, pas pour un autre.
+    const endpoint = String((await readBody(req))?.endpoint ?? '') || null;
+    const sent = await notify(user.id, { title: 'Lookout', body: t('Les notifications fonctionnent sur cet appareil.'), tag: 'essai' }, endpoint);
+    if (!sent.devices) throw new BriefingError(endpoint ? "Cet appareil n'est pas abonné sur le serveur. Désactivez puis réactivez les notifications." : 'Aucun appareil abonné aux notifications');
     if (!sent.delivered) throw new BriefingError('Le service de notifications a refusé le message ({0})', sent.error ?? '?');
     return send(res, 200, sent);
   }

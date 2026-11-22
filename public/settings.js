@@ -459,7 +459,13 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     else if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) push.state = 'unsupported';
     else if (Notification.permission === 'denied') push.state = 'denied';
     else {
-      try { push.state = await (await pushRegistration()).pushManager.getSubscription() ? 'on' : 'off'; } catch { push.state = 'unsupported'; }
+      try {
+        const subscription = await (await pushRegistration()).pushManager.getSubscription();
+        push.state = subscription ? 'on' : 'off';
+        push.endpoint = subscription?.endpoint ?? null;
+        // Le serveur a pu oublier cet appareil (session renouvelée, abonnement jugé expiré) : on le lui redonne.
+        if (subscription) api('/api/push/subscribe', { method: 'POST', body: { subscription: subscription.toJSON(), lang: document.documentElement.lang } }).catch(() => {});
+      } catch { push.state = 'unsupported'; }
     }
     if (ui.tab === 'general') render();
   }
@@ -476,6 +482,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
           applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) });
         await api('/api/push/subscribe', { method: 'POST', body: { subscription: subscription.toJSON(), lang: document.documentElement.lang } });
         push.state = 'on';
+        push.endpoint = subscription.endpoint;
       } else if (existing) {
         await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: existing.endpoint } });
         await existing.unsubscribe();
@@ -493,7 +500,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     };
     const usable = push.state === 'on' || push.state === 'off';
     const test = async () => {
-      try { await api('/api/push/test', { method: 'POST', body: {} }); push.note = { text: t("Notification d'essai envoyée."), ok: true }; }
+      try { await api('/api/push/test', { method: 'POST', body: { endpoint: push.endpoint } }); push.note = { text: t("Notification d'essai envoyée à cet appareil. Si rien n'apparaît, vérifiez que le système autorise les notifications de ce navigateur."), ok: true }; }
       catch (error) { push.note = { text: error.message, ok: false }; }
       render();
     };
