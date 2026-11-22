@@ -161,6 +161,15 @@ await check('profils : copie des réglages, indépendance, droits et mots de pas
   expect(sharedSeen.includes('"tomtomKey":true') && sharedSeen.includes('"apiSportsKey":false') && !sharedSeen.includes('secrete'), `clés partagées inattendues : ${sharedSeen}`);
   expect((await (await request('/api/shared-keys', { method: 'PUT', ...json({ tomtomKey: '••••••••' }) })).json()).tomtomKey === true, 'le masque a effacé la clé partagée');
   expect((await (await request('/api/shared-keys', { method: 'PUT', ...json({ tomtomKey: '' }) })).json()).tomtomKey === false, 'la clé partagée ne se retire pas');
+  // La clé Anthropic, facturée à l'usage, n'est offerte qu'aux profils que l'administrateur autorise.
+  await request('/api/shared-keys', { method: 'PUT', ...json({ anthropicKey: 'cle-anthropic-de-test' }) });
+  expect((await (await request('/api/shared-keys', {}, guestCookie)).json()).anthropicKey === false, 'la clé Anthropic partagée est offerte à un profil non autorisé');
+  expect((await (await request('/api/shared-keys')).json()).anthropicKey === true, "l'administrateur n'a pas droit à sa propre clé partagée");
+  const allowed = await (await request('/api/shared-keys', { method: 'PUT', ...json({ policy: { anthropicUsers: [guest.id, 'inconnu'], anthropicMaxModel: 'claude-haiku-5-5' } }) })).json();
+  expect(allowed.policy.anthropicUsers.length === 1 && allowed.policy.anthropicMaxModel === 'claude-haiku-5-5', `politique inattendue : ${JSON.stringify(allowed.policy)}`);
+  const guestKeys = await (await request('/api/shared-keys', {}, guestCookie)).json();
+  expect(guestKeys.anthropicKey === true && guestKeys.policy === undefined, 'le profil autorisé ne voit pas la clé, ou voit la politique');
+  await request('/api/shared-keys', { method: 'PUT', ...json({ anthropicKey: '', policy: { anthropicUsers: [] } }) });
 
   const copy = await (await request('/api/config', {}, guestCookie)).json();
   expect(copy.sections[0].title === 'Marque du profil admin', 'les réglages ne sont pas une copie du profil choisi');

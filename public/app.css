@@ -119,6 +119,8 @@ body.signed-out #topbar, body.signed-out #main { display: none; }
   border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 14px; }
 #edit-banner .grow { flex: 1 1 220px; }
 
+.form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -6px 4px 20px; }
+
 /* --- Sorties et résumé --- */
 .rows.grid.posters { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
 .posters .tile-img { aspect-ratio: 2 / 3; }

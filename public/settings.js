@@ -653,7 +653,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     return pane("Les pages sont les onglets du tableau de bord. Chaque section appartient à une page ; son réglage « Page » permet de la déplacer.", pagesGroup());
   }
   function keysPane() {
-    return pane("Des clés que vous fournissez une fois pour tous les profils. Un profil qui saisit sa propre clé dans une section garde la sienne.", sharedKeysForm());
+    return pane("Ce que vous fournissez une fois pour toute l'installation. Un profil qui saisit sa propre clé dans une section garde la sienne.", sharedKeysForm());
   }
   function backupPane() {
     const note = h('p', {});
@@ -888,7 +888,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const noteView = (note) => note && h('p', { class: `form-note ${note.ok ? 'ok' : 'error'}`, role: note.ok ? 'status' : 'alert' }, icon(note.ok ? 'check-on' : 'warning'), ' ', note.text);
   async function loadUsers() {
     try { users = await api('/api/users'); } catch (error) { users = []; usersNote = { text: error.message, ok: false }; }
-    if (ui.tab === 'users') render();
+    if (ui.tab === 'users' || ui.tab === 'keys') render();
   }
   /** Lance une action sur les profils, recharge la liste et affiche le résultat. */
   async function usersAction(action, done) {
@@ -994,29 +994,45 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
 
   // --- Clés d'API partagées (administrateur) ---
   let sharedNote = null;
+  let policyDraft = null;   // qui a droit à la clé Anthropic partagée, tant que ce n'est pas enregistré
   function sharedKeysForm() {
-    const KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports'],
-      ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé du jour'],
-      ['googleClientId', 'Google – identifiant client', 'Abonnements YouTube'], ['googleClientSecret', 'Google – secret client', 'Abonnements YouTube']];
-    const inputs = KEYS.map(([key, label, use]) => h('input', { class: 'field bare mono', name: `shared-${key}`, value: app.sharedKeys?.[key] ? SECRET_MASK : '',
+    if (!users) { loadUsers(); return h('span', { class: 'spinner' }); }
+    const API_KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports'],
+      ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé du jour — facturé à l’usage']];
+    const GOOGLE_KEYS = [['googleClientId', 'Identifiant client', 'Fourni par Google Cloud'], ['googleClientSecret', 'Secret client', 'Fourni par Google Cloud']];
+    const KEYS = [...API_KEYS, ...GOOGLE_KEYS];
+    const inputs = new Map(KEYS.map(([key, label, use]) => [key, h('input', { class: 'field bare mono', name: `shared-${key}`, value: app.sharedKeys?.[key] ? SECRET_MASK : '',
       placeholder: t(use), 'aria-label': label, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
-      onFocus: (e) => { if (e.target.value === SECRET_MASK) e.target.select(); } }));
+      onFocus: (e) => { if (e.target.value === SECRET_MASK) e.target.select(); } })]));
+    policyDraft ??= structuredClone(app.sharedKeys?.policy ?? { anthropicUsers: [], anthropicMaxModel: SUMMARY_MODELS[0][0] });
+    const others = users.filter((u) => u.role !== 'admin');
     const save = async (e) => {
       e.preventDefault();
       try {
-        app.sharedKeys = await api('/api/shared-keys', { method: 'PUT', body: Object.fromEntries(KEYS.map(([key], i) => [key, inputs[i].value])) });
+        app.sharedKeys = await api('/api/shared-keys', { method: 'PUT', body: { ...Object.fromEntries(KEYS.map(([key]) => [key, inputs.get(key).value])), policy: policyDraft } });
+        policyDraft = null;
         sharedNote = { text: t('Clés partagées enregistrées.'), ok: true };
       } catch (error) { sharedNote = { text: error.message, ok: false }; }
       render();
     };
     const note = noteView(sharedNote);
     sharedNote = null;   // affiché une seule fois
-    return h('form', { novalidate: true, onSubmit: save }, group(null, [
-      ...KEYS.map(([, label], i) => line(label, inputs[i])),
-      h('div', { class: 'line' }, h('div', {}, note),
-        h('button', { class: 'info-btn', type: 'button', title: 'Comment obtenir un identifiant client Google', 'aria-label': 'Comment obtenir un identifiant client Google', onClick: googleHelp }, 'i'),
-        h('button', { class: 'btn', type: 'submit' }, icon('key'), 'Enregistrer les clés')),
-    ], "Ces clés servent à tous les profils qui n'ont pas saisi la leur. Une fois enregistrées, elles restent sur le serveur et ne sont plus affichées à personne. Videz un champ pour retirer la clé."));
+    const rows = (list) => list.map(([key, label]) => line(label, inputs.get(key)));
+    return h('form', { novalidate: true, onSubmit: save },
+      group("Clés d'API", rows(API_KEYS),
+        "Elles servent aux profils qui n'ont pas saisi la leur. Aucune ne donne accès à vos données : TomTom, API-Sports et TMDB puisent seulement dans votre quota gratuit. Une fois enregistrées, elles ne sont plus affichées à personne. Videz un champ pour retirer la clé."),
+      group('Qui peut utiliser la clé Anthropic', [
+        line('Administrateurs', h('span', { class: 'sub-line' }, 'Toujours')),
+        others.map((u) => line(u.name, h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: policyDraft.anthropicUsers.includes(u.id), 'aria-label': u.name,
+          onChange: (e) => { policyDraft.anthropicUsers = e.target.checked ? [...policyDraft.anthropicUsers, u.id] : policyDraft.anthropicUsers.filter((id) => id !== u.id); } }))),
+        line('Modèle le plus coûteux permis', select(policyDraft, 'anthropicMaxModel', SUMMARY_MODELS, { label: 'Modèle le plus coûteux permis' })),
+      ], "La clé Anthropic est la seule facturée à l'usage : chaque résumé du jour vous est compté. Les autres profils n'y ont droit que si vous les cochez ici, et jamais au-delà du modèle choisi. Un profil qui saisit sa propre clé n'est pas concerné."),
+      group('Connexion Google (application)', [
+        ...rows(GOOGLE_KEYS),
+        h('div', { class: 'line' }, h('span', { class: 'lbl' }, 'Marche à suivre et adresse de redirection'),
+          h('button', { class: 'info-btn', type: 'button', title: 'Comment obtenir un identifiant client Google', 'aria-label': 'Comment obtenir un identifiant client Google', onClick: googleHelp }, 'i')),
+      ], "Ces deux valeurs identifient cette installation de Lookout auprès de Google ; elles ne donnent accès au compte de personne. Chaque profil relie ensuite son propre compte Google depuis sa section YouTube, et ne voit que ses propres abonnements."),
+      h('div', { class: 'form-actions' }, h('div', {}, note), h('button', { class: 'btn primary', type: 'submit' }, icon('key'), 'Enregistrer')));
   }
 
   function usersTab() {

@@ -138,7 +138,17 @@ async function summarize(section, config) {
     const recent = (payload.articles ?? []).filter(keep).sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).slice(0, 8);
     for (const a of recent) items.push({ section: feed.title, source: a.source ?? '', title: a.title, link: a.link });
   }
-  const result = await fetchSummary(section.id, { ...section.summary, points: section.maxItems }, withSharedKey(section.summary, 'anthropicKey').anthropicKey, items.slice(0, 90));
+  // Clé du profil : aucun plafond, c'est lui qui paie. Clé partagée : seulement pour les profils autorisés, et jusqu'au modèle permis.
+  let key = String(section.summary.anthropicKey ?? '').trim(), model = section.summary.model;
+  if (!key && accounts.sharedKey('anthropicKey')) {
+    const owner = accounts.ownerOfConfig(config);
+    if (!owner || !accounts.sharedAllowed(owner.id, 'anthropicKey')) {
+      throw new BriefingError("La clé Anthropic partagée n'est pas offerte à ce profil : demandez à un administrateur, ou saisissez votre propre clé");
+    }
+    key = accounts.sharedKey('anthropicKey');
+    model = accounts.sharedModel(model);
+  }
+  const result = await fetchSummary(section.id, { ...section.summary, model, points: section.maxItems }, key, items.slice(0, 90));
   return { ...result, sourceErrors: {} };
 }
 
@@ -424,10 +434,16 @@ async function api(req, res, url) {
   };
 
   // --- Clés d'API partagées : tout le monde sait lesquelles existent, seul un administrateur les définit ---
-  if (route === 'GET /api/shared-keys') return send(res, 200, accounts.sharedKeysSet);
+  // Chacun apprend quelles clés partagées il peut utiliser ; l'administrateur voit en plus qui a droit à la clé Anthropic.
+  if (route === 'GET /api/shared-keys') {
+    return send(res, 200, user.role === 'admin' ? { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy } : accounts.sharedKeysFor(user.id));
+  }
   if (route === 'PUT /api/shared-keys') {
     requireAdmin(user);
-    const set = accounts.setSharedKeys(await readBody(req));
+    const body = await readBody(req);
+    accounts.setSharedKeys(body);
+    if (body?.policy) accounts.setSharedPolicy(body.policy);
+    const set = { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy };
     // Les sections restées en erreur (clé manquante ou refusée) sont redemandées dès le prochain affichage.
     for (const [key, entry] of cache) if (hasErrors(entry.payload)) cache.delete(key);
     return send(res, 200, set);
