@@ -9,14 +9,17 @@ self.addEventListener('push', (event) => {
   // Chaque message reçu doit afficher une notification, sinon le système retire l'autorisation (iPhone).
   event.waitUntil(self.registration.showNotification(message.title || 'Lookout', {
     body: message.body || '', tag: message.tag, icon: new URL('lookout-180.png', self.location).href,
-    badge: new URL('lookout-180.png', self.location).href, data: { url: self.registration.scope } }));
+    badge: new URL('lookout-180.png', self.location).href, data: { url: message.url || self.registration.scope } }));
 });
 
-// Un toucher sur la notification ramène à Lookout (fenêtre déjà ouverte, sinon nouvelle).
+// Un toucher sur la notification ouvre l'article annoncé ; sans article (alerte météo, match), il ramène à
+// Lookout (fenêtre déjà ouverte, sinon nouvelle).
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const scope = self.registration.scope, url = event.notification.data?.url ?? scope;
+  if (!url.startsWith(scope)) return event.waitUntil(self.clients.openWindow(url));
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
-    const open = windows.find((w) => w.url.startsWith(self.registration.scope));
-    return open ? open.focus() : self.clients.openWindow(event.notification.data?.url ?? self.registration.scope);
+    const open = windows.find((w) => w.url.startsWith(scope));
+    return open ? open.focus() : self.clients.openWindow(url);
   }));
 });

@@ -3,19 +3,13 @@ import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 
 // --- Articles (RSS et API JSON) ---
 
-const keywords = (s) => String(s ?? '').split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
+import { keywords, articleFilter } from './shared.js';
 
 /** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
 export function present(articles, options, sourceOrder, limit, general = {}) {
-  // Les mots masqués dans les réglages généraux s'ajoutent à ceux de la section.
-  const include = keywords(options.includeKeywords), exclude = [...keywords(options.excludeKeywords), ...keywords(general.muteKeywords)];
-  const cutoff = options.maxAgeHours > 0 ? Date.now() - options.maxAgeHours * 3600e3 : null;
-  const seen = new Set();
+  const keep = articleFilter(options, general), seen = new Set();
   const sorted = articles.filter((a) => {
-    if (cutoff && a.date && a.date < cutoff) return false;
-    const haystack = `${a.title} ${a.summary}`.toLowerCase();
-    if (include.length && !include.some((k) => haystack.includes(k))) return false;
-    if (exclude.some((k) => haystack.includes(k))) return false;
+    if (!keep(a)) return false;
     const key = a.title.toLowerCase();
     return seen.has(key) ? false : (seen.add(key), true);
   }).sort((a, b) => (b.date ?? 0) - (a.date ?? 0));

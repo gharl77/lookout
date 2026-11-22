@@ -870,6 +870,8 @@ document.addEventListener('keydown', (e) => {
     state.config = config;
     state.readIDs = new Set(read);
     if (!app.viewing) api('/api/saved').then(applySaved).catch(() => {});
+    // Appareil abonné aux notifications : son service worker se met à jour avec l'application.
+    navigator.serviceWorker?.getRegistration().then((registration) => registration?.update()).catch(() => {});
     if (new URLSearchParams(location.search).has('affichage')) startDisplay({ fullscreen: false });
     renderAll();
     restartTimer();

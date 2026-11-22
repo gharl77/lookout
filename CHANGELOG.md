@@ -8,13 +8,15 @@ En développement, pas encore publié. / In development, not yet released.
 
 - **Filtres** : mots masqués ou mis en évidence dans tous les fils (Réglages → Général), mise en évidence par section.
 - **À lire plus tard** : gardez un article d'un clic ; la liste suit votre profil sur tous vos appareils.
-- **Notifications** : alertes météo, début et résultat des matchs de vos équipes, même page fermée. Exige HTTPS ;
-  sur iPhone, Lookout doit d'abord être ajouté à l'écran d'accueil.
+- **Notifications** (iPhone, iPad, Mac, PC) : alertes météo, début et résultat des matchs de vos équipes, nouveaux
+  articles des sections de votre choix (un toucher ouvre l'article), même page fermée. Exige HTTPS ; sur iPhone,
+  Lookout doit d'abord être ajouté à l'écran d'accueil.
 - **Mode affichage** : plein écran pour un écran mural ou une télé, avec l'heure et la rotation des pages.
 - **Filters**: words hidden or highlighted in every feed (Settings → General), highlighting per section.
 - **Read later**: keep an article in one click; the list follows your profile on all your devices.
-- **Notifications**: weather alerts, start and final score of your teams' games, even with the page closed.
-  Requires HTTPS; on iPhone, Lookout must first be added to the Home Screen.
+- **Notifications** (iPhone, iPad, Mac, PC): weather alerts, start and final score of your teams' games, new
+  articles from the sections you choose (tapping opens the article), even with the page closed. Requires HTTPS;
+  on iPhone, Lookout must first be added to the Home Screen.
 - **Display mode**: full screen for a wall screen or TV, with the time and page rotation.
 
 ## 2026.11.2

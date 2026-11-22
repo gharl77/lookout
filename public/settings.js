@@ -124,6 +124,9 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Exclure', text(o, 'excludeKeywords', { placeholder: 'ex. horoscope, publicité', label: 'Exclure' })),
         line('Mettre en évidence', text(o, 'highlightKeywords', { placeholder: 'ex. Montréal, grève', label: 'Mettre en évidence' })),
       ], 'Mots-clés séparés par des virgules, recherchés dans le titre et le résumé.'),
+      group('Notifications', [
+        line('Notifier les nouveaux articles', toggle(o, 'notify', { label: 'Notifier les nouveaux articles' })),
+      ], "Chaque nouvel article qui passe les filtres ci-dessus envoie une notification aux appareils abonnés (Réglages → Général → Notifications). Un toucher sur la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce."),
     ];
   }
 
@@ -485,7 +488,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     if (push.state === 'unknown') readPushState();
     const WHY = {
       insecure: "Les notifications exigent une adresse en HTTPS. Ouvrez Lookout par son adresse sécurisée.",
-      unsupported: "Ce navigateur ne propose pas les notifications. Sur iPhone ou iPad : ajoutez d'abord Lookout à l'écran d'accueil (Partager → Sur l'écran d'accueil), puis ouvrez-le depuis son icône.",
+      unsupported: "Ce navigateur ne propose pas les notifications. Sur iPhone ou iPad : ajoutez d'abord Lookout à l'écran d'accueil (Partager → Sur l'écran d'accueil), puis ouvrez-le depuis son icône. Sur Mac ou PC : utilisez Safari, Chrome, Edge ou Firefox, hors navigation privée.",
       denied: "Les notifications sont bloquées pour ce site. Autorisez-les dans les réglages du navigateur ou de l'appareil, puis revenez ici.",
     };
     const usable = push.state === 'on' || push.state === 'off';
@@ -504,7 +507,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       line("Résultat final d'un match de mes équipes", toggle(g, 'notifyGameEnd', { label: 'Résultat final' })),
       push.state === 'on' && h('div', { class: 'line' }, h('div', {}, note), h('button', { class: 'btn', onClick: test }, sfIcon('bell.fill'), "Envoyer une notification d'essai")),
       push.state !== 'on' && note && h('div', { class: 'line' }, note),
-    ], WHY[push.state] ?? "Lookout surveille vos sections météo et sports même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Chaque appareil s'abonne séparément.");
+    ], WHY[push.state] ?? "Lookout surveille vos sections météo et sports même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Les nouveaux articles s'activent section par section, dans les réglages de chaque section. Chaque appareil s'abonne séparément : iPhone, iPad, Mac ou PC.");
   }
 
   // --- Données ---

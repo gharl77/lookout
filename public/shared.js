@@ -80,13 +80,32 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
   displaySeconds: 30,
   notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false };   // ce qui déclenche une notification                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
-  showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '' };
+  showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '',
+  notify: false };   // notification à chaque nouvel article (sur les appareils abonnés)
 const WEATHER = { locationName: 'Montréal, Québec', latitude: 45.5019, longitude: -73.5674, showDetails: true,
   showHourly: true, hourlyCount: 12, showDaily: true, dailyCount: 7, showAlerts: true };
 const COMMUTE = { routes: [], provider: 'osrm', showAlternates: true, tomtomKey: '', hassURL: '', hassToken: '' };
 const SPORTS = { leagues: [], showYesterday: true, showUpcoming: true, showLogos: true, apiSportsKey: '',
   showStandings: true, liveRefresh: true };
 const API = { url: '', headers: '', itemsPath: '', titlePath: 'title', subtitlePath: '', linkPath: 'url', datePath: '', imagePath: '' };
+
+/** Mots-clés d'un réglage : séparés par des virgules, comparés sans tenir compte de la casse. */
+export const keywords = (s) => String(s ?? '').split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
+
+/**
+ * Filtre des articles d'une section : âge maximal, mots obligatoires, mots exclus (ceux de la section et ceux
+ * des réglages généraux). Sert à l'affichage comme aux notifications, pour qu'on ne soit jamais averti d'un
+ * article que la carte n'afficherait pas.
+ */
+export function articleFilter(options, general = {}, now = Date.now()) {
+  const include = keywords(options.includeKeywords), exclude = [...keywords(options.excludeKeywords), ...keywords(general.muteKeywords)];
+  const cutoff = options.maxAgeHours > 0 ? now - options.maxAgeHours * 3600e3 : null;
+  return (a) => {
+    if (cutoff && a.date && a.date < cutoff) return false;
+    const haystack = `${a.title} ${a.summary}`.toLowerCase();
+    return (!include.length || include.some((k) => haystack.includes(k))) && !exclude.some((k) => haystack.includes(k));
+  };
+}
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 export const feedSource = (name, url) => ({ id: uuid(), name, url, enabled: true });
