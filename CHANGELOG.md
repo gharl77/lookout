@@ -2,7 +2,9 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
-## À venir / Unreleased
+## 2026.11.5
+
+Doublons écartés et « Tout marquer comme lu » en un clic. / Duplicates removed and one-click “Mark all as read”.
 
 ### Français
 

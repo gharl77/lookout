@@ -1,7 +1,7 @@
 # Lookout
 
 [![Docker image](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-2026.11.4-blue)
+![Version](https://img.shields.io/badge/version-2026.11.5-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
@@ -138,7 +138,7 @@ The container runs as UID/GID `1000:1000` and must be able to write to `/data`.
 | Tag | Description |
 |---|---|
 | `latest` | Latest build of the `main` branch |
-| `2026.11.4` | A specific release |
+| `2026.11.5` | A specific release |
 | `test` | Development branch, to try things before a release |
 
 Images are built for `linux/amd64` and `linux/arm64`.
