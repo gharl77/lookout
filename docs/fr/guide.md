@@ -80,10 +80,38 @@ déconnexion.
 - Chaque carte garde la colonne où vous la déposez : les autres ne bougent pas.
 - Après un déplacement, un masquage ou un changement de largeur, un bandeau propose d'**annuler** pendant
   quelques secondes.
-- En mode *Organiser*, un bandeau offre *Réorganiser automatiquement* (replace les cartes dans les colonnes les
-  moins remplies), *Ajouter une section* et *Terminé*.
 
 ![Le mode Organiser](../images/fr/organiser.jpg)
+
+### Le mode Organiser
+
+Le bouton *Organiser* de la barre du haut ouvre tout ce qu'il faut pour composer le tableau de bord sans
+passer par les réglages.
+
+**Ajouter une section**
+
+- Une palette montre les types de section, YouTube, et sous *Fils par catégorie* les 23 catégories de fils
+  prêtes à l'emploi.
+- **Un clic** ajoute la section à la page affichée.
+- **À la souris**, glissez plutôt la tuile sur la page : un trait montre où la carte se posera.
+- Un bandeau propose ensuite *Configurer…* et *Annuler*. L'engrenage de la carte ouvre aussi ses réglages.
+
+**Créer et gérer les pages**
+
+- Les onglets des pages sont toujours visibles dans ce mode, même s'il n'y en a qu'une.
+- *+ Page* crée une page, l'affiche et vous laisse aussitôt taper son nom.
+- **Double-cliquez** un onglet pour le renommer ; **glissez-le** pour changer l'ordre des pages.
+- Le bouton `⋯` à côté de l'onglet actif offre *Renommer*, *Déplacer à gauche ou à droite* et *Supprimer la
+  page*. Les sections d'une page supprimée passent sur une autre page.
+
+**Changer une carte de page**
+
+- Glissez la carte par son en-tête et **déposez-la sur l'onglet** de la page voulue.
+- Déposée sur *+ Page*, elle part sur une nouvelle page.
+- Le menu de la carte offre la même chose sous *Déplacer vers la page*.
+
+*Réorganiser automatiquement* replace les cartes de la page dans les colonnes les moins remplies. Chaque
+action s'annule depuis le bandeau du bas pendant quelques secondes.
 
 Le nombre de colonnes suit la largeur de l'écran, ou se fixe dans *Réglages → Apparence*. Sur un écran étroit,
 tout passe sur une colonne.

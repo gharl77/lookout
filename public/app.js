@@ -4,8 +4,8 @@ import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { runOnboarding } from './onboarding.js';
 import { setLangProvider, resolveLang } from './i18n.js';
 import { cardBody, shownArticles, countNew, WMO } from './cards.js';
-import { KINDS, template, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
-import { openSettings, addSectionMenu as sectionMenu } from './settings.js';
+import { KINDS, FEED_CATALOG, template, youtubeSection, categorySection, newPage, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
+import { openSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -397,22 +397,67 @@ function renderHero() {
 }
 setInterval(() => state.config && renderHero(), 60e3);
 
-function addSectionMenu(anchor) {
-  sectionMenu(anchor, (s) => {
-    s.page = currentPage();
-    state.config.sections.push(s);
-    commit();
-    openSettings(app, { sectionID: s.id });
-  });
+// --- Ajouter une section ---
+// En mode « Organiser », une palette propose les types de section et les catégories de fils. Un clic ajoute la
+// section à la page ; à la souris, on peut aussi la glisser à l'endroit voulu (voir « Glisser une nouvelle section »).
+function paletteItems() {
+  const lang = document.documentElement.lang;
+  return {
+    kinds: [...Object.entries(KINDS).map(([kind, k]) => ({ label: k.label, detail: k.detail, icon: k.icon, color: k.color, make: () => template(kind) })),
+      { label: 'YouTube', detail: 'Dernières vidéos de vos chaînes et abonnements', icon: 'film.fill', color: '#EF4444', span: 2, make: youtubeSection }],
+    categories: FEED_CATALOG.map((c) => ({ label: c.name, icon: c.icon, color: c.color, make: () => categorySection(c, lang) })),
+  };
 }
 
-/** Onglets des pages, affichés seulement s'il y en a plus d'une. */
+/** Ajoute une section à la page affichée : à l'endroit visé (`target`, voir dropTargetAt) ou dans la colonne la moins remplie. */
+function addSection(item, target = null) {
+  const s = item.make();
+  s.title = t(s.title);
+  s.page = currentPage();
+  withUndo(t('Section « {0} » ajoutée', s.title), () => {
+    state.config.sections.push(s);
+    if (target) placeCard(s.id, target);
+  }, ['Configurer…', () => openSettings(app, { sectionID: s.id })]);
+  // La carte arrive parfois sous le bas de l'écran : on l'amène en vue et on la signale un instant.
+  setTimeout(() => {
+    const card = cards.get(s.id);
+    if (!card) return;
+    card.classList.add('just-added');
+    const frame = frames.get(s.id), top = $('grid').getBoundingClientRect().top + (frame?.y ?? 0);
+    if (top < 80 || top + Math.min(frame?.h ?? 0, 200) > innerHeight) window.scrollBy({ top: top - innerHeight / 3, behavior: 'smooth' });
+  }, 350);
+}
+
+// --- Pages ---
+// Les onglets apparaissent dès qu'il y a deux pages. En mode « Organiser », ils sont toujours là et se modifient
+// sur place : « + » crée une page, un double-clic la renomme, on les glisse pour changer leur ordre.
+let renaming = null;                       // id de la page dont on saisit le nom dans son onglet
+let lastTabClick = { id: null, at: 0 };    // pour reconnaître un double-clic même si l'onglet a été redessiné entre les deux
+let suppressClick = false;                 // le clic qui suit un glisser ne doit rien déclencher
+const pageName = (p) => p.name || t('Sans titre');
+
 function renderPages() {
-  const nav = $('pages'), list = pages(), current = currentPage();
-  nav.hidden = list.length < 2;
-  if (nav.hidden) return;
-  nav.replaceChildren(...list.map((p) => h('button', { class: 'page-tab', 'aria-current': p.id === current ? 'page' : null,
-    onClick: () => showPage(p.id) }, p.name || 'Sans titre')));
+  const nav = $('pages'), list = pages(), current = currentPage(), editing = state.editing && !app.viewing;
+  nav.hidden = list.length < 2 && !editing;
+  nav.classList.toggle('editing', editing);
+  if (nav.hidden) return nav.replaceChildren();
+  if (renaming && nav.querySelector('input')) return;   // saisie en cours : on n'y touche pas
+  nav.replaceChildren(...list.flatMap((p) => {
+    if (editing && renaming === p.id) return [renameField(p)];
+    const tab = h('button', { class: 'page-tab', 'aria-current': p.id === current ? 'page' : null,
+      title: editing ? 'Double-cliquez pour renommer, glissez pour changer l’ordre' : null,
+      onClick: () => {
+        if (suppressClick) return;
+        const twice = editing && lastTabClick.id === p.id && Date.now() - lastTabClick.at < 450;
+        lastTabClick = { id: p.id, at: Date.now() };
+        if (twice) renamePage(p.id); else showPage(p.id);
+      } }, pageName(p));
+    tab.dataset.page = p.id;
+    if (!editing) return [tab];
+    enableTabDrag(tab, p.id);
+    return p.id === current ? [tab, h('button', { class: 'page-more', title: 'Options de la page', 'aria-label': t('Options de la page {0}', pageName(p)),
+      onClick: (e) => pageMenu(e.currentTarget, p) }, icon('more'))] : [tab];
+  }), editing && h('button', { class: 'page-tab add', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onClick: () => addPage() }, icon('plus'), h('span', {}, 'Page')));
 }
 
 function showPage(id) {
@@ -425,16 +470,150 @@ function showPage(id) {
   window.scrollTo({ top: 0 });
 }
 
+/** Champ de saisie qui remplace l'onglet pendant qu'on renomme la page. Entrée ou un clic ailleurs valide, Échap annule. */
+function renameField(p) {
+  const input = h('input', { class: 'page-tab rename', value: p.name, maxlength: '40', placeholder: 'Nom de la page', 'aria-label': 'Nom de la page' });
+  const fit = () => { input.style.width = `${Math.max(7, input.value.length + 2)}ch`; };
+  const done = (save) => {
+    if (renaming !== p.id) return;
+    renaming = null;
+    const name = input.value.trim().slice(0, 40);
+    if (save && name && name !== p.name) withUndo('Page renommée', () => { p.name = name; });
+    renderPages();
+  };
+  input.addEventListener('input', fit);
+  input.addEventListener('blur', () => done(true));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') done(true);
+    else if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+  });
+  fit();
+  setTimeout(() => { input.focus(); input.select(); });
+  return input;
+}
+
+function renamePage(id) {
+  renaming = id;
+  renderPages();
+}
+
+/** Crée une page, l'affiche et propose aussitôt de la nommer. `sectionID` : une section à y emporter. */
+function addPage(sectionID = null) {
+  const page = newPage(t('Nouvelle page'));
+  withUndo(sectionID ? 'Section déplacée vers une nouvelle page' : 'Page ajoutée', () => {
+    pages().push(page);
+    const s = sectionID && section(sectionID);
+    if (s) { s.page = page.id; s.column = -1; }
+  });
+  state.page = page.id;
+  remember('lookout.page', page.id);
+  state.editing = true;
+  renaming = page.id;
+  renderAll();
+}
+
+function movePage(p, direction) {
+  withUndo('Pages réorganisées', () => {
+    const list = pages(), i = list.indexOf(p), j = i + direction;
+    if (j >= 0 && j < list.length) [list[i], list[j]] = [list[j], list[i]];
+  });
+}
+
+async function deletePage(p) {
+  const list = pages(), count = state.config.sections.filter((s) => s.page === p.id).length;
+  if (list.length < 2) return;
+  if (count && !await confirmDialog('Supprimer cette page ?', t('Ses {0} sections seront déplacées vers une autre page, pas supprimées.', count), 'Supprimer')) return;
+  withUndo('Page supprimée', () => {
+    list.splice(list.indexOf(p), 1);
+    for (const s of state.config.sections) if (s.page === p.id) { s.page = list[0].id; s.column = -1; }
+  });
+  state.page = list[0].id;
+  remember('lookout.page', state.page);
+  renderAll();
+  refreshAll();
+}
+
+function pageMenu(anchor, p) {
+  const list = pages(), i = list.indexOf(p);
+  openMenu(anchor, [
+    { label: 'Renommer', action: () => renamePage(p.id) },
+    { label: 'Déplacer à gauche', icon: icon('left'), disabled: i === 0, action: () => movePage(p, -1) },
+    { label: 'Déplacer à droite', icon: icon('right'), disabled: i === list.length - 1, action: () => movePage(p, 1) },
+    '-',
+    { label: 'Supprimer la page', icon: icon('trash'), disabled: list.length < 2, action: () => deletePage(p) },
+  ]);
+}
+
+/** Change l'ordre des pages en glissant un onglet : il prend sa place à mesure qu'on le déplace. */
+let tabDrag = null;
+function enableTabDrag(tab, id) {
+  tab.addEventListener('pointerdown', (e) => {
+    if (tabDrag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    tabDrag = { id, tab, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    window.addEventListener('pointermove', moveTab);
+    window.addEventListener('pointerup', endTab);
+    window.addEventListener('pointercancel', endTab);
+  });
+}
+function moveTab(e) {
+  if (!tabDrag || e.pointerId !== tabDrag.pointerId) return;
+  const nav = $('pages'), { tab } = tabDrag;
+  if (!tabDrag.active) {
+    if (Math.hypot(e.clientX - tabDrag.startX, e.clientY - tabDrag.startY) < 8) return;
+    tabDrag.active = true;
+    tab.classList.add('moving');
+    document.body.classList.add('is-dragging');
+    nav.querySelector('.page-more')?.remove();
+  }
+  // L'onglet devant lequel s'insérer : le premier dont le milieu est après le pointeur, rangée par rangée.
+  const before = [...nav.querySelectorAll('.page-tab[data-page]')].filter((el) => el !== tab).find((el) => {
+    const r = el.getBoundingClientRect();
+    return e.clientY < r.top || (e.clientY <= r.bottom && e.clientX < r.left + r.width / 2);
+  }) ?? nav.querySelector('.page-tab.add');
+  if (tab.nextElementSibling !== before) nav.insertBefore(tab, before);
+}
+function endTab(e) {
+  if (!tabDrag || e.pointerId !== tabDrag.pointerId) return;
+  const { active } = tabDrag;
+  tabDrag = null;
+  window.removeEventListener('pointermove', moveTab);
+  window.removeEventListener('pointerup', endTab);
+  window.removeEventListener('pointercancel', endTab);
+  if (!active) return;
+  document.body.classList.remove('is-dragging');
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 50);
+  const order = [...$('pages').querySelectorAll('.page-tab[data-page]')].map((el) => el.dataset.page);
+  if (e.type === 'pointerup') withUndo('Pages réorganisées', () => { pages().sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)); });
+  renderPages();
+}
+
+let showCategories = false;
 function renderBanner() {
   const banner = $('edit-banner');
   banner.hidden = !state.editing;
+  $('edit-zone').classList.toggle('editing', state.editing);
   if (!state.editing) return;
-  banner.replaceChildren(
-    h('span', { class: 'grow' }, icon('drag'), ' ', "Glissez une carte par son en-tête et déposez-la où vous voulez : les autres cartes restent à leur place."),
-    h('button', { class: 'btn', title: 'Replace toutes les cartes de cette page dans les colonnes les moins remplies',
-      onClick: () => withUndo('Disposition réorganisée', () => { for (const s of visible()) s.column = -1; }) }, icon('grid'), 'Réorganiser automatiquement'),
-    h('button', { class: 'btn', onClick: (e) => addSectionMenu(e.currentTarget) }, icon('plus'), 'Ajouter une section'),
-    h('button', { class: 'btn primary', onClick: () => setEditing(false) }, 'Terminé'));
+  // Sur un grand écran, la palette et les onglets restent sous la barre du haut pendant qu'on fait défiler la page.
+  document.documentElement.style.setProperty('--topbar-h', `${$('topbar').offsetHeight}px`);
+  const { kinds, categories } = paletteItems();
+  const tile = (item) => {
+    const el = h('button', { class: 'pal', title: item.detail ?? null }, badge({ icon: item.icon, colorHex: item.color }, true), h('span', {}, item.label));
+    enableTileDrag(el, item);
+    return el;
+  };
+  banner.replaceChildren(...[
+    h('div', { class: 'edit-top' },
+      h('strong', {}, 'Ajouter une section'),
+      h('span', { class: 'grow' }, 'Cliquez sur un type, ou glissez-le à l’endroit voulu sur la page.'),
+      h('button', { class: 'btn', title: 'Replace toutes les cartes de cette page dans les colonnes les moins remplies',
+        onClick: () => withUndo('Disposition réorganisée', () => { for (const s of visible()) s.column = -1; }) }, icon('grid'), 'Réorganiser automatiquement'),
+      h('button', { class: 'btn primary', onClick: () => setEditing(false) }, 'Terminé')),
+    h('div', { class: 'palette' }, kinds.map(tile),
+      h('button', { class: 'pal toggle', 'aria-expanded': String(showCategories), onClick: () => { showCategories = !showCategories; renderBanner(); } },
+        h('span', {}, 'Fils par catégorie'), icon(showCategories ? 'up' : 'down'))),
+    showCategories && h('div', { class: 'palette categories' }, categories.map(tile)),
+    h('div', { class: 'edit-hint' }, icon('drag'), h('span', {}, 'Glissez une carte par son en-tête pour la déplacer ; déposez-la sur un onglet pour la changer de page.'))].filter(Boolean));
 }
 
 function setEditing(on) {
@@ -455,20 +634,24 @@ function hideToast() {
 }
 
 /** Applique un changement de disposition et propose de l'annuler. */
-function withUndo(message, change) {
-  const snapshot = JSON.stringify(state.config.sections);
+function withUndo(message, change, extra = null) {
+  const take = () => JSON.stringify([state.config.sections, state.config.pages]);
+  const snapshot = take(), page = state.page;
   change();
-  if (JSON.stringify(state.config.sections) === snapshot) return;
+  if (take() === snapshot) return;
   commit();
   showToast(message, 'Annuler', () => {
-    state.config.sections = JSON.parse(snapshot);
+    [state.config.sections, state.config.pages] = JSON.parse(snapshot);
+    state.page = page;
+    renaming = null;
     commit();
-  });
+  }, { extra });
 }
 
-/** Bandeau en bas de l'écran : un message et une action. Il disparaît seul, sauf s'il est persistant. */
-function showToast(message, actionLabel, action, { persistent = false } = {}) {
-  toast.replaceChildren(h('span', {}, message), h('button', { class: 'btn small', onClick: () => { hideToast(); action(); } }, actionLabel));
+/** Bandeau en bas de l'écran : un message et une action (plus une seconde, `extra`). Il disparaît seul, sauf s'il est persistant. */
+function showToast(message, actionLabel, action, { persistent = false, extra = null } = {}) {
+  const button = (label, run) => h('button', { class: 'btn small', onClick: () => { hideToast(); run(); } }, label);
+  toast.replaceChildren(...[h('span', {}, message), extra && button(...extra), button(actionLabel, action)].filter(Boolean));
   toast.hidden = false;
   clearTimeout(toastTimer);
   if (!persistent) toastTimer = setTimeout(hideToast, 8000);
@@ -593,6 +776,7 @@ function buildCard(s) {
       h('button', { class: 'icon-btn', title: 'Descendre', 'aria-label': 'Descendre', onClick: () => moveInColumn(s.id, 1) }, icon('down')),
       h('button', { class: 'icon-btn', title: s.span === 99 ? 'Réduire' : 'Élargir', 'aria-label': 'Changer la largeur',
         onClick: () => updateSection(s.id, 'Largeur modifiée', (x) => { x.span = nextSpan(x.span); }) }, icon(s.span === 99 ? 'narrow' : 'widen')),
+      h('button', { class: 'icon-btn', title: 'Configurer…', 'aria-label': 'Configurer…', onClick: () => openSettings(app, { sectionID: s.id }) }, icon('gear')),
       h('button', { class: 'icon-btn', title: 'Masquer la section', 'aria-label': 'Masquer la section', onClick: () => updateSection(s.id, 'Section masquée', (x) => { x.enabled = false; }) }, icon('hide')))
     : [
       !loading && errors && h('span', { class: 'warn', title: errors, role: 'img', 'aria-label': 'Certaines sources sont en erreur' }, icon('warning')),
@@ -668,9 +852,12 @@ function renderAll() {
   empty.hidden = list.length > 0;
   if (!list.length) {
     if (app.viewing) empty.replaceChildren(h('div', { class: 'error-state' }, h('span', {}, 'Ce profil n’affiche aucune section sur cette page.')));
-    else empty.replaceChildren(h('div', { class: 'error-state' }, h('h2', { style: { margin: '0', color: 'var(--text)' } }, 'Votre tableau de bord est vide'),
-      h('span', {}, 'Ajoutez ou réactivez des sections dans les réglages.'),
-      h('button', { class: 'btn primary', onClick: () => openSettings(app) }, 'Ouvrir les réglages')));
+    else if (state.editing) empty.replaceChildren(h('div', { class: 'error-state drop-here' }, h('h2', { style: { margin: '0', color: 'var(--text)' } }, 'Cette page est vide'),
+      h('span', {}, 'Cliquez sur un type de section ci-dessus, ou glissez-le ici.')));
+    else empty.replaceChildren(h('div', { class: 'error-state' }, h('h2', { style: { margin: '0', color: 'var(--text)' } }, pages().length > 1 ? 'Cette page est vide' : 'Votre tableau de bord est vide'),
+      h('span', {}, 'Ajoutez des sections ici même, ou réactivez-en dans les réglages.'),
+      h('div', {}, h('button', { class: 'btn primary', onClick: () => setEditing(true) }, icon('plus'), 'Ajouter une section'), ' ',
+        h('button', { class: 'btn', onClick: () => openSettings(app) }, 'Ouvrir les réglages'))));
   }
   scheduleLayout();
 }
@@ -730,12 +917,12 @@ function enableDrag(card, id) {
 }
 
 /** Où la carte atterrirait si on la lâchait maintenant : colonne, carte devant laquelle s'insérer, hauteur du trait. */
-function dropTarget() {
-  const rect = $('grid').getBoundingClientRect(), px = drag.x - rect.left, py = drag.y - rect.top;
-  const { columns, columnWidth, gap } = metrics, mine = frames.get(drag.id);
-  const col = Math.min(Math.max(0, Math.floor(px / (columnWidth + gap))), columns - mine.span);
+function dropTargetAt(clientX, clientY, span, exceptID = null) {
+  const rect = $('grid').getBoundingClientRect(), px = clientX - rect.left, py = clientY - rect.top;
+  const { columns, columnWidth, gap } = metrics;
+  const col = Math.min(Math.max(0, Math.floor(px / (columnWidth + gap))), columns - span);
   // Les cartes déjà présentes dans la ou les colonnes visées, de haut en bas.
-  const others = [...frames].filter(([id, f]) => id !== drag.id && f.col < col + mine.span && col < f.col + f.span)
+  const others = [...frames].filter(([id, f]) => id !== exceptID && f.col < col + span && col < f.col + f.span)
     .map(([id, f]) => ({ id, ...f })).sort((a, b) => a.y - b.y);
   const before = others.find((f) => py < f.y + f.h / 2) ?? null;
   const last = others.at(-1);
@@ -743,32 +930,62 @@ function dropTarget() {
   return { col, before: before?.id ?? null, after: before ? null : (last?.id ?? null), y };
 }
 
-function updateDrag() {
-  drag.card.style.transform = dragTransform();
-  const target = drag.target = dropTarget(), mine = frames.get(drag.id), { columnWidth, gap } = metrics;
+/** Trait d'insertion pour une carte de `span` colonnes à l'emplacement `target`. */
+function showDropLine(target, span) {
+  const { columnWidth, gap } = metrics;
   dropLine.hidden = false;
-  dropLine.style.width = `${columnWidth * mine.span + gap * (mine.span - 1)}px`;
+  dropLine.style.width = `${columnWidth * span + gap * (span - 1)}px`;
   dropLine.style.transform = `translate(${target.col * (columnWidth + gap)}px, ${Math.max(0, target.y - 2)}px)`;
 }
 
-/** Fait défiler la page quand on approche du haut ou du bas de l'écran en tenant une carte. */
+/** Onglet de page sous le pointeur (ou le « + »), pour y déposer une carte ; jamais celui de la page affichée. */
+function tabUnder(x, y) {
+  const nav = $('pages');
+  if (nav.hidden) return null;
+  const current = currentPage();
+  return [...nav.querySelectorAll('.page-tab[data-page], .page-tab.add')].find((el) => {
+    const r = el.getBoundingClientRect();
+    return el.dataset.page !== current && x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 6 && y <= r.bottom + 6;
+  }) ?? null;
+}
+function markTab(tab) {
+  for (const el of $('pages').querySelectorAll('.drop-target')) if (el !== tab) el.classList.remove('drop-target');
+  tab?.classList.add('drop-target');
+}
+
+function updateDrag() {
+  drag.card.style.transform = dragTransform();
+  const tab = drag.tab = tabUnder(drag.x, drag.y);
+  markTab(tab);
+  drag.card.classList.toggle('over-tab', Boolean(tab));
+  if (tab) { drag.target = null; dropLine.hidden = true; return; }
+  const span = frames.get(drag.id).span;
+  showDropLine(drag.target = dropTargetAt(drag.x, drag.y, span, drag.id), span);
+}
+
+/** Fait défiler la page quand on approche du haut ou du bas de l'écran pendant un glisser. */
+function scrollNearEdge(y) {
+  const edge = 70, speed = 14;
+  if (y < edge) window.scrollBy(0, -speed * (1 - Math.max(0, y) / edge));
+  else if (y > innerHeight - edge) window.scrollBy(0, speed * (1 - Math.max(0, innerHeight - y) / edge));
+}
 function autoScroll() {
   if (!drag?.active) return;
-  const edge = 70, speed = 14;
-  if (drag.y < edge) window.scrollBy(0, -speed * (1 - Math.max(0, drag.y) / edge));
-  else if (drag.y > innerHeight - edge) window.scrollBy(0, speed * (1 - Math.max(0, innerHeight - drag.y) / edge));
+  scrollNearEdge(drag.y);
   updateDrag();
   requestAnimationFrame(autoScroll);
 }
 
 function endDrag(cancelled) {
-  const { id, card, head, pointerId, active, target, stale } = drag;
+  const { id, card, head, pointerId, active, target, tab, stale } = drag;
   try { if (head.hasPointerCapture(pointerId)) head.releasePointerCapture(pointerId); } catch { /* déjà relâché */ }
   drag = null;
-  card.classList.remove('dragging');
+  card.classList.remove('dragging', 'over-tab');
   document.body.classList.remove('is-dragging');
+  markTab(null);
   dropLine.hidden = true;
   dropLine.remove();
+  if (active && !cancelled && tab) return tab.dataset.page ? moveToPage(id, tab.dataset.page) : addPage(id);
   if (active && !cancelled && target) withUndo('Carte déplacée', () => placeCard(id, target));
   if (active) layout();   // la carte glisse jusqu'à son emplacement
   if (stale) renderAll();
@@ -791,7 +1008,76 @@ function placeCard(id, target) {
   return JSON.stringify(list.map((s) => [s.id, s.column])) !== before;
 }
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag?.active) endDrag(true); });
+/** Envoie une section sur une autre page ; elle s'y range dans la colonne la moins remplie. */
+function moveToPage(id, pageID) {
+  const page = pages().find((p) => p.id === pageID), s = section(id);
+  if (!page || !s) return;
+  withUndo(t('Section déplacée vers « {0} »', pageName(page)), () => { s.page = pageID; s.column = -1; }, ['Voir la page', () => showPage(pageID)]);
+  renderAll();
+}
+
+// --- Glisser une nouvelle section depuis la palette ---
+// À la souris ou au stylet seulement : au doigt, un toucher ajoute la section, qu'on déplace ensuite comme les autres.
+let newDrag = null;
+function enableTileDrag(tile, item) {
+  tile.addEventListener('click', () => { if (!suppressClick) addSection(item); });
+  tile.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch' || e.button !== 0 || newDrag || drag) return;
+    newDrag = { item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, active: false, ghost: null, target: null };
+    window.addEventListener('pointermove', moveNew);
+    window.addEventListener('pointerup', endNew);
+    window.addEventListener('pointercancel', endNew);
+  });
+}
+function updateNew() {
+  const d = newDrag, grid = $('grid').getBoundingClientRect(), span = Math.min(d.item.span ?? 1, metrics.columns);
+  d.ghost.style.transform = `translate(${d.x + 14}px, ${d.y + 12}px)`;
+  // Au-dessus de la grille (palette, onglets) : rien ne serait ajouté en lâchant ici.
+  d.target = d.y > grid.top - 12 ? dropTargetAt(d.x, d.y, span) : null;
+  d.ghost.classList.toggle('ready', Boolean(d.target));
+  if (d.target) showDropLine(d.target, span); else dropLine.hidden = true;
+}
+function moveNew(e) {
+  const d = newDrag;
+  if (!d || e.pointerId !== d.pointerId) return;
+  d.x = e.clientX;
+  d.y = e.clientY;
+  if (!d.active) {
+    if (Math.hypot(d.x - d.startX, d.y - d.startY) < 6) return;
+    d.active = true;
+    if (!metrics.columnWidth || frames.size !== visible().length) layout();
+    d.ghost = h('div', { class: 'pal ghost' }, badge({ icon: d.item.icon, colorHex: d.item.color }, true), h('span', {}, d.item.label));
+    document.body.append(d.ghost);
+    document.body.classList.add('is-dragging');
+    $('grid').append(dropLine);
+    const loop = () => { if (!newDrag?.active) return; scrollNearEdge(newDrag.y); updateNew(); requestAnimationFrame(loop); };
+    loop();
+  }
+  e.preventDefault();
+  updateNew();
+}
+function endNew(e) {
+  const d = newDrag;
+  if (!d || (e && e.pointerId !== d.pointerId)) return;
+  newDrag = null;
+  window.removeEventListener('pointermove', moveNew);
+  window.removeEventListener('pointerup', endNew);
+  window.removeEventListener('pointercancel', endNew);
+  if (!d.active) return;
+  d.ghost.remove();
+  document.body.classList.remove('is-dragging');
+  dropLine.hidden = true;
+  dropLine.remove();
+  suppressClick = true;
+  setTimeout(() => { suppressClick = false; }, 50);
+  if (e?.type === 'pointerup' && d.target) addSection(d.item, d.target);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (drag?.active) endDrag(true);
+  if (newDrag?.active) endNew(null);
+});
 
 // --- Grille en colonnes ---
 let layoutFrame = 0;

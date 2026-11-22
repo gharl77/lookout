@@ -77,10 +77,37 @@ The account badge leads to *My account*, *Display mode*, *Profiles* (administrat
 - **By touch**: tap *Arrange* first, then drag.
 - Each card keeps the column you drop it in: the others do not move.
 - After a move, a hide or a width change, a banner offers to **undo** for a few seconds.
-- In *Arrange* mode, a banner offers *Auto-arrange* (puts cards back into the least-filled columns),
-  *Add a section* and *Done*.
 
 ![Arrange mode](../images/en/organiser.jpg)
+
+### Arrange mode
+
+The *Arrange* button in the top bar opens everything needed to build the dashboard without going through
+Settings.
+
+**Adding a section**
+
+- A palette shows the section types, YouTube, and under *Feeds by category* the 23 ready-made feed categories.
+- **A click** adds the section to the page on screen.
+- **With a mouse**, drag the tile onto the page instead: a line shows where the card will land.
+- A banner then offers *Configure…* and *Undo*. The gear on the card also opens its settings.
+
+**Creating and managing pages**
+
+- Page tabs are always visible in this mode, even with a single page.
+- *+ Page* creates a page, shows it and lets you type its name right away.
+- **Double-click** a tab to rename it; **drag it** to reorder the pages.
+- The `⋯` button next to the active tab offers *Rename*, *Move left or right* and *Delete page*. The sections
+  of a deleted page move to another page.
+
+**Moving a card to another page**
+
+- Drag the card by its header and **drop it on the tab** of the page you want.
+- Dropped on *+ Page*, it goes to a new page.
+- The card menu offers the same under *Move to page*.
+
+*Auto-arrange* puts the cards of the page back into the least-filled columns. Every action can be undone from
+the bottom banner for a few seconds.
 
 The number of columns follows the screen width, or can be fixed in *Settings → Appearance*. On a narrow screen
 everything moves to a single column.

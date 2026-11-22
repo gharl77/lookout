@@ -2,6 +2,24 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+### Français
+
+- **Mode Organiser repensé** : une palette de sections à cliquer ou à glisser sur la page, à l'endroit voulu.
+- **Pages modifiables sur place** : *+ Page* pour en créer une, double-clic pour renommer, glisser un onglet
+  pour changer l'ordre, menu `⋯` pour supprimer.
+- **Glisser une carte sur un onglet** l'envoie sur cette page ; sur *+ Page*, sur une nouvelle page.
+- Une page vide propose d'y ajouter une section directement.
+
+### English
+
+- **Redesigned Arrange mode**: a palette of sections to click or drag onto the page, right where you want them.
+- **Pages edited in place**: *+ Page* to create one, double-click to rename, drag a tab to reorder, `⋯` menu
+  to delete.
+- **Dragging a card onto a tab** sends it to that page; onto *+ Page*, to a new page.
+- An empty page offers to add a section right there.
+
 ## 2026.11.3
 
 Notifications, YouTube, nouvelles sections et réglages repensés. / Notifications, YouTube, new sections and redesigned settings.
