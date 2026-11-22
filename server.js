@@ -124,7 +124,7 @@ function withSharedKey(options, name) {
 
 /** Envoie une notification à tous les appareils abonnés d'un profil ; oublie ceux qui n'existent plus. */
 async function notify(userID, message, only = null) {
-  const result = { devices: 0, delivered: 0, error: null };
+  const result = { devices: 0, delivered: 0, error: null, expired: false };
   for (const subscription of accounts.pushSubscriptions(userID)) {
     if (only && subscription.endpoint !== only) continue;
     result.devices++;
@@ -132,7 +132,7 @@ async function notify(userID, message, only = null) {
     if (sent.ok) { result.delivered++; continue; }
     result.error = sent.error;
     console.warn(`Notification non remise (${new URL(subscription.endpoint).hostname}) : ${sent.error}${sent.gone ? ' — abonnement oublié' : ''}`);
-    if (sent.gone) accounts.removePush(userID, subscription.endpoint);
+    if (sent.gone) { accounts.removePush(userID, subscription.endpoint, true); result.expired = true; }
   }
   return result;
 }
@@ -418,7 +418,10 @@ async function api(req, res, url) {
   if (route === 'GET /api/push/key') return send(res, 200, { key: push.publicKey });
   if (route === 'POST /api/push/subscribe') {
     const body = await readBody(req);
-    accounts.addPush(user.id, token, cleanSubscription(body?.subscription), body?.lang);
+    const subscription = cleanSubscription(body?.subscription);
+    // Abonnement que le service de notifications a déjà déclaré périmé : le navigateur doit en créer un neuf.
+    if (accounts.pushExpired(user.id, subscription.endpoint)) return send(res, 200, { ok: false, expired: true });
+    accounts.addPush(user.id, token, subscription, body?.lang);
     console.log(`Notifications : appareil abonné pour « ${user.name} » (${new URL(body.subscription.endpoint).hostname}).`);
     return send(res, 200, { ok: true });
   }
@@ -431,6 +434,7 @@ async function api(req, res, url) {
     const endpoint = String((await readBody(req))?.endpoint ?? '') || null;
     const sent = await notify(user.id, { title: 'Lookout', body: t('Les notifications fonctionnent sur cet appareil.'), tag: 'essai' }, endpoint);
     if (!sent.devices) throw new BriefingError(endpoint ? "Cet appareil n'est pas abonné sur le serveur. Désactivez puis réactivez les notifications." : 'Aucun appareil abonné aux notifications');
+    if (!sent.delivered && sent.expired) throw Object.assign(new BriefingError("L'abonnement de cet appareil a expiré"), { status: 410 });
     if (!sent.delivered) throw new BriefingError('Le service de notifications a refusé le message ({0})', sent.error ?? '?');
     return send(res, 200, sent);
   }

@@ -94,6 +94,7 @@ export const EN = {
   "Chaque nouvel article qui passe les filtres ci-dessus envoie une notification aux appareils abonnés (Réglages → Général → Notifications). Un toucher sur la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce.": 'Each new article that passes the filters above sends a notification to subscribed devices (Settings → General → Notifications). Tapping the notification opens the article. Beyond three new items at once, a single notification announces them.',
   "Notification d'essai envoyée à cet appareil. Si rien n'apparaît, vérifiez que le système autorise les notifications de ce navigateur.": 'Test notification sent to this device. If nothing shows up, check that the system allows notifications from this browser.',
   "Cet appareil n'est pas abonné sur le serveur. Désactivez puis réactivez les notifications.": 'This device is not subscribed on the server. Turn notifications off and on again.',
+  "L'abonnement de cet appareil a expiré": 'This device’s subscription has expired',
   'Voir son tableau de bord': 'View their dashboard', 'Revenir à mon profil': 'Back to my profile',
   'Profil de {0} — lecture seule. Rien de ce que vous faites ici ne modifie ses réglages.': 'Profile of {0} — read-only. Nothing you do here changes their settings.',
   'Ce profil est affiché en lecture seule': 'This profile is shown read-only',

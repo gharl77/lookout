@@ -454,17 +454,32 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   // déclenche une notification est un réglage du profil, commun à tous ses appareils.
   const push = { state: 'unknown', note: null };   // unknown | unsupported | insecure | denied | off | on
   const pushRegistration = () => navigator.serviceWorker.register(new URL('sw.js', document.baseURI));
+  /** Abonne cet appareil et l'annonce au serveur. `renew` : remplace l'abonnement en place, s'il est périmé. */
+  async function subscribePush(registration, renew = false) {
+    let subscription = await registration.pushManager.getSubscription();
+    if (subscription && renew) { await subscription.unsubscribe(); subscription = null; }
+    if (!subscription) {
+      const { key } = await api('/api/push/key');
+      subscription = await registration.pushManager.subscribe({ userVisibleOnly: true,
+        applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) });
+    }
+    const answer = await api('/api/push/subscribe', { method: 'POST', body: { subscription: subscription.toJSON(), lang: document.documentElement.lang } });
+    // Le serveur sait que cet abonnement est périmé : on en crée un neuf (une seule fois).
+    if (answer.expired && !renew) return subscribePush(registration, true);
+    push.endpoint = subscription.endpoint;
+    return subscription;
+  }
   async function readPushState() {
     if (!window.isSecureContext) push.state = 'insecure';
     else if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) push.state = 'unsupported';
     else if (Notification.permission === 'denied') push.state = 'denied';
     else {
       try {
-        const subscription = await (await pushRegistration()).pushManager.getSubscription();
+        const registration = await pushRegistration(), subscription = await registration.pushManager.getSubscription();
         push.state = subscription ? 'on' : 'off';
         push.endpoint = subscription?.endpoint ?? null;
-        // Le serveur a pu oublier cet appareil (session renouvelée, abonnement jugé expiré) : on le lui redonne.
-        if (subscription) api('/api/push/subscribe', { method: 'POST', body: { subscription: subscription.toJSON(), lang: document.documentElement.lang } }).catch(() => {});
+        // Le serveur a pu oublier cet appareil (session renouvelée) ou savoir son abonnement périmé : on se remet d'accord.
+        if (subscription) await subscribePush(registration).catch(() => {});
       } catch { push.state = 'unsupported'; }
     }
     if (ui.tab === 'general') render();
@@ -477,12 +492,8 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       const existing = await registration.pushManager.getSubscription();
       if (on) {
         if (await Notification.requestPermission() !== 'granted') { push.state = Notification.permission === 'denied' ? 'denied' : 'off'; return render(); }
-        const { key } = await api('/api/push/key');
-        const subscription = existing ?? await registration.pushManager.subscribe({ userVisibleOnly: true,
-          applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)) });
-        await api('/api/push/subscribe', { method: 'POST', body: { subscription: subscription.toJSON(), lang: document.documentElement.lang } });
+        await subscribePush(registration);
         push.state = 'on';
-        push.endpoint = subscription.endpoint;
       } else if (existing) {
         await api('/api/push/unsubscribe', { method: 'POST', body: { endpoint: existing.endpoint } });
         await existing.unsubscribe();
@@ -500,8 +511,15 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     };
     const usable = push.state === 'on' || push.state === 'off';
     const test = async () => {
-      try { await api('/api/push/test', { method: 'POST', body: { endpoint: push.endpoint } }); push.note = { text: t("Notification d'essai envoyée à cet appareil. Si rien n'apparaît, vérifiez que le système autorise les notifications de ce navigateur."), ok: true }; }
-      catch (error) { push.note = { text: error.message, ok: false }; }
+      try {
+        try { await api('/api/push/test', { method: 'POST', body: { endpoint: push.endpoint } }); } catch (error) {
+          if (error.status !== 410) throw error;
+          // Abonnement périmé côté service de notifications : on en crée un neuf et on réessaie une fois.
+          await subscribePush(await pushRegistration(), true);
+          await api('/api/push/test', { method: 'POST', body: { endpoint: push.endpoint } });
+        }
+        push.note = { text: t("Notification d'essai envoyée à cet appareil. Si rien n'apparaît, vérifiez que le système autorise les notifications de ce navigateur."), ok: true };
+      } catch (error) { push.note = { text: error.message, ok: false }; }
       render();
     };
     const note = noteView(push.note);
