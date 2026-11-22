@@ -95,6 +95,7 @@ export const EN = {
   "Notification d'essai envoyée à cet appareil. Si rien n'apparaît, vérifiez que le système autorise les notifications de ce navigateur.": 'Test notification sent to this device. If nothing shows up, check that the system allows notifications from this browser.',
   "Cet appareil n'est pas abonné sur le serveur. Désactivez puis réactivez les notifications.": 'This device is not subscribed on the server. Turn notifications off and on again.',
   "L'abonnement de cet appareil a expiré": 'This device’s subscription has expired',
+  'Nouvelle page…': 'New page…', 'Nouvelle page': 'New page', 'Créer': 'Create',
   'Catégories': 'Categories', 'Ajouter': 'Add', 'Fils par catégorie…': 'Feeds by category…', 'Films, séries, culture, science, jeux vidéo…': 'Movies, series, culture, science, video games…',
   'Section prête à l’emploi': 'Ready-made section', 'Dernières vidéos de vos chaînes et abonnements': 'Latest videos from your channels and subscriptions',
   'Politique': 'Politics', 'Intelligence artificielle': 'Artificial intelligence', 'Science': 'Science', 'Espace': 'Space', 'Santé': 'Health',

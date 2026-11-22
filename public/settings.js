@@ -100,13 +100,36 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       line('Couleur', swatches(s, 'colorHex')),
       line('Afficher dans le tableau de bord', toggle(s, 'enabled', { label: 'Afficher dans le tableau de bord' })),
       line('Largeur', select(s, 'span', SPANS, { label: 'Largeur' })),
-      config().pages.length > 1 && line('Page', select(s, 'page', config().pages.map((p) => [p.id, p.name || t('Sans titre')]), { label: 'Page', rerender: true })),
+      line('Page', pageSelect(s)),
       s.kind !== 'weather' && line(ITEMS_LABEL[s.kind], stepper(s, 'maxItems', 1, 40)),
       // Après le changement, on redemande la section : le serveur applique tout de suite le nouvel intervalle.
       line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.loadSection(s.id)) }, select(s, 'refreshMinutes',
         [[0, t('Par défaut ({0} min)', config().general.refreshMinutes)], ...REFRESH_CHOICES.map((m) => [m, intervalLabel(m)])], { label: 'Interroger les sources' }))),
     ], KINDS[s.kind].detail);
   }
+
+  /** Choix de la page d'une section ; la dernière entrée crée une page et y place la section. */
+  function pageSelect(s) {
+    const list = config().pages;
+    return h('select', { class: 'field', 'aria-label': 'Page', onChange: async (e) => {
+      if (e.target.value !== '+') { s.page = e.target.value; s.column = -1; commit(); return render(); }
+      const name = await askText('Nouvelle page', 'Nom de la page', 'Créer');
+      if (name) { const page = newPage(name.slice(0, 40)); list.push(page); s.page = page.id; s.column = -1; commit(); }
+      render();   // annulé : le choix revient à la page actuelle
+    } },
+    list.map((p) => h('option', { value: p.id, selected: p.id === s.page }, p.name || t('Sans titre'))),
+    h('option', { value: '+' }, t('Nouvelle page…')));
+  }
+  /** Demande un court texte dans une fenêtre. Renvoie le texte, ou null si la fenêtre est fermée. */
+  const askText = (title, placeholder, actionLabel) => new Promise((resolve) => {
+    let answer = null;
+    openDialog((close) => {
+      const input = h('input', { class: 'field', placeholder: t(placeholder), 'aria-label': placeholder, maxlength: '40', autofocus: true });
+      return h('form', { style: { display: 'contents' }, novalidate: true, onSubmit: (e) => { e.preventDefault(); if (!input.value.trim()) return input.focus(); answer = input.value.trim(); close(); } },
+        h('h3', {}, title), input,
+        h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', onClick: close }, 'Annuler'), h('button', { class: 'btn primary', type: 'submit' }, actionLabel)));
+    }, { onClose: () => resolve(answer) });
+  });
 
   // --- YouTube : les sources sont des chaînes ---
   const youtube = { note: null, busy: false };
