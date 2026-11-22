@@ -524,6 +524,60 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     await loadUsers();
   }
 
+  // --- Présence : qui est en ligne ---
+  const ago = (ms) => {
+    const rtf = new Intl.RelativeTimeFormat(document.documentElement.lang, { numeric: 'auto', style: 'short' });
+    const minutes = Math.round((ms - Date.now()) / 60e3);
+    if (minutes > -1) return t("à l'instant");
+    if (minutes > -60) return rtf.format(minutes, 'minute');
+    if (minutes > -48 * 60) return rtf.format(Math.round(minutes / 60), 'hour');
+    return rtf.format(Math.round(minutes / 1440), 'day');
+  };
+  const presenceSummary = () => {
+    const online = users.filter((u) => u.online).length;
+    return t('{0} profils · {1} en ligne', users.length, online);
+  };
+  /** « ● En ligne · 2 appareils · 8 sections · vous » */
+  function presenceLine(u) {
+    const status = u.online ? h('span', { class: 'online-text' }, 'En ligne')
+      : h('span', {}, u.lastSeen ? t('Vu {0}', ago(u.lastSeen)) : t('Jamais connecté'));
+    const parts = [u.devices.length ? t(u.devices.length > 1 ? '{0} appareils' : '{0} appareil', u.devices.length) : null,
+      t('{0} sections', u.sections), u.id === app.user.id ? t('vous') : null].filter(Boolean);
+    return [status, ` · ${parts.join(' · ')}`];
+  }
+  /** Met à jour l'état « en ligne » sans redessiner l'onglet (ce qui effacerait un formulaire en cours de saisie). */
+  async function refreshPresence() {
+    if (ui.tab !== 'users' || !users) return;
+    let fresh;
+    try { fresh = await api('/api/users'); } catch { return; }
+    if (fresh.length !== users.length || fresh.some((u, i) => u.id !== users[i].id)) { users = fresh; return render(); }
+    users = fresh;
+    for (const u of users) {
+      root.querySelector(`[data-presence="${u.id}"]`)?.replaceChildren(...presenceLine(u));
+      root.querySelector(`[data-dot="${u.id}"]`)?.classList.toggle('online', u.online);
+    }
+    const summary = root.querySelector('[data-summary]');
+    if (summary) summary.textContent = presenceSummary();
+  }
+  const presenceTimer = setInterval(refreshPresence, 20e3);
+
+  function devicesDialog(user) {
+    openDialog((close) => [
+      h('h3', {}, t('Appareils de {0}', user.name)),
+      user.devices.length ? h('div', { class: 'pick-list' }, user.devices.map((d) => h('div', { class: 'pick' },
+        h('span', { class: `status-dot${d.online ? ' online' : ''}` }),
+        h('span', {}, d.label, h('small', {}, d.online ? t('En ligne') : t('Vu {0}', ago(d.lastSeen)), ' · ', t('connecté depuis le {0}', new Intl.DateTimeFormat(document.documentElement.lang, { day: 'numeric', month: 'long' }).format(d.since)))))))
+        : h('p', {}, "Aucun appareil connecté."),
+      h('div', { class: 'actions' },
+        user.devices.length > 0 && h('button', { class: 'btn danger', onClick: async () => {
+          close();
+          await usersAction(() => api(`/api/users/${encodeURIComponent(user.id)}/signout`, { method: 'POST', body: {} }),
+            user.id === app.user.id ? 'Vos autres appareils ont été déconnectés.' : 'Appareils déconnectés.');
+        } }, icon('signout'), user.id === app.user.id ? 'Déconnecter mes autres appareils' : 'Déconnecter ses appareils'),
+        h('button', { class: 'btn primary', onClick: close }, 'Terminé')),
+    ]);
+  }
+
   function passwordDialog(user) {
     openDialog((close) => {
       const input = passwordField('Nouveau mot de passe', 'new-password');
@@ -575,15 +629,16 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
 
     return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '680px', margin: '0 auto' } },
       noteView(usersNote),
+      h('p', { class: 'presence-summary', 'data-summary': '' }, presenceSummary()),
       group('Profils', users.map((u) => h('div', { class: 'item' },
-        h('span', { class: 'avatar-dot' }, u.name.charAt(0).toUpperCase()),
+        h('span', { class: `avatar-dot${u.online ? ' online' : ''}`, 'data-dot': u.id }, u.name.charAt(0).toUpperCase()),
         h('div', { class: 'fields' },
           h('input', { value: u.name, 'aria-label': 'Nom', maxlength: '32', onChange: (e) => usersAction(() => api(path(u), { method: 'PATCH', body: { name: e.target.value } })) }),
-          h('div', { class: 'sub-line' }, [t('{0} sections', u.sections), u.lastSeen ? t('vu {0}', new Intl.RelativeTimeFormat(document.documentElement.lang, { numeric: 'auto' }).format(Math.min(0, Math.round((u.lastSeen - Date.now()) / 86400e3)), 'day')) : t('jamais connecté'),
-            u.id === app.user.id && t('vous')].filter(Boolean).join(' · '))),
+          h('div', { class: 'sub-line', 'data-presence': u.id }, presenceLine(u))),
         h('select', { class: 'field', 'aria-label': 'Rôle', onChange: (e) => usersAction(() => api(path(u), { method: 'PATCH', body: { role: ROLES[e.target.selectedIndex][0] } })) },
           ROLES.map(([value, label]) => h('option', { selected: u.role === value }, label))),
         h('button', { class: 'icon-btn', 'aria-label': t('Actions pour {0}', u.name), onClick: (e) => openMenu(e.currentTarget, [
+          { label: 'Appareils connectés…', icon: icon('users'), action: () => devicesDialog(u) },
           { label: 'Changer le mot de passe…', icon: icon('key'), action: () => passwordDialog(u) },
           users.length > 1 && { heading: 'Remplacer ses réglages par ceux de' },
           ...users.filter((o) => o.id !== u.id).map((o) => ({ label: o.name, action: async () => {
@@ -626,6 +681,6 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     if (sameView) root.querySelector('.s-pane').scrollTop = scroll;   // garde la position après un ajout ou un retrait
   }
 
-  const close = openDialog(() => { render(); return root; }, { cls: 'settings-host', onClose: () => { closeCurrent = null; app.saveNow(); app.renderAll(); } });
+  const close = openDialog(() => { render(); return root; }, { cls: 'settings-host', onClose: () => { closeCurrent = null; clearInterval(presenceTimer); app.saveNow(); app.renderAll(); } });
   closeCurrent = close;
 }

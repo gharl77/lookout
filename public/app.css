@@ -399,6 +399,15 @@ select.field { width: auto; max-width: 100%; padding-right: 26px; appearance: no
 .pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-back { display: none; }
 
+/* Présence : pastille verte sur l'avatar d'un profil en ligne. */
+.avatar-dot { position: relative; }
+.avatar-dot.online::after, .status-dot.online { background: #22c55e; }
+.avatar-dot.online::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--solid); }
+.status-dot, .pick .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text3); flex: none; }
+.pick .status-dot.online { background: #22c55e; }
+.online-text { color: #22c55e; font-weight: 600; }
+.presence-summary { margin: 0 4px 10px; font-size: 13px; color: var(--text2); }
+
 /* Message d'un formulaire : succès en vert, erreur en rouge, toujours à côté de ce qui l'a provoqué. */
 .form-note { display: flex; align-items: flex-start; gap: 7px; margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 14px; font-weight: 500; text-align: left; }
 .form-note svg { flex: none; font-size: 17px; margin-top: 1px; }

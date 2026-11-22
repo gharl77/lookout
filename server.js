@@ -273,6 +273,15 @@ async function api(req, res, url) {
     }
     if (req.method === 'DELETE' && !userRoute[2]) { accounts.remove(id, user.id); return send(res, 200, { ok: true }); }
   }
+  // Déconnecter tous les appareils d'un profil (le sien compris, sauf l'appareil qui fait la demande).
+  const signOutRoute = /^\/api\/users\/([^/]+)\/signout$/.exec(url.pathname);
+  if (signOutRoute && req.method === 'POST') {
+    requireAdmin(user);
+    const id = decodeURIComponent(signOutRoute[1]);
+    if (!accounts.user(id)) throw new BriefingError('Profil introuvable');
+    accounts.endSessions(id, id === user.id ? token : null);
+    return send(res, 200, { ok: true });
+  }
 
   // --- Réglages et données du profil connecté ---
   // Le navigateur ne reçoit jamais les clés ni les jetons : seulement un masque.

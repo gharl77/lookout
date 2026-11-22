@@ -151,6 +151,11 @@ await check('profils : copie des réglages, indépendance, droits et mots de pas
   await request('/api/config', { method: 'PUT', ...json(copy) }, guestCookie);
   expect((await (await request('/api/config')).json()).sections[0].title === 'Marque du profil admin', "un profil a modifié les réglages d'un autre");
 
+  // Présence : l'administrateur voit qui est en ligne et depuis quels appareils.
+  const seen = (await (await request('/api/users')).json()).find((u) => u.id === guest.id);
+  expect(seen.online === true && seen.devices.length === 1 && typeof seen.devices[0].label === 'string', `présence inattendue : ${JSON.stringify(seen)}`);
+  expect((await request(`/api/users/${guest.id}/signout`, { method: 'POST', ...json({}) }, guestCookie)).status === 403, 'un simple utilisateur peut déconnecter des appareils');
+
   expect((await request('/api/users', {}, guestCookie)).status === 403, 'un simple utilisateur voit la liste des profils');
   expect((await request(`/api/users/${me.id}`, { method: 'DELETE' }, guestCookie)).status === 403, 'un simple utilisateur peut supprimer un profil');
   expect((await request(`/api/users/${me.id}`, { method: 'DELETE' })).status === 400, 'un administrateur a pu supprimer son propre profil');
