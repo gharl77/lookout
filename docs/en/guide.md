@@ -281,13 +281,12 @@ setting by keyword.
 
 | Group | Pane | What it holds |
 |---|---|---|
-| Dashboard | Sections | Add, delete, duplicate, order and configure each section |
-| | Pages | Create, rename, order and delete pages |
-| Preferences | General | Language, units, greeting, default update interval |
+| Dashboard | Sections and pages | The tree of pages and their sections: add, drag from one page to another, rename or delete a page (`⋯` menu), configure, duplicate or delete each section |
 | | Appearance | Theme, accent colour, backdrop, density, number of columns |
-| | Reading and filters | Dim read articles; words hidden or highlighted in every feed |
-| | Notifications | Subscribe this device; choose what triggers a notification |
 | | Display mode | Duration of each page; start the mode |
+| Preferences | General | Language, units, greeting, default update interval |
+| | Reading and filters | Dim read articles; built-in reader; words hidden or highlighted in every feed |
+| | Notifications | Subscribe this device; choose what triggers a notification |
 | Account | My account | Password, sign-out |
 | | My data | Export, import or reset your own configuration |
 | — | About | Version, location of your settings, links |

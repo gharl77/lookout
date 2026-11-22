@@ -651,21 +651,61 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     enableListDrag(item, s, handle);
     return h('li', {}, item);
   }
+  let renamingPage = null;   // id de la page dont on saisit le nom dans la liste
+  /** Menu d'une page : la renommer, changer son ordre, la supprimer (ses sections passent sur une autre page). */
+  function pageMenu(anchor, p) {
+    const pages = config().pages, sections = config().sections, i = pages.indexOf(p);
+    const swap = (j) => () => { [pages[i], pages[j]] = [pages[j], pages[i]]; commit(); render(); };
+    openMenu(anchor, [
+      { label: 'Renommer', action: () => { renamingPage = p.id; refreshList(); } },
+      { label: 'Monter', icon: icon('up'), disabled: i === 0, action: swap(i - 1) },
+      { label: 'Descendre', icon: icon('down'), disabled: i === pages.length - 1, action: swap(i + 1) },
+      '-',
+      { label: 'Supprimer la page', icon: icon('trash'), disabled: pages.length < 2, action: async () => {
+        const count = sections.filter((x) => x.page === p.id).length;
+        if (count && !await confirmDialog('Supprimer cette page ?', t('Ses {0} sections seront déplacées vers une autre page, pas supprimées.', count), 'Supprimer')) return;
+        pages.splice(pages.indexOf(p), 1);
+        for (const x of sections) if (x.page === p.id) { x.page = pages[0].id; x.column = -1; }
+        commit(); render();
+      } },
+    ]);
+  }
+  /** Champ qui remplace le nom d'une page pendant qu'on la renomme. Entrée ou un clic ailleurs valide, Échap annule. */
+  function pageNameField(p) {
+    const input = h('input', { class: 'field s-page-name', value: p.name, maxlength: '40', placeholder: t('Nom de la page'), 'aria-label': 'Nom de la page' });
+    const done = (save) => {
+      if (renamingPage !== p.id) return;
+      renamingPage = null;
+      const name = input.value.trim().slice(0, 40);
+      if (save && name && name !== p.name) { p.name = name; commit(); }
+      refreshList();
+    };
+    input.addEventListener('blur', () => done(true));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.stopPropagation(); done(false); }
+    });
+    setTimeout(() => { input.focus(); input.select(); });
+    return input;
+  }
   function sectionItems() {
     const pages = config().pages, sections = config().sections;
     const groups = pages.map((p) => {
-      const mine = sections.filter((s) => s.page === p.id), open = !collapsed.has(p.id);
-      const head = h('button', { class: 's-page', 'aria-expanded': String(open), title: open ? 'Replier la page' : 'Déplier la page',
-        onClick: () => { if (open) collapsed.add(p.id); else collapsed.delete(p.id); refreshList(); } },
-      icon(open ? 'down' : 'right'), h('span', { class: 'grow' }, p.name || t('Sans titre')), h('small', {}, String(mine.length)));
+      const mine = sections.filter((s) => s.page === p.id), open = !collapsed.has(p.id), name = p.name || t('Sans titre');
+      const head = renamingPage === p.id ? h('div', { class: 's-page-row' }, pageNameField(p)) : h('div', { class: 's-page-row' },
+        h('button', { class: 's-page', 'aria-expanded': String(open), title: open ? 'Replier la page' : 'Déplier la page',
+          onClick: () => { if (open) collapsed.add(p.id); else collapsed.delete(p.id); refreshList(); },
+          onDblclick: () => { renamingPage = p.id; refreshList(); } },
+        icon(open ? 'down' : 'right'), h('span', { class: 'grow' }, document.createTextNode(name)), h('small', {}, String(mine.length))),
+        h('button', { class: 'icon-btn s-page-more', title: 'Options de la page', 'aria-label': t('Options de la page {0}', name), onClick: (e) => pageMenu(e.currentTarget, p) }, icon('more')));
       const group = h('li', { class: 's-group' }, head,
-        open && h('ul', { role: 'group', 'aria-label': p.name }, mine.map(sectionItem),
+        open && h('ul', { role: 'group', 'aria-label': name }, mine.map(sectionItem),
           !mine.length && h('li', { class: 's-empty' }, 'Glissez une section ici')));
       group.dataset.page = p.id;   // sur l'en-tête, ou dans le vide de la page : la section se range à la fin
       return group;
     });
     const add = h('li', { class: 's-group' }, h('button', { class: 's-page add', title: 'Ajouter une page',
-      onClick: () => { config().pages.push(newPage(t('Nouvelle page'))); commit(); ui.tab = 'pages'; render(); } }, icon('plus'), h('span', { class: 'grow' }, 'Nouvelle page')));
+      onClick: () => { const page = newPage(t('Nouvelle page')); config().pages.push(page); commit(); renamingPage = page.id; refreshList();
+        setTimeout(() => listEl?.querySelector('.s-page-name')?.scrollIntoView({ block: 'nearest' })); } }, icon('plus'), h('span', { class: 'grow' }, 'Nouvelle page')));
     add.dataset.page = '+';
     return [...groups, add];
   }
@@ -683,59 +723,47 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     moveSection(s.id, page.id, offset > 0 ? first?.id ?? null : null, false);
   }
 
+  async function deleteSection(s) {
+    const list = config().sections;
+    if (!await confirmDialog('Supprimer cette section ?', 'La section et ses sources seront supprimées. Pour la retirer temporairement, désactivez-la plutôt.', 'Supprimer')) return;
+    const i = list.indexOf(s);
+    if (i < 0) return;
+    list.splice(i, 1);
+    ui.selected = (list.filter((x) => x.page === s.page)[0] ?? list[Math.min(i, list.length - 1)])?.id ?? null;
+    ui.detail = false;
+    commit(); render();
+  }
+  function duplicateSection(s) {
+    const list = config().sections, copy = JSON.parse(JSON.stringify(s));
+    copy.id = uuid();
+    copy.title += t(' (copie)');
+    copy.column = -1;
+    // Une adresse de calendrier masquée ne se copie pas : le serveur ne la retrouverait pas sous un nouvel identifiant.
+    for (const c of copy.calendar.calendars) if (c.url === SECRET_MASK) c.url = '';
+    for (const x of [...copy.feed.sources, ...copy.commute.routes, ...copy.sports.leagues, ...copy.calendar.calendars]) x.id = uuid();
+    list.splice(list.indexOf(s) + 1, 0, copy);
+    ui.selected = copy.id;
+    commit(); render();
+  }
+  /** Bas de la fiche d'une section : ce qu'on peut faire de la section entière. */
+  const sectionActions = (s) => group('Cette section', [
+    line('Dupliquer', h('button', { class: 'btn', onClick: () => duplicateSection(s) }, icon('copy'), 'Dupliquer')),
+    line('Supprimer', h('button', { class: 'btn danger', onClick: () => deleteSection(s) }, icon('trash'), 'Supprimer…')),
+  ], "Pour retirer une section du tableau de bord sans perdre ses réglages, désactivez plutôt « Afficher dans le tableau de bord ».");
+
   function sectionsTab() {
     const list = config().sections, selected = list.find((s) => s.id === ui.selected);
     listEl = h('ul', { class: 's-tree', role: 'listbox', 'aria-label': 'Sections' }, sectionItems());
     const foot = h('div', { class: 's-list-foot' },
-      h('button', { class: 'icon-btn', title: 'Ajouter une section', 'aria-label': 'Ajouter une section', onClick: (e) => addSectionMenu(e.currentTarget, (s) => {
-        s.page = app.currentPage(); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); }) }, icon('plus')),
-      h('button', { class: 'icon-btn', title: 'Supprimer la section sélectionnée', 'aria-label': 'Supprimer la section', disabled: !selected, onClick: async () => {
-        if (!await confirmDialog('Supprimer cette section ?', 'La section et ses sources seront supprimées. Pour la retirer temporairement, désactivez-la plutôt.', 'Supprimer')) return;
-        const i = list.indexOf(selected);
-        list.splice(i, 1);
-        ui.selected = list[Math.min(i, list.length - 1)]?.id ?? null;
-        ui.detail = false;
-        commit(); render();
-      } }, icon('minus')),
-      h('button', { class: 'icon-btn', title: 'Dupliquer la section sélectionnée', 'aria-label': 'Dupliquer la section', disabled: !selected, onClick: () => {
-        const copy = JSON.parse(JSON.stringify(selected));
-        copy.id = uuid();
-        copy.title += t(' (copie)');
-        for (const x of [...copy.feed.sources, ...copy.commute.routes, ...copy.sports.leagues]) x.id = uuid();
-        list.splice(list.indexOf(selected) + 1, 0, copy);
-        ui.selected = copy.id;
-        commit(); render();
-      } }, icon('copy')),
+      // La nouvelle section rejoint la page de celle qui est sélectionnée, sinon la page affichée.
+      h('button', { class: 'btn small', title: 'Ajouter une section', onClick: (e) => addSectionMenu(e.currentTarget, (s) => {
+        s.page = selected?.page ?? app.currentPage(); list.push(s); ui.selected = s.id; ui.detail = true; commit(); render(); }) }, icon('plus'), 'Section'),
       h('span', { style: { flex: '1' } }),
       h('button', { class: 'icon-btn', title: 'Monter la section', 'aria-label': 'Monter la section', disabled: !selected, onClick: () => moveSelected(-1) }, icon('up')),
       h('button', { class: 'icon-btn', title: 'Descendre la section', 'aria-label': 'Descendre la section', disabled: !selected, onClick: () => moveSelected(1) }, icon('down')));
-    const pane = h('div', { class: 's-pane' }, selected ? editor(selected)
-      : h('div', { class: 'error-state' }, h('strong', {}, 'Aucune section sélectionnée'), h('span', {}, 'Choisissez une section, ou ajoutez-en une avec le bouton +.')));
+    const pane = h('div', { class: 's-pane' }, selected ? [editor(selected), sectionActions(selected)]
+      : h('div', { class: 'error-state' }, h('strong', {}, 'Aucune section sélectionnée'), h('span', {}, 'Choisissez une section dans la liste, ou ajoutez-en une.')));
     return h('div', { class: `settings-body sections${ui.detail && selected ? ' detail' : ''}` }, h('div', { class: 's-list' }, listEl, foot), pane);
-  }
-
-  // --- Pages ---
-  function pagesGroup() {
-    const list = config().pages, sections = config().sections;
-    return group(null, [
-      list.map((p) => h('div', { class: 'item' },
-        h('div', { class: 'fields' }, h('input', { value: p.name, placeholder: t('Nom de la page'), 'aria-label': 'Nom de la page', maxlength: '40',
-          onInput: (e) => { p.name = e.target.value; commit(); } }),
-        h('div', { class: 'sub-line' }, t('{0} sections', sections.filter((s) => s.page === p.id).length))),
-        h('div', { class: 'ctrls' },
-          h('button', { class: 'icon-btn', title: 'Monter', 'aria-label': 'Monter', disabled: list.indexOf(p) === 0,
-            onClick: () => { const i = list.indexOf(p); [list[i - 1], list[i]] = [list[i], list[i - 1]]; commit(); render(); } }, icon('up')),
-          h('button', { class: 'icon-btn', title: 'Descendre', 'aria-label': 'Descendre', disabled: list.indexOf(p) === list.length - 1,
-            onClick: () => { const i = list.indexOf(p); [list[i + 1], list[i]] = [list[i], list[i + 1]]; commit(); render(); } }, icon('down')),
-          h('button', { class: 'icon-btn', title: 'Supprimer', 'aria-label': 'Supprimer', disabled: list.length < 2, onClick: async () => {
-            const count = sections.filter((s) => s.page === p.id).length;
-            if (count && !await confirmDialog('Supprimer cette page ?', t('Ses {0} sections seront déplacées vers une autre page, pas supprimées.', count), 'Supprimer')) return;
-            list.splice(list.indexOf(p), 1);
-            for (const s of sections) if (s.page === p.id) { s.page = list[0].id; s.column = -1; }
-            commit(); render();
-          } }, icon('trash'))))),
-      h('div', { class: 'line' }, h('button', { class: 'btn', onClick: () => { list.push(newPage(t('Nouvelle page'))); commit(); render(); } }, icon('plus'), 'Ajouter une page')),
-    ], "Avec plusieurs pages, des onglets apparaissent en haut du tableau de bord. Chaque section appartient à une page, qui se choisit dans ses réglages ou dans le menu de sa carte.");
   }
 
   // --- Rubriques des préférences ---
@@ -800,9 +828,6 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         line('Changer de page', select(g, 'displaySeconds', [[0, 'Jamais'], [15, 'Toutes les 15 secondes'], [30, 'Toutes les 30 secondes'], [60, 'Chaque minute'], [120, 'Toutes les 2 minutes'], [300, 'Toutes les 5 minutes']], { label: 'Changer de page' })),
         line('Écran mural ou télé', h('button', { class: 'btn', onClick: () => { closeCurrent?.(); app.startDisplay(); } }, sfIcon('desktopcomputer'), 'Lancer le mode affichage')),
       ], "Plein écran, sans boutons, avec l'heure. Les pages défilent l'une après l'autre et l'écran reste allumé. Pour en sortir : touche Échap, ou touchez l'écran puis « Quitter »."));
-  }
-  function pagesPane() {
-    return pane("Les pages sont les onglets du tableau de bord. Chaque section appartient à une page : dans la rubrique Sections, glissez-la sous la page voulue.", pagesGroup());
   }
   function keysPane() {
     return pane("Ce que vous fournissez une fois pour toute l'installation. Un profil qui saisit sa propre clé dans une section garde la sienne.", sharedKeysForm());
@@ -1304,14 +1329,13 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const admin = app.user?.role === 'admin';
   const NAV = [
     { title: 'Tableau de bord', items: [
-      ['sections', 'Sections', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé ajouter cards feeds weather add'],
-      ['pages', 'Pages', () => icon('copy'), 'onglets tabs'] ] },
+      ['sections', 'Sections et pages', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé agenda calendrier onglets ajouter supprimer cards feeds weather calendar tabs pages add'],
+      ['appearance', 'Apparence', () => icon('sliders'), 'thème sombre clair couleur accent densité colonnes arrière-plan theme dark light color density columns'],
+      ['display', 'Mode affichage', () => sfIcon('desktopcomputer'), 'écran mural télé plein écran wall screen tv kiosk'] ] },
     { title: 'Préférences', items: [
       ['general', 'Général', () => icon('gear'), 'langue unités prénom accueil intervalle mise à jour language units greeting refresh'],
-      ['appearance', 'Apparence', () => icon('sliders'), 'thème sombre clair couleur accent densité colonnes arrière-plan theme dark light color density columns'],
-      ['reading', 'Lecture et filtres', () => sfIcon('newspaper.fill'), 'articles lus mots masquer évidence read words hide highlight'],
-      ['notifications', 'Notifications', () => sfIcon('bell.fill'), 'alertes matchs articles iphone appareil alerts games device'],
-      ['display', 'Mode affichage', () => sfIcon('desktopcomputer'), 'écran mural télé plein écran wall screen tv kiosk'] ] },
+      ['reading', 'Lecture et filtres', () => sfIcon('newspaper.fill'), 'articles lus lecteur mots masquer évidence read reader words hide highlight'],
+      ['notifications', 'Notifications', () => sfIcon('bell.fill'), 'alertes matchs articles iphone appareil alerts games device'] ] },
     { title: 'Compte', items: [
       ['account', 'Mon compte', () => icon('user'), 'mot de passe déconnexion session password sign out'],
       ['data', 'Mes données', () => icon('drive'), 'exporter importer réinitialiser configuration export import reset'] ] },
@@ -1322,7 +1346,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       ['backup', 'Sauvegarde', () => icon('download'), 'restaurer télécharger restore download backup'] ] }] : []),
     { title: null, items: [['about', 'À propos', () => sfIcon('tag.fill'), 'version licence github license']] },
   ];
-  const PANES = { sections: sectionsTab, pages: pagesPane, general: generalPane, appearance: appearancePane, reading: readingPane, notifications: notificationsPane,
+  const PANES = { sections: sectionsTab, general: generalPane, appearance: appearancePane, reading: readingPane, notifications: notificationsPane,
     display: displayPane, account: accountTab, data: dataTab, users: usersTab, keys: keysPane, health: healthTab, backup: backupPane, about: aboutPane };
   const labelOf = (id) => NAV.flatMap((g) => g.items).find((item) => item[0] === id)?.[1] ?? '';
   if (!PANES[ui.tab] || (!admin && ['users', 'keys', 'health', 'backup'].includes(ui.tab))) ui.tab = 'sections';

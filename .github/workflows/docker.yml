@@ -28,6 +28,13 @@ jobs:
             exit 1
           fi
 
+      # Tests unitaires (agenda, lecteur, secrets) : sans dépendance, avec le lanceur de tests de Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests unitaires
+        run: node --test "tests/*.test.mjs"
+
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 

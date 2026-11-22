@@ -14,7 +14,7 @@ import { fetchSports, fetchTeams, searchAPISportsLeagues } from './lib/sports.js
 import { fetchCommute, initGeocodeCache } from './lib/commute.js';
 import { installDnsCache, dnsStats } from './lib/dns-cache.js';
 import { redact, restoreSecrets } from './lib/secrets.js';
-import { Accounts, AUTH_EPOCH, SESSION_COOKIE, SESSION_MAX_AGE } from './lib/accounts.js';
+import { Accounts, SESSION_COOKIE, SESSION_MAX_AGE } from './lib/accounts.js';
 import { Push, cleanSubscription } from './lib/push.js';
 import { startWatcher } from './lib/notify.js';
 import { resolveChannel } from './lib/youtube.js';
@@ -341,10 +341,17 @@ process.on('uncaughtException', (error) => console.error('Erreur non gérée :',
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 
+// Ce que la page a le droit de charger : ses propres scripts et styles, des images de n'importe où (vignettes des
+// fils), et le lecteur vidéo de YouTube. Un script injecté par le contenu d'une source ne pourrait pas s'exécuter.
+const CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", 'img-src * data: blob:', 'media-src *',
+  'frame-src https://www.youtube-nocookie.com', "connect-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'"].join('; ');
+const SECURITY_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': CSP, 'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'SAMEORIGIN', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()' };
+
 function send(res, status, body, headers = {}) {
   const json = typeof body !== 'string' && !Buffer.isBuffer(body);
   res.writeHead(status, { 'Content-Type': json ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8',
-    'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers });
+    'Cache-Control': 'no-store', ...SECURITY_HEADERS, ...headers });
   res.end(json ? JSON.stringify(body) : body);
 }
 
@@ -701,7 +708,7 @@ function serveStatic(req, res, url) {
   });
 }
 
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/healthz') return send(res, 200, 'ok');
@@ -717,6 +724,17 @@ http.createServer(async (req, res) => {
     if (!res.headersSent) send(res, error instanceof BriefingError ? (error.status ?? 400) : 500, { error: error instanceof BriefingError ? error.message : 'Erreur interne du serveur / Internal server error' });
   }
 }).listen(PORT, () => console.log(`Lookout ${VERSION} à l'écoute sur le port ${PORT} — données : ${DATA} — ${accounts.hasUsers ? `${accounts.names().length} profil(s)` : 'aucun compte : le premier visiteur crée l\'administrateur'}${PASSWORD ? ' — mot de passe global activé' : ''}`));
+
+// Arrêt propre (docker stop, Ctrl-C) : on termine les requêtes en cours et on écrit ce qui attendait de l'être.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, () => {
+    console.log(`Arrêt demandé (${signal}).`);
+    try { if (healthDirty) fs.writeFileSync(HEALTH_FILE, JSON.stringify(Object.fromEntries(health))); } catch { /* disque indisponible */ }
+    server.close(() => process.exit(0));
+    server.closeIdleConnections();
+    setTimeout(() => process.exit(0), 3000).unref();   // une connexion qui traîne ne retient pas l'arrêt
+  });
+}
 
 // Surveillance en arrière-plan des alertes météo et des matchs, pour les profils dont un appareil est abonné.
 startWatcher({ subscribers: () => accounts.pushProfiles(), load: (section, config) => loadSection(section, config),

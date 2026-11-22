@@ -2,6 +2,7 @@
 .github
 data
 scripts
+tests
 *.md
 compose.yaml
 .env

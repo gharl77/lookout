@@ -6,6 +6,12 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ### Français
 
+- **Réglages** : *Sections* et *Pages* réunies dans une seule arborescence (menu `⋯` et renommage sur place pour
+  chaque page) ; *Dupliquer* et *Supprimer* au bas de la fiche d'une section ; navigation regroupée.
+- **Sécurité** : politique de sécurité du contenu (CSP) et en-têtes associés ; le lecteur d'article refuse les
+  adresses du réseau local.
+- **Robustesse** : arrêt propre du conteneur, caches en mémoire bornés, tests unitaires exécutés à chaque
+  construction. Correction : une répétition d'agenda pouvait afficher une occurrence après sa date de fin.
 - **Section Agenda** : les prochains événements de vos calendriers par leur adresse iCal (Google, iCloud,
   Outlook), sans clé ni connexion.
 - **Lecteur d'article intégré** : le bouton *Lire ici* ouvre le texte d'un article sans quitter Lookout ;
@@ -24,6 +30,11 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ### English
 
+- **Settings**: *Sections* and *Pages* merged into one tree (`⋯` menu and in-place renaming for each page);
+  *Duplicate* and *Delete* at the bottom of a section's sheet; regrouped navigation.
+- **Security**: Content Security Policy and related headers; the article reader refuses local network addresses.
+- **Robustness**: clean container shutdown, bounded in-memory caches, unit tests run on every build. Fix: a
+  recurring calendar event could show an occurrence after its end date.
 - **Calendar section**: upcoming events from your calendars by their iCal address (Google, iCloud, Outlook),
   with no key or sign-in.
 - **Built-in article reader**: the *Read here* button opens an article's text without leaving Lookout; an

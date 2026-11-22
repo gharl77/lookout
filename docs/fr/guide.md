@@ -289,13 +289,12 @@ la navigation retrouve un réglage par mot-clé.
 
 | Groupe | Rubrique | Ce qu'on y trouve |
 |---|---|---|
-| Tableau de bord | Sections | Ajouter, supprimer, dupliquer, ordonner et configurer chaque section |
-| | Pages | Créer, renommer, ordonner et supprimer les pages |
-| Préférences | Général | Langue, unités, message d'accueil, intervalle de mise à jour par défaut |
+| Tableau de bord | Sections et pages | L'arborescence des pages et de leurs sections : ajouter, glisser d'une page à l'autre, renommer ou supprimer une page (menu `⋯`), configurer, dupliquer ou supprimer chaque section |
 | | Apparence | Thème, couleur d'accent, arrière-plan, densité, nombre de colonnes |
-| | Lecture et filtres | Atténuer les articles lus ; mots masqués ou mis en évidence dans tous les fils |
-| | Notifications | Abonner cet appareil ; choisir ce qui déclenche une notification |
 | | Mode affichage | Durée de chaque page ; lancer le mode |
+| Préférences | Général | Langue, unités, message d'accueil, intervalle de mise à jour par défaut |
+| | Lecture et filtres | Atténuer les articles lus ; lecteur intégré ; mots masqués ou mis en évidence dans tous les fils |
+| | Notifications | Abonner cet appareil ; choisir ce qui déclenche une notification |
 | Compte | Mon compte | Mot de passe, déconnexion |
 | | Mes données | Exporter, importer ou réinitialiser sa propre configuration |
 | — | À propos | Version, emplacement des réglages, liens |
