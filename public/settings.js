@@ -261,7 +261,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         line('Présentation', select(o, 'layout', [['list', 'Liste'], ['headline', 'À la une'], ['grid', 'Vignettes'], ['compact', 'Titres seulement']], { rerender: true, label: 'Présentation' })),
         isFeed && line('Ordre', select(o, 'ordering', [['newest', "Plus récents d'abord"], ['balanced', 'Alterner entre les sources']], { label: 'Ordre' })),
         o.layout !== 'compact' && line('Images', toggle(o, 'showImages', { label: 'Images' })),
-        (o.layout === 'list') && line(isFeed ? 'Résumé' : 'Sous-titre', toggle(o, 'showSummary', { label: 'Résumé' })),
+        o.layout !== 'compact' && line(isFeed ? 'Résumé' : 'Sous-titre', toggle(o, 'showSummary', { label: 'Résumé' })),
         isFeed && o.layout !== 'compact' && line('Nom de la source', toggle(o, 'showSource', { label: 'Nom de la source' })),
         line('Heure de publication', toggle(o, 'showTime', { label: 'Heure de publication' })),
       ]),

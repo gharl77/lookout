@@ -54,20 +54,24 @@ function articleRow(article, style, section, ctx) {
   const img = (cls) => o.showImages && article.image
     && h('img', { class: cls, src: article.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
 
+  // Résumé de l'article. Demandé mais absent du fil : on le dit, plutôt que de laisser un vide inexpliqué.
+  const summary = (wanted) => wanted && (article.summary ? h('span', { class: 'a-summary' }, article.summary)
+    : section.kind === 'feed' && h('span', { class: 'a-summary none' }, 'Aucun résumé disponible'));
+
   let inner;
   if (style === 'grid') {
     // Vignette : image au format vidéo (16:9), titre sur deux lignes, source et heure.
-    inner = h('div', { class: 'tile row-main' }, h('div', { class: 'tile-img' }, img('')), h('span', { class: 'a-title' }, article.title), metaLine);
+    inner = h('div', { class: 'tile row-main' }, h('div', { class: 'tile-img' }, img('')), h('span', { class: 'a-title' }, article.title), summary(o.showSummary), metaLine);
   } else if (style === 'headline') {
     inner = h('div', { class: 'headline row-main' }, img(''), h('span', { class: 'a-title' }, article.title),
-      article.summary && h('span', { class: 'a-summary' }, article.summary), metaLine);
+      summary(true), metaLine);
   } else if (style === 'compact') {
     inner = h('div', { class: 'compact row-main' }, h('i', { class: 'dot' }), h('span', { class: 'a-title' }, article.title),
       pill, o.showTime && article.date && h('time', {}, fmt.ago(article.date)));
   } else {
     inner = h('div', { class: 'article row-main' },
       h('div', { class: 'text' }, h('span', { class: 'a-title' }, article.title),
-        o.showSummary && article.summary && h('span', { class: 'a-summary' }, article.summary), metaLine),
+        summary(o.showSummary), metaLine),
       img('thumb'));
   }
 

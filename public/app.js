@@ -442,7 +442,7 @@ function renderPages() {
   nav.classList.toggle('editing', editing);
   if (nav.hidden) return nav.replaceChildren();
   if (renaming && nav.querySelector('input')) return;   // saisie en cours : on n'y touche pas
-  nav.replaceChildren(...list.flatMap((p) => {
+  nav.replaceChildren(...[...list.flatMap((p) => {
     if (editing && renaming === p.id) return [renameField(p)];
     const tab = h('button', { class: 'page-tab', 'aria-current': p.id === current ? 'page' : null,
       title: editing ? 'Double-cliquez pour renommer, glissez pour changer l’ordre' : null,
@@ -457,7 +457,7 @@ function renderPages() {
     enableTabDrag(tab, p.id);
     return p.id === current ? [tab, h('button', { class: 'page-more', title: 'Options de la page', 'aria-label': t('Options de la page {0}', pageName(p)),
       onClick: (e) => pageMenu(e.currentTarget, p) }, icon('more'))] : [tab];
-  }), editing && h('button', { class: 'page-tab add', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onClick: () => addPage() }, icon('plus'), h('span', {}, 'Page')));
+  }), editing && h('button', { class: 'page-tab add', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onClick: () => addPage() }, icon('plus'), h('span', {}, 'Page'))].filter(Boolean));
 }
 
 function showPage(id) {
