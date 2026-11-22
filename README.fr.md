@@ -107,7 +107,7 @@ mot de passe). Par la suite, seuls les administrateurs peuvent créer des compte
 - **Les administrateurs** peuvent aussi voir qui est en ligne, ouvrir le tableau de bord d'un autre profil en
   lecture seule, envoyer une copie d'une de leurs sections à d'autres profils (menu ⋯ de la carte) et fournir des
   **clés d'API partagées** (TomTom, API-Sports), utilisées par tout profil qui n'a pas la sienne.
-- **Sauvegarde complète** (Réglages → Données) : un seul fichier avec tous les comptes, les réglages de chaque
+- **Sauvegarde complète** (Réglages → Sauvegarde) : un seul fichier avec tous les comptes, les réglages de chaque
   profil et les clés d'API, à restaurer sur le même serveur ou sur une installation neuve. Gardez-le en lieu sûr :
   il contient les clés.
 - **Créez l'administrateur dès l'installation.** Tant qu'il n'existe pas, la première personne qui ouvre la page
@@ -144,7 +144,7 @@ Dans Portainer : ouvrez le stack et choisissez **Re-pull image and redeploy**.
 ## Sauvegarde
 
 Tout se trouve dans le volume `/data` : copiez ce dossier pour sauvegarder tous les profils. Chacun peut aussi
-utiliser **Réglages → Données → Exporter** pour télécharger sa propre configuration en JSON.
+utiliser **Réglages → Mes données → Exporter** pour télécharger sa propre configuration en JSON.
 
 ## Sécurité
 

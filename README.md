@@ -107,7 +107,7 @@ and password). From then on, only administrators can create accounts.
 - **Administrators** can also see who is online, open another profile's dashboard read-only, send a copy of one
   of their sections to other profiles (card ⋯ menu), and provide **shared API keys** (TomTom, API-Sports) used by
   every profile that has none of its own.
-- **Full backup** (Settings → Data): one file with every account, each profile's settings and the API keys, which
+- **Full backup** (Settings → Backup): one file with every account, each profile's settings and the API keys, which
   can be restored on the same server or on a fresh installation. Keep it somewhere safe: it contains the keys.
 - **Create the administrator right after installing.** Until it exists, whoever opens the page first can create it.
 
@@ -142,7 +142,7 @@ In Portainer: open the stack and choose **Re-pull image and redeploy**.
 ## Backup
 
 Everything lives in the `/data` volume: copy that folder to back up every profile. Each person can also use
-**Settings → Data → Export** to download their own configuration as a JSON file.
+**Settings → My data → Export** to download their own configuration as a JSON file.
 
 ## Security
 

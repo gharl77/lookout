@@ -23,11 +23,12 @@ export function addSectionMenu(anchor, add) {
   ]);
 }
 
-export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
+export function openSettings(app, { sectionID = null, tab = null } = {}) {
   if (app.viewing) return;   // profil d'un autre, en lecture seule : aucun réglage à modifier
   closeCurrent?.();
   const config = () => app.state.config;
-  const ui = { tab, selected: sectionID ?? config().sections[0]?.id ?? null, detail: Boolean(sectionID) };
+  // `nav` ne compte que sur un petit écran : on y voit d'abord la liste des rubriques, puis la rubrique choisie.
+  const ui = { tab: tab ?? 'sections', selected: sectionID ?? config().sections[0]?.id ?? null, detail: Boolean(sectionID), nav: !tab && !sectionID, query: '' };
   const root = h('div', { class: 'settings-root', style: { display: 'contents' } });
   const commit = () => app.commit();
 
@@ -182,7 +183,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
           : [h('button', { class: 'btn', onClick: sync }, icon('refresh'), synced ? 'Synchroniser maintenant' : 'Synchroniser avec mes abonnements'),
             synced && h('button', { class: 'btn', onClick: () => { o.youtubeSync = false; commit(); render(); } }, 'Revenir à la liste manuelle'),
             h('button', { class: 'btn', onClick: () => run(async () => { await api('/api/google/disconnect', { method: 'POST', body: {} }); o.youtubeSync = false; commit(); }, 'Compte Google délié.') }, 'Délier')]),
-    ], !googleStatus.configured ? "À la main : ajoutez les chaînes une à une ou importez le fichier de Google Takeout, ci-dessous. La synchronisation avec un compte Google n'est pas offerte sur ce serveur : un administrateur doit d'abord enregistrer un identifiant client Google (Réglages → Profils → Clés d'API partagées)."
+    ], !googleStatus.configured ? "À la main : ajoutez les chaînes une à une ou importez le fichier de Google Takeout, ci-dessous. La synchronisation avec un compte Google n'est pas offerte sur ce serveur : un administrateur doit d'abord enregistrer un identifiant client Google (Réglages → Clés partagées)."
       : synced ? "La liste suit vos abonnements YouTube : elle est remise à jour une fois par jour, à l'ouverture de Lookout. Les chaînes ajoutées à la main qui ne font pas partie de vos abonnements sont retirées à chaque synchronisation."
         : "À la main : ajoutez les chaînes une à une ou importez le fichier de Google Takeout, ci-dessous. Compte Google : Lookout lit la liste de vos abonnements (lecture seule, rien d'autre) et la tient à jour tout seul.");
   }
@@ -272,7 +273,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       ], 'Mots-clés séparés par des virgules, recherchés dans le titre et le résumé.'),
       group('Notifications', [
         line('Notifier les nouveaux articles', toggle(o, 'notify', { label: 'Notifier les nouveaux articles' })),
-      ], "Chaque nouvel article qui passe les filtres ci-dessus envoie une notification aux appareils abonnés (Réglages → Général → Notifications). Un toucher sur la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce."),
+      ], "Chaque nouvel article qui passe les filtres ci-dessus envoie une notification aux appareils abonnés (Réglages → Notifications). Un toucher sur la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce."),
     ];
   }
 
@@ -567,7 +568,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   // --- Pages ---
   function pagesGroup() {
     const list = config().pages, sections = config().sections;
-    return group('Pages', [
+    return group(null, [
       list.map((p) => h('div', { class: 'item' },
         h('div', { class: 'fields' }, h('input', { value: p.name, placeholder: t('Nom de la page'), 'aria-label': 'Nom de la page', maxlength: '40',
           onInput: (e) => { p.name = e.target.value; commit(); } }),
@@ -588,46 +589,91 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     ], "Avec plusieurs pages, des onglets apparaissent en haut du tableau de bord. Chaque section appartient à une page, qui se choisit dans ses réglages ou dans le menu de sa carte.");
   }
 
-  // --- Général ---
-  function generalTab() {
+  // --- Rubriques des préférences ---
+  /** Une rubrique : une colonne de lecture confortable, précédée d'une phrase qui dit à quoi elle sert. */
+  const heading = (intro) => intro && h('p', { class: 's-intro' }, intro);
+  const pane = (intro, ...content) => h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { class: 's-col' }, heading(intro), content)));
+
+  function generalPane() {
     const g = config().general;
-    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '640px', margin: '0 auto' } },
+    return pane("La langue, les unités et le rythme auquel Lookout interroge vos sources.",
+      group('Langue', [
+        line('Langue', h('span', { onChange: () => { app.renderAll(); render(); } }, select(g, 'language', [['auto', 'Automatique'], ['fr', 'Français'], ['en', 'English']], { label: 'Langue' }))),
+      ], "Automatique suit la langue de l'appareil. Les titres de vos sections et le contenu des sources ne sont pas traduits."),
+      group('Unités', [
+        line('Unités', select(g, 'units', [['metric', 'Métrique (°C, km)'], ['imperial', 'Impérial (°F, mi)']], { label: 'Unités' })),
+      ]),
       group("Message d'accueil", [
         line("Afficher le message d'accueil", toggle(g, 'showGreeting', { label: "Message d'accueil" })),
         line('Votre prénom', text(g, 'displayName', { placeholder: 'Facultatif', label: 'Votre prénom' })),
         line("Afficher le coup d'œil (météo et premier trajet)", toggle(g, 'showGlance', { label: "Coup d'œil" })),
       ]),
-      group('Apparence', [
-        line('Thème', seg(g, 'appearance', [['system', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']])),
-        line("Couleur d'accent", swatches(g, 'accentHex')),
-        line('Arrière-plan teinté', toggle(g, 'tintedBackdrop', { label: 'Arrière-plan teinté' })),
-        line('Densité', select(g, 'density', [['compact', 'Compacte'], ['comfortable', 'Confortable'], ['spacious', 'Aérée']], { label: 'Densité' })),
-        line('Colonnes', select(g, 'columns', [[0, 'Automatique'], [1, '1'], [2, '2'], [3, '3'], [4, '4']], { label: 'Colonnes' })),
-      ], "Sur un écran étroit comme celui d'un iPhone, les cartes passent automatiquement sur une colonne."),
-      group('Langue', [
-        line('Langue', h('span', { onChange: () => { app.renderAll(); render(); } }, select(g, 'language', [['auto', 'Automatique'], ['fr', 'Français'], ['en', 'English']], { label: 'Langue' }))),
-      ], "Automatique suit la langue de l'appareil. Les titres de vos sections et le contenu des sources ne sont pas traduits."),
       group('Mise à jour des sources', [
         // Après le changement, on redemande les sections : le serveur applique tout de suite le nouvel intervalle.
         line('Intervalle par défaut', h('span', { onChange: () => app.saveNow().then(() => app.refreshAll()) }, select(g, 'refreshMinutes',
           REFRESH_CHOICES.map((m) => [m, INTERVAL_LABELS[m]]), { label: 'Intervalle par défaut' }))),
-      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Chaque section peut avoir son propre intervalle, dans ses réglages : par défaut, les pointages et les trajets sont interrogés toutes les 5 minutes. L'icône de rechargement d'une carte met cette section à jour tout de suite."),
-      group('Unités', [
-        line('Unités', select(g, 'units', [['metric', 'Métrique (°C, km)'], ['imperial', 'Impérial (°F, mi)']], { label: 'Unités' })),
-      ]),
-      pagesGroup(),
+      ], "Chaque source est interrogée au plus une fois par intervalle, même si vous ouvrez ou actualisez la page plus souvent. Cela évite qu'un site vous bloque pour avoir demandé trop souvent. Chaque section peut avoir son propre intervalle, dans ses réglages : par défaut, les pointages et les trajets sont interrogés toutes les 5 minutes. L'icône de rechargement d'une carte met cette section à jour tout de suite."));
+  }
+  function appearancePane() {
+    const g = config().general;
+    return pane("L'allure du tableau de bord sur tous vos appareils.",
+      group('Couleurs', [
+        line('Thème', seg(g, 'appearance', [['system', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']])),
+        line("Couleur d'accent", swatches(g, 'accentHex')),
+        line('Arrière-plan teinté', toggle(g, 'tintedBackdrop', { label: 'Arrière-plan teinté' })),
+      ], "Automatique suit le mode clair ou sombre de chaque appareil."),
+      group('Disposition', [
+        line('Densité', select(g, 'density', [['compact', 'Compacte'], ['comfortable', 'Confortable'], ['spacious', 'Aérée']], { label: 'Densité' })),
+        line('Colonnes', select(g, 'columns', [[0, 'Automatique'], [1, '1'], [2, '2'], [3, '3'], [4, '4']], { label: 'Colonnes' })),
+      ], "Sur un écran étroit comme celui d'un iPhone, les cartes passent automatiquement sur une colonne."));
+  }
+  function readingPane() {
+    const g = config().general;
+    return pane("Ce qui s'applique à tous vos fils d'articles. Chaque section a en plus ses propres filtres.",
       group('Lecture', [
         line('Atténuer les articles déjà lus', toggle(g, 'dimReadArticles', { label: 'Atténuer les articles lus' })),
       ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."),
       group('Filtres pour tous les fils', [
         line('Masquer partout', text(g, 'muteKeywords', { placeholder: 'ex. horoscope, célébrités', label: 'Masquer partout' })),
         line('Mettre en évidence partout', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mettre en évidence partout' })),
-      ], "Mots ou expressions séparés par des virgules, cherchés dans le titre et le résumé. Ils s'ajoutent aux filtres propres à chaque section."),
-      notificationsGroup(g),
-      group('Mode affichage', [
+      ], "Mots ou expressions séparés par des virgules, cherchés dans le titre et le résumé. Ils s'ajoutent aux filtres propres à chaque section."));
+  }
+  function notificationsPane() {
+    return pane("Être averti d'une alerte météo, d'un match ou d'un nouvel article, même quand Lookout est fermé.", notificationsGroup(config().general));
+  }
+  function displayPane() {
+    const g = config().general;
+    return pane("Pour un écran mural, une tablette sur un comptoir ou une télé.",
+      group(null, [
         line('Changer de page', select(g, 'displaySeconds', [[0, 'Jamais'], [15, 'Toutes les 15 secondes'], [30, 'Toutes les 30 secondes'], [60, 'Chaque minute'], [120, 'Toutes les 2 minutes'], [300, 'Toutes les 5 minutes']], { label: 'Changer de page' })),
         line('Écran mural ou télé', h('button', { class: 'btn', onClick: () => { closeCurrent?.(); app.startDisplay(); } }, sfIcon('desktopcomputer'), 'Lancer le mode affichage')),
-      ], "Plein écran, sans boutons, avec l'heure. Les pages défilent l'une après l'autre et l'écran reste allumé. Pour en sortir : touche Échap, ou touchez l'écran puis « Quitter »."))));
+      ], "Plein écran, sans boutons, avec l'heure. Les pages défilent l'une après l'autre et l'écran reste allumé. Pour en sortir : touche Échap, ou touchez l'écran puis « Quitter »."));
+  }
+  function pagesPane() {
+    return pane("Les pages sont les onglets du tableau de bord. Chaque section appartient à une page ; son réglage « Page » permet de la déplacer.", pagesGroup());
+  }
+  function keysPane() {
+    return pane("Des clés que vous fournissez une fois pour tous les profils. Un profil qui saisit sa propre clé dans une section garde la sienne.", sharedKeysForm());
+  }
+  function backupPane() {
+    const note = h('p', {});
+    return pane("Toute l'installation dans un seul fichier, pour la reconstruire sur ce serveur ou sur un autre.", fullBackup(note), note);
+  }
+  function aboutPane() {
+    const link = (label, href) => h('a', { href, target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } }, label);
+    return pane(null,
+      h('div', { class: 'about-head' }, h('img', { src: new URL('logo.svg', import.meta.url).href, alt: '', width: '56', height: '56' }),
+        h('div', {}, h('strong', {}, 'Lookout'), h('span', {}, t('Version {0}', app.version ?? '?')))),
+      group(null, [
+        line('Version', h('span', { class: 'mono' }, app.version ?? '?')),
+        line("Empreinte de l'interface", h('span', { class: 'mono' }, app.build ?? '?')),
+        line('Vos réglages sur le serveur', h('span', { class: 'mono' }, `data/profiles/${app.user.id}/config.json`)),
+      ], 'Dans le dossier de données du conteneur.'),
+      group(null, [
+        line('Notes de version', link('github.com/gharl77/lookout/releases', 'https://github.com/gharl77/lookout/releases')),
+        line('Code source et documentation', link('github.com/gharl77/lookout', 'https://github.com/gharl77/lookout')),
+        line('Licence', h('span', {}, 'MIT')),
+      ], "Lookout est un logiciel libre. Vos réglages et vos données restent sur votre serveur."));
   }
 
   // --- Notifications sur cet appareil ---
@@ -663,7 +709,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         if (subscription) await subscribePush(registration).catch(() => {});
       } catch { push.state = 'unsupported'; }
     }
-    if (ui.tab === 'general') render();
+    if (ui.tab === 'notifications') render();
   }
   async function setPush(on) {
     push.note = null;
@@ -705,15 +751,17 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     };
     const note = noteView(push.note);
     push.note = null;
-    return group('Notifications', [
+    return [group('Cet appareil', [
       line('Recevoir les notifications sur cet appareil', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: push.state === 'on', disabled: !usable,
         'aria-label': 'Notifications sur cet appareil', onChange: (e) => setPush(e.target.checked) })),
+      push.state === 'on' && h('div', { class: 'line' }, h('div', {}, note), h('button', { class: 'btn', onClick: test }, sfIcon('bell.fill'), "Envoyer une notification d'essai")),
+      push.state !== 'on' && note && h('div', { class: 'line' }, note),
+    ], WHY[push.state] ?? "Chaque appareil s'abonne séparément : iPhone, iPad, Mac ou PC. Sur iPhone, Lookout doit d'abord être ajouté à l'écran d'accueil."),
+    group('Me prévenir pour', [
       line('Alertes météo', toggle(g, 'notifyAlerts', { label: 'Alertes météo' })),
       line("Début d'un match de mes équipes", toggle(g, 'notifyGameStart', { label: "Début d'un match" })),
       line("Résultat final d'un match de mes équipes", toggle(g, 'notifyGameEnd', { label: 'Résultat final' })),
-      push.state === 'on' && h('div', { class: 'line' }, h('div', {}, note), h('button', { class: 'btn', onClick: test }, sfIcon('bell.fill'), "Envoyer une notification d'essai")),
-      push.state !== 'on' && note && h('div', { class: 'line' }, note),
-    ], WHY[push.state] ?? "Lookout surveille vos sections météo et sports même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Les nouveaux articles s'activent section par section, dans les réglages de chaque section. Chaque appareil s'abonne séparément : iPhone, iPad, Mac ou PC.");
+    ], "Lookout surveille vos sections météo et sports même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Les nouveaux articles s'activent section par section, dans les réglages de chaque section.")];
   }
 
   // --- Données ---
@@ -733,8 +781,8 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         note.textContent = t('Configuration importée.');
       } catch (error) { note.textContent = error instanceof SyntaxError ? t("Ce fichier n'est pas du JSON valide.") : error.message; }
     } });
-    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '640px', margin: '0 auto' } },
-      group('Sauvegarde', [
+    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { class: 's-col' }, heading("Vos sections, vos sources et vos préférences dans un fichier, pour les garder ou les reprendre ailleurs."),
+      group('Exporter et importer', [
         line('Exporter la configuration', h('button', { class: 'btn', onClick: () => {
           const blob = new Blob([JSON.stringify(config(), null, 2)], { type: 'application/json' });
           const a = h('a', { href: URL.createObjectURL(blob), download: 'Lookout-configuration.json' });
@@ -744,11 +792,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         } }, icon('download'), 'Exporter…')),
         line('Importer une configuration', h('button', { class: 'btn', onClick: () => fileInput.click() }, icon('upload'), 'Importer…'), fileInput),
       ], 'Le fichier JSON contient toutes vos sections, sources et préférences, mais pas vos clés ni vos jetons.'),
-      group('Fichier de configuration', [line('Emplacement', h('span', { class: 'mono' }, `data/profiles/${app.user.id}/config.json`)),
-        line('Version', h('span', { class: 'mono' }, `Lookout ${app.version ?? ''}`))],
-      'Dans le dossier de données du conteneur, sur le serveur.'),
-      app.user.role === 'admin' && fullBackup(note),
-      group(null, [
+      group('Repartir de zéro', [
         line('Revenir à la configuration de départ', h('button', { class: 'btn danger', onClick: async () => {
           if (!await confirmDialog('Réinitialiser toute la configuration ?', "Toutes vos sections et sources seront remplacées par celles de départ. Exportez d'abord votre configuration si vous voulez la conserver.", 'Réinitialiser')) return;
           await app.replaceConfig(await api('/api/config/reset', { method: 'POST' }));
@@ -799,7 +843,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         location.reload();
       } catch (error) { note.textContent = error instanceof SyntaxError ? t("Ce fichier n'est pas du JSON valide.") : error.message; }
     } });
-    return group('Sauvegarde complète', [
+    return group(null, [
       line('Télécharger tous les profils', h('button', { class: 'btn', onClick: download }, icon('download'), 'Télécharger…')),
       line('Restaurer une sauvegarde', h('button', { class: 'btn danger', onClick: () => fileInput.click() }, icon('upload'), 'Restaurer…'), fileInput),
     ], "Réservé aux administrateurs. Contrairement à l'export ci-dessus, ce fichier contient tout : les comptes, les réglages de chaque profil et les clés d'API. Il permet de reconstruire l'installation sur un autre serveur.");
@@ -823,7 +867,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         say(t('Mot de passe modifié. Vos autres appareils devront se reconnecter.'), true);
       } catch (error) { say(error.message); }
     };
-    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '640px', margin: '0 auto' } },
+    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { class: 's-col' }, heading(null),
       group('Mon profil', [
         line('Nom', h('span', {}, app.user.name)),
         line('Rôle', h('span', {}, app.user.role === 'admin' ? 'Administrateur' : 'Utilisateur')),
@@ -967,7 +1011,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     };
     const note = noteView(sharedNote);
     sharedNote = null;   // affiché une seule fois
-    return h('form', { novalidate: true, onSubmit: save }, group("Clés d'API partagées", [
+    return h('form', { novalidate: true, onSubmit: save }, group(null, [
       ...KEYS.map(([, label], i) => line(label, inputs[i])),
       h('div', { class: 'line' }, h('div', {}, note),
         h('button', { class: 'info-btn', type: 'button', title: 'Comment obtenir un identifiant client Google', 'aria-label': 'Comment obtenir un identifiant client Google', onClick: googleHelp }, 'i'),
@@ -1005,7 +1049,7 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
       await loadUsers();
     };
 
-    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '680px', margin: '0 auto' } },
+    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { class: 's-col' }, heading("Chaque personne a son profil, avec ses propres sections et préférences."),
       noteView(usersNote),
       h('p', { class: 'presence-summary', 'data-summary': '' }, presenceSummary()),
       group('Profils', users.map((u) => h('div', { class: 'item' },
@@ -1038,7 +1082,6 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
         line('Réglages de départ', select(draft, 'copyFrom', [['', 'Réglages par défaut'], ...users.map((u) => [u.id, t('Copie de {0}', u.name)])], { label: 'Réglages de départ' })),
         h('div', { class: 'line' }, createNote, h('button', { class: 'btn primary', type: 'submit' }, icon('plus'), 'Créer le profil')),
       ], "Une copie reprend les sections, les sources et les clés d'API de l'autre profil. Chacun évolue ensuite de son côté.")),
-      sharedKeysForm(),
       )));
   }
 
@@ -1054,9 +1097,9 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
     const days = (since) => Math.floor((Date.now() - since) / 86400e3);
     const duration = (since) => (days(since) >= 1 ? t('en panne depuis {0} j', days(since)) : t("en panne depuis aujourd'hui"));
     const reload = h('button', { class: 'btn', onClick: () => { healthData = null; render(); } }, icon('refresh'), 'Actualiser');
-    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { style: { maxWidth: '680px', margin: '0 auto' } },
+    return h('div', { class: 'settings-body' }, h('div', { class: 's-pane' }, h('div', { class: 's-col' }, heading("Les sources qui ne répondent plus, tous profils confondus."),
       healthData.error && noteView({ text: healthData.error, ok: false }),
-      group(failing.length ? t('{0} sources en panne', failing.length) : 'Sources en panne', [
+      group(failing.length === 1 ? 'Une source en panne' : failing.length ? t('{0} sources en panne', failing.length) : null, [
         !failing.length && h('div', { class: 'line' }, h('span', { class: 'lbl' }, icon('check-on'), ' ', t('Aucune source en panne parmi les {0} sources suivies.', watched))),
         failing.map((f) => h('div', { class: 'item' },
           h('span', { class: `health-dot${days(f.since) >= 3 ? ' old' : ''}` }),
@@ -1069,20 +1112,69 @@ export function openSettings(app, { sectionID = null, tab = 'sections' } = {}) {
   }
 
   // --- Fenêtre ---
-  const TABS = [['sections', 'Sections', 'grid'], ['general', 'Général', 'gear'], ['data', 'Données', 'drive'], ['account', 'Compte', 'user'],
-    ...(app.user?.role === 'admin' ? [['users', 'Profils', 'users'], ['health', 'Sources', 'shield']] : [])];
+  // Rubriques, regroupées comme on les cherche : ce qu'on voit, comment on le voit, soi, puis l'installation.
+  // Les mots-clés servent à la recherche dans les réglages.
+  const admin = app.user?.role === 'admin';
+  const NAV = [
+    { title: 'Tableau de bord', items: [
+      ['sections', 'Sections', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé ajouter cards feeds weather add'],
+      ['pages', 'Pages', () => icon('copy'), 'onglets tabs'] ] },
+    { title: 'Préférences', items: [
+      ['general', 'Général', () => icon('gear'), 'langue unités prénom accueil intervalle mise à jour language units greeting refresh'],
+      ['appearance', 'Apparence', () => icon('sliders'), 'thème sombre clair couleur accent densité colonnes arrière-plan theme dark light color density columns'],
+      ['reading', 'Lecture et filtres', () => sfIcon('newspaper.fill'), 'articles lus mots masquer évidence read words hide highlight'],
+      ['notifications', 'Notifications', () => sfIcon('bell.fill'), 'alertes matchs articles iphone appareil alerts games device'],
+      ['display', 'Mode affichage', () => sfIcon('desktopcomputer'), 'écran mural télé plein écran wall screen tv kiosk'] ] },
+    { title: 'Compte', items: [
+      ['account', 'Mon compte', () => icon('user'), 'mot de passe déconnexion session password sign out'],
+      ['data', 'Mes données', () => icon('drive'), 'exporter importer réinitialiser configuration export import reset'] ] },
+    ...(admin ? [{ title: 'Administration', items: [
+      ['users', 'Profils', () => icon('users'), 'utilisateurs comptes en ligne appareils users accounts online devices'],
+      ['keys', 'Clés partagées', () => icon('key'), 'tomtom tmdb anthropic google api-sports api keys'],
+      ['health', 'État des sources', () => icon('shield'), 'pannes fils erreurs santé failing health errors'],
+      ['backup', 'Sauvegarde', () => icon('download'), 'restaurer télécharger restore download backup'] ] }] : []),
+    { title: null, items: [['about', 'À propos', () => sfIcon('tag.fill'), 'version licence github license']] },
+  ];
+  const PANES = { sections: sectionsTab, pages: pagesPane, general: generalPane, appearance: appearancePane, reading: readingPane, notifications: notificationsPane,
+    display: displayPane, account: accountTab, data: dataTab, users: usersTab, keys: keysPane, health: healthTab, backup: backupPane, about: aboutPane };
+  const labelOf = (id) => NAV.flatMap((g) => g.items).find((item) => item[0] === id)?.[1] ?? '';
+  if (!PANES[ui.tab] || (!admin && ['users', 'keys', 'health', 'backup'].includes(ui.tab))) ui.tab = 'sections';
+
+  const go = (id) => { ui.tab = id; ui.nav = false; ui.detail = false; render(); };
+  /** Liste des rubriques, filtrée par la recherche (sur le nom affiché et sur les mots-clés). */
+  function navItems() {
+    const words = ui.query.toLowerCase().split(/\s+/).filter(Boolean);
+    const match = ([, label, , keywords]) => words.every((w) => `${t(label)} ${label} ${keywords}`.toLowerCase().includes(w));
+    const groups = NAV.map((g) => ({ ...g, items: g.items.filter(match) })).filter((g) => g.items.length);
+    if (!groups.length) return [h('p', { class: 's-nav-empty' }, 'Aucun réglage ne correspond.')];
+    return groups.map((g) => h('div', { class: 's-nav-group', role: 'group', 'aria-label': g.title },
+      g.title && h('h4', {}, g.title),
+      g.items.map(([id, label, glyph]) => h('button', { class: 's-nav-item', 'aria-current': ui.tab === id && !ui.nav ? 'page' : null, onClick: () => go(id) },
+        h('span', { class: 's-nav-icon' }, glyph()), h('span', { class: 'grow' }, label), h('span', { class: 's-nav-chevron' }, icon('right'))))));
+  }
+
   function render() {
     const pane = root.querySelector('.s-pane'), scroll = pane?.scrollTop ?? 0, sameView = root.dataset.view === `${ui.tab}/${ui.selected}`;
-    const body = ui.tab === 'sections' ? sectionsTab() : ui.tab === 'general' ? generalTab() : ui.tab === 'account' ? accountTab()
-      : ui.tab === 'users' ? usersTab() : ui.tab === 'health' ? healthTab() : dataTab();
+    const body = PANES[ui.tab]();
     const detail = ui.tab === 'sections' && ui.detail && config().sections.some((s) => s.id === ui.selected);
-    root.replaceChildren(h('div', { class: `settings${detail ? ' detail' : ''}` },
-      h('div', { class: 'settings-head' },
-        h('button', { class: 'icon-btn s-back', 'aria-label': 'Retour à la liste des sections', onClick: () => { ui.detail = false; render(); } }, icon('back')),
-        h('div', { class: 'tabs', role: 'tablist' }, TABS.map(([id, label, ic]) => h('button', { role: 'tab', 'aria-selected': String(ui.tab === id),
-          onClick: () => { ui.tab = id; ui.detail = false; render(); } }, icon(ic), label))),
-        h('button', { class: 'btn primary', onClick: () => closeCurrent?.() }, 'Terminé')),
-      body));
+    const done = () => h('button', { class: 'btn primary', onClick: () => closeCurrent?.() }, 'Terminé');
+    const list = h('div', { class: 's-nav-list' }, navItems());
+    // Sur un petit écran : rubriques -> rubrique -> (pour les sections) réglages d'une section. « Retour » remonte d'un cran.
+    const back = () => { if (detail) ui.detail = false; else ui.nav = true; render(); };
+    const title = detail ? config().sections.find((s) => s.id === ui.selected).title : labelOf(ui.tab);
+    root.replaceChildren(h('div', { class: `settings${detail ? ' detail' : ''}${ui.nav ? ' at-nav' : ''}` },
+      h('nav', { class: 's-nav', 'aria-label': 'Réglages' },
+        h('div', { class: 's-nav-head' }, h('h2', {}, 'Réglages'), done()),
+        h('input', { class: 'field s-nav-search', type: 'search', placeholder: t('Rechercher un réglage'), 'aria-label': 'Rechercher un réglage', value: ui.query,
+          autocomplete: 'off', spellcheck: 'false', onInput: (e) => { ui.query = e.target.value; list.replaceChildren(...navItems()); } }),
+        list,
+        h('p', { class: 's-nav-foot' }, 'Vos changements sont enregistrés automatiquement.')),
+      h('div', { class: 's-main' },
+        h('div', { class: 'settings-head' },
+          h('button', { class: 'icon-btn s-back', 'aria-label': 'Retour', onClick: back }, icon('back')),
+          h('h2', {}, title),
+          done()),
+        body)));
     root.dataset.view = `${ui.tab}/${ui.selected}`;
     if (sameView) root.querySelector('.s-pane').scrollTop = scroll;   // garde la position après un ajout ou un retrait
   }

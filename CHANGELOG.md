@@ -6,7 +6,7 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 En développement, pas encore publié. / In development, not yet released.
 
-- **Filtres** : mots masqués ou mis en évidence dans tous les fils (Réglages → Général), mise en évidence par section.
+- **Filtres** : mots masqués ou mis en évidence dans tous les fils (Réglages → Lecture et filtres), mise en évidence par section.
 - **À lire plus tard** : gardez un article d'un clic ; la liste suit votre profil sur tous vos appareils.
 - **Notifications** (iPhone, iPad, Mac, PC) : alertes météo, début et résultat des matchs de vos équipes, nouveaux
   articles des sections de votre choix (un toucher ouvre l'article), même page fermée. Exige HTTPS ; sur iPhone,
@@ -32,7 +32,11 @@ En développement, pas encore publié. / In development, not yet released.
 - **YouTube**: videos play inside Lookout; channel list maintained by hand or synced with a Google account
   (client ID provided by the administrator).
 - **Source health**: an administrator tab lists the failing sources of every profile.
-- **Filters**: words hidden or highlighted in every feed (Settings → General), highlighting per section.
+- **Réglages réorganisés** : navigation latérale en quatre groupes (Tableau de bord, Préférences, Compte,
+  Administration), une rubrique par sujet, recherche dans les réglages ; sur téléphone, une rubrique à la fois.
+- **Settings reorganised**: side navigation in four groups (Dashboard, Preferences, Account, Administration), one
+  pane per topic, search within settings; on a phone, one pane at a time.
+- **Filters**: words hidden or highlighted in every feed (Settings → Reading and filters), highlighting per section.
 - **Read later**: keep an article in one click; the list follows your profile on all your devices.
 - **Notifications** (iPhone, iPad, Mac, PC): weather alerts, start and final score of your teams' games, new
   articles from the sections you choose (tapping opens the article), even with the page closed. Requires HTTPS;
