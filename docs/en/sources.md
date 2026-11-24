@@ -18,6 +18,8 @@ Where each section's data comes from, what needs a key, and how to get it.
 | Scores | ESPN, HockeyTech | None | Free |
 | Scores | API-Sports | Key | Free tier: 100 requests per day and per sport |
 | Calendar | Each calendar's iCal address | None | Free |
+| Home Assistant | Your own Home Assistant | Address and long-lived access token | Yours |
+| Stocks and currencies | Yahoo Finance (no guarantee of service) | None | Free |
 | Releases, series | TVmaze | None | Free |
 | Releases, movies | TMDB | Key | Free |
 | Daily summary | Anthropic API (Claude) | Key | **Billed per use** |

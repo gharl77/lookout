@@ -3,7 +3,7 @@ import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 
 // --- Articles (RSS et API JSON) ---
 
-import { keywords, articleFilter, youtubeVideoID } from './shared.js';
+import { keywords, articleFilter, youtubeVideoID, WMO_LABELS } from './shared.js';
 
 /** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
 export function present(articles, options, sourceOrder, limit, general = {}, skip = null) {
@@ -54,7 +54,10 @@ function articleRow(article, style, section, ctx) {
   const pill = fresh && h('span', { class: 'new-pill' }, 'Nouveau');
   const showSource = o.showSource && section.kind === 'feed' && o.sources.filter((s) => s.enabled).length > 1;
   const meta = [showSource && article.source, o.showTime && article.date && fmt.ago(article.date)].filter(Boolean).join(' · ');
-  const metaLine = (meta || pill) && h('span', { class: 'a-meta' }, pill, meta);
+  // Nouvelle que d'autres sections de la page auraient affichée aussi (doublons écartés) : on dit lesquelles.
+  const also = ctx.alsoIn?.(article, section) ?? [];
+  const alsoNote = also.length > 0 && h('span', { class: 'a-also', title: t('Cette nouvelle figure aussi dans : {0}', also.join(', ')) }, `${meta ? ' · ' : ''}${t('aussi dans {0}', also.join(', '))}`);
+  const metaLine = (meta || pill || alsoNote) && h('span', { class: 'a-meta' }, pill, meta, alsoNote);
   const img = (cls) => o.showImages && article.image
     && h('img', { class: cls, src: article.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
 
@@ -140,12 +143,7 @@ function articleList(section, articles, ctx) {
 
 export const WMO = {
   label(code) {
-    const labels = { 0: 'Dégagé', 1: 'Généralement dégagé', 2: 'Partiellement nuageux', 3: 'Couvert', 45: 'Brouillard', 48: 'Brouillard',
-      51: 'Bruine', 53: 'Bruine', 55: 'Bruine', 56: 'Bruine verglaçante', 57: 'Bruine verglaçante', 61: 'Pluie faible', 63: 'Pluie',
-      65: 'Pluie forte', 66: 'Pluie verglaçante', 67: 'Pluie verglaçante', 71: 'Neige faible', 73: 'Neige', 75: 'Neige forte',
-      77: 'Grains de neige', 80: 'Averses', 81: 'Averses', 82: 'Averses fortes', 85: 'Averses de neige', 86: 'Averses de neige',
-      95: 'Orage', 96: 'Orage et grêle', 99: 'Orage et grêle' };
-    return labels[code] ? t(labels[code]) : '—';
+    return WMO_LABELS[code] ? t(WMO_LABELS[code]) : '—';
   },
   icon(code, isDay = true) {
     if (code <= 1) return isDay ? icon('w-sun', 'wi-sun') : icon('w-moon', 'wi-moon');
@@ -336,6 +334,68 @@ function calendarView(section, payload) {
   ];
 }
 
+// --- Home Assistant ---
+const HASS_STATES = { on: 'Allumé', off: 'Éteint', open: 'Ouvert', closed: 'Fermé', opening: 'Ouverture…', closing: 'Fermeture…', locked: 'Verrouillé', unlocked: 'Déverrouillé',
+  home: 'À la maison', not_home: 'Absent', unavailable: 'Indisponible', unknown: 'Inconnu', cleaning: 'Nettoyage', docked: 'À la base', returning: 'Retour à la base',
+  paused: 'En pause', idle: 'Inactif', playing: 'Lecture en cours', standby: 'En veille', heat: 'Chauffage', cool: 'Climatisation', heat_cool: 'Automatique', auto: 'Automatique',
+  dry: 'Déshumidification', fan_only: 'Ventilation', error: 'Erreur', charging: 'En charge', armed_home: 'Armée (présent)', armed_away: 'Armée (absent)', disarmed: 'Désarmée',
+  triggered: 'Déclenchée', above_horizon: 'Levé', below_horizon: 'Couché', mowing: 'Tonte' };
+// Capteurs binaires : ce que « on » et « off » veulent dire selon le type de capteur.
+const BINARY = { door: ['Ouverte', 'Fermée'], garage_door: ['Ouverte', 'Fermée'], window: ['Ouverte', 'Fermée'], opening: ['Ouvert', 'Fermé'], lock: ['Déverrouillé', 'Verrouillé'],
+  motion: ['Mouvement', 'Rien'], occupancy: ['Occupé', 'Libre'], presence: ['Présent', 'Absent'], moisture: ['Fuite', 'Sec'], smoke: ['Fumée', 'Rien'], gas: ['Gaz', 'Rien'],
+  battery: ['Faible', 'Normale'], connectivity: ['Connecté', 'Déconnecté'], problem: ['Problème', 'OK'], plug: ['Branché', 'Débranché'], running: ['En marche', 'Arrêté'] };
+const ALERTING = new Set(['door', 'garage_door', 'window', 'opening', 'lock', 'motion', 'moisture', 'smoke', 'gas', 'battery', 'problem']);
+
+function hassValue(e) {
+  const lang = document.documentElement.lang;
+  if (e.domain === 'binary_sensor' && BINARY[e.deviceClass] && (e.state === 'on' || e.state === 'off')) return t(BINARY[e.deviceClass][e.state === 'on' ? 0 : 1]);
+  if (e.domain === 'climate') {
+    const temps = [e.current != null && `${fmt.number(e.current, 1)}°`, e.target != null && `→ ${fmt.number(e.target, 1)}°`].filter(Boolean).join(' ');
+    return [temps, HASS_STATES[e.state] ? t(HASS_STATES[e.state]) : e.state].filter(Boolean).join(' · ');
+  }
+  if (e.deviceClass === 'timestamp' && Date.parse(e.state)) return new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(Date.parse(e.state));
+  // Valeur numérique : arrondie, avec son unité. Sinon l'état, traduit quand il est connu.
+  if (e.state !== '' && Number.isFinite(Number(e.state)) && !['scene', 'button', 'input_button'].includes(e.domain)) return `${fmt.number(Number(e.state), 1)}${e.unit ? ` ${e.unit}` : ''}`;
+  const label = HASS_STATES[e.state] ? t(HASS_STATES[e.state]) : e.state;
+  return e.battery != null && ['vacuum', 'lawn_mower'].includes(e.domain) ? `${label} · ${Math.round(e.battery)} %` : label;
+}
+
+function hassView(section, payload, ctx) {
+  const names = new Map(section.hass.entities.map((x) => [x.id, x.name]));
+  const canAct = section.hass.allowControl !== false && ctx.callEntity;
+  const list = payload.entities.slice(0, Math.max(1, section.maxItems));
+  return h('div', { class: 'ha-rows' }, list.map((e) => {
+    const name = names.get(e.id)?.trim() || e.name, off = ['unavailable', 'unknown'].includes(e.state);
+    const act = (event) => { event.currentTarget.disabled = true; ctx.callEntity(section, e.entity); };
+    let control = null;
+    if (canAct && e.action && !off) {
+      control = e.action === 'toggle' && e.domain !== 'cover'
+        ? h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: e.state === 'on', 'aria-label': name, onChange: act })
+        : h('button', { class: 'btn small', onClick: act, 'aria-label': t('{0} : {1}', name, t(e.domain === 'cover' ? (e.state === 'open' ? 'Fermer' : 'Ouvrir') : 'Lancer')) },
+          e.domain === 'cover' ? (e.state === 'open' ? 'Fermer' : 'Ouvrir') : 'Lancer');
+    }
+    const passive = ['scene', 'script', 'button', 'input_button'].includes(e.domain);
+    const warn = e.domain === 'binary_sensor' && e.state === 'on' && ALERTING.has(e.deviceClass);
+    return h('div', { class: `ha-row${off ? ' off' : ''}` }, h('span', { class: 'ha-name' }, name),
+      !(passive && control) && h('span', { class: `ha-value${warn ? ' warn' : ''}${e.state === 'on' && !warn ? ' on' : ''}` }, document.createTextNode(passive ? '' : hassValue(e))), control);
+  }));
+}
+
+// --- Bourse et devises ---
+function stocksView(section, payload) {
+  const lang = document.documentElement.lang;
+  const price = (q) => new Intl.NumberFormat(lang, { minimumFractionDigits: 2, maximumFractionDigits: q.price < 10 ? 4 : 2 }).format(q.price);
+  return h('div', { class: 'rows' }, payload.quotes.slice(0, Math.max(1, section.maxItems)).map((q) => {
+    const up = q.change > 0, flat = !q.change;
+    const pct = q.changePct == null ? '' : `${up ? '+' : flat ? '' : '−'}${new Intl.NumberFormat(lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(q.changePct))} %`;
+    return h('a', { class: 'row', href: `https://finance.yahoo.com/quote/${encodeURIComponent(q.symbol)}`, target: '_blank', rel: 'noopener noreferrer',
+      title: q.time ? t('Cours de {0}', fmt.ago(q.time)) : null },
+    h('div', { class: 'quote' }, h('div', { class: 'text' }, h('span', { class: 'name' }, q.name), h('small', {}, [q.symbol, q.currency].filter(Boolean).join(' · '))),
+      h('b', {}, price(q)),
+      section.stocks.showChange !== false && pct && h('span', { class: `delta ${flat ? 'flat' : up ? 'up' : 'down'}`, 'aria-label': t(up ? 'en hausse de {0}' : flat ? 'inchangé' : 'en baisse de {0}', pct.replace(/^[+−]/, '')) }, pct)));
+  }));
+}
+
 // --- Résumé du jour ---
 function summaryView(section, payload) {
   return [h('ol', { class: 'summary' }, payload.summary.map((point) => h('li', {},
@@ -348,6 +408,8 @@ export function cardBody(section, payload, ctx) {
   if (payload.releases) return releasesView(section, payload);
   if (payload.events) return calendarView(section, payload);
   if (payload.summary) return summaryView(section, payload);
+  if (payload.entities) return hassView(section, payload, ctx);
+  if (payload.quotes) return stocksView(section, payload);
   if (payload.articles) return articleList(section, payload.articles, ctx);
   if (payload.weather) return weatherView(section, payload.weather);
   if (payload.games) return sportsView(section, payload.games, ctx, payload.standings);

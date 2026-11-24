@@ -22,8 +22,11 @@ import { fetchReleases } from './lib/releases.js';
 import { fetchCalendar } from './lib/calendar.js';
 import { readArticle } from './lib/reader.js';
 import { fetchSummary } from './lib/summary.js';
+import { fetchHass, searchHass, callHass } from './lib/hass.js';
+import { fetchStocks, searchSymbols } from './lib/stocks.js';
+import { Backups } from './lib/backups.js';
 import * as google from './lib/google.js';
-import { articleFilter, youtubeFeedURL, youtubeChannelID } from './public/shared.js';
+import { articleFilter, youtubeFeedURL, youtubeChannelID, YOUTUBE_REFRESH } from './public/shared.js';
 
 installDnsCache();
 
@@ -64,13 +67,16 @@ initGeocodeCache(DATA);
 // peuvent créer des comptes.
 const accounts = new Accounts(DATA);
 // Notifications : le service du fabricant exige une adresse de contact pour l'exploitant du serveur.
+// Sauvegarde automatique de toute l'installation, chaque nuit (data/backups/, quatorze jours gardés).
+const backups = new Backups(DATA, accounts);
+backups.start();
 const push = new Push(DATA, process.env.LOOKOUT_CONTACT || 'https://github.com/gharl77/lookout');
 
 // --- Données des sections ---
 // Chaque source n'est interrogée qu'une fois par intervalle : celui de sa section s'il est défini, sinon
 // celui des réglages généraux (« refreshMinutes », 30 minutes par défaut), peu importe combien de fois la page est ouverte ou actualisée : les sites qui limitent les
-// accès ne voient donc jamais plus de requêtes que prévu. Seule exception : après un échec, une nouvelle
-// tentative est permise au bout de 2 minutes. L'utilisateur peut aussi demander la mise à jour immédiate
+// accès ne voient donc jamais plus de requêtes que prévu. Seule exception : après un échec, deux nouvelles
+// tentatives sont permises à 2 minutes d'intervalle ; une source qui reste en panne retrouve ensuite le rythme normal. L'utilisateur peut aussi demander la mise à jour immédiate
 // d'une seule section (icône de rechargement de la carte), au plus une fois par minute. Enfin, pendant
 // qu'un match d'une équipe suivie est en cours, les pointages sont rafraîchis chaque minute.
 
@@ -95,7 +101,11 @@ setInterval(() => {
 }, 3600e3).unref();
 
 // Le résumé appelle un service payant : jamais plus d'une fois par heure, quel que soit l'intervalle choisi.
-const intervalMs = (section, config) => Math.max(section?.kind === 'summary' ? 60 : 1, Number(section?.refreshMinutes) || Number(config.general.refreshMinutes) || 30) * 60e3;
+// Une section YouTube laissée à l'intervalle « par défaut » est interrogée une fois l'heure : chaque mise à jour
+// demande le fil de chacune des chaînes, et une chaîne publie rarement plus souvent.
+const intervalMs = (section, config) => Math.max(section?.kind === 'summary' ? 60 : 1,
+  Number(section?.refreshMinutes) || (section?.kind === 'feed' && section.feed.youtube ? YOUTUBE_REFRESH : 0) || Number(config.general.refreshMinutes) || 30) * 60e3;
+const FAST_RETRIES = 2;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
   || (payload.routes ?? []).some((route) => route.error);
 /** Un match d'une équipe suivie est-il en cours ? (Toute la ligue compte si aucune équipe n'est choisie.) */
@@ -115,14 +125,17 @@ function hasLiveGame(payload, section) {
 function nextUpdate(entry, section, config) {
   let wait = intervalMs(section, config);
   // Après un échec, on réessaie vite — sauf pour le résumé, dont chaque essai peut être un appel payant.
-  if (hasErrors(entry.payload)) wait = Math.min(wait, section?.kind === 'summary' ? 15 * 60e3 : RETRY_MS);
+  // Une source qui échoue encore après deux essais rapprochés (chaîne supprimée, fil fermé) ne fait plus redemander
+  // toute la section toutes les deux minutes : elle sera réessayée au rythme normal.
+  if (hasErrors(entry.payload) && (entry.retries ?? 0) <= FAST_RETRIES) wait = Math.min(wait, section?.kind === 'summary' ? 15 * 60e3 : RETRY_MS);
   if (hasLiveGame(entry.payload, section)) wait = Math.min(wait, LIVE_MS);   // pendant un match : chaque minute
   return entry.time + wait;
 }
 
 /** Journalise les sources en échec (visible avec « docker logs lookout »), pour comprendre une alerte après coup. */
 function logSourceErrors(section, sourceErrors = {}) {
-  const names = new Map([...section.feed.sources, ...section.sports.leagues].map((x) => [x.id, x.name]));
+  const names = new Map([...section.feed.sources, ...section.sports.leagues, ...section.calendar.calendars, ...section.hass.entities.map((e) => ({ id: e.id, name: e.entity })),
+    ...section.stocks.symbols.map((x) => ({ id: x.id, name: x.symbol }))].map((x) => [x.id, x.name]));
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
 
@@ -246,6 +259,8 @@ function noteHealth(section, payload) {
     if (source.enabled !== false && (section.kind === 'feed' || section.kind === 'sports')) mark(source.id, payload.sourceErrors?.[source.id] ?? null);
   }
   if (section.kind === 'calendar') for (const c of section.calendar.calendars) if (c.enabled !== false && c.url) mark(c.id, payload.sourceErrors?.[c.id] ?? null);
+  if (section.kind === 'hass') for (const e of section.hass.entities) if (e.enabled !== false && e.entity) mark(e.id, payload.sourceErrors?.[e.id] ?? null);
+  if (section.kind === 'stocks') for (const x of section.stocks.symbols) if (x.enabled !== false && x.symbol) mark(x.id, payload.sourceErrors?.[x.id] ?? null);
   for (const route of payload.routes ?? []) if (route.id) mark(route.id, route.error ?? null);
 }
 setInterval(() => {
@@ -263,7 +278,8 @@ function healthReport() {
     for (const section of accounts.profile(user.id).config.sections) {
       if (!section.enabled) continue;
       const parts = [{ id: '', name: null },
-        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'commute' ? section.commute.routes : section.kind === 'calendar' ? section.calendar.calendars : [])
+        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'commute' ? section.commute.routes : section.kind === 'calendar' ? section.calendar.calendars
+          : section.kind === 'hass' ? section.hass.entities.map((e) => ({ ...e, name: e.name || e.entity })) : section.kind === 'stocks' ? section.stocks.symbols.map((x) => ({ ...x, name: x.name || x.symbol })) : [])
           .filter((x) => x.enabled !== false)];
       for (const part of parts) {
         const entry = health.get(`${section.id}|${part.id}`);
@@ -309,6 +325,8 @@ async function loadSection(section, config, force = false) {
         : section.kind === 'sports' ? await fetchSports(withSharedKey(section.sports, 'apiSportsKey'))
         : section.kind === 'releases' ? await fetchReleases(withSharedKey(section.releases, 'tmdbKey'))
         : section.kind === 'calendar' ? await fetchCalendar(section.calendar, process.env.TZ)
+        : section.kind === 'hass' ? await fetchHass(section.hass)
+        : section.kind === 'stocks' ? await fetchStocks(section.stocks)
         : section.kind === 'summary' ? await summarize(section, config)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
@@ -323,7 +341,7 @@ async function loadSection(section, config, force = false) {
       payload = stale ? { ...stale, error: message } : { kind: section.kind, error: message, sourceErrors: {}, updatedAt: null };
     }
     // Les échecs sont mémorisés aussi : une source en panne n'est pas redemandée à chaque chargement de page.
-    const entry = { time: Date.now(), payload };
+    const entry = { time: Date.now(), payload, retries: hasErrors(payload) ? (cached?.retries ?? 0) + 1 : 0 };
     cache.set(key, entry);
     noteHealth(section, payload);
     return { ...payload, nextUpdateAt: nextUpdate(entry, section, config) };
@@ -495,13 +513,21 @@ async function api(req, res, url) {
     requireAdmin(user);
     const body = await readBody(req, 30e6);
     if (!accounts.checkOwnPassword(user.id, body?.password)) throw new BriefingError('Mot de passe incorrect');
-    if (route === 'POST /api/backup') { console.log(`Sauvegarde complète téléchargée par « ${user.name} ».`); return send(res, 200, accounts.exportAll()); }
-    const done = accounts.restoreAll(body?.backup);
+    // `name` : une sauvegarde automatique gardée sur le serveur, plutôt que l'état actuel ou un fichier envoyé.
+    if (route === 'POST /api/backup') { console.log(`Sauvegarde complète téléchargée par « ${user.name} ».`); return send(res, 200, body?.name ? backups.read(body.name) : accounts.exportAll()); }
+    const done = accounts.restoreAll(body?.name ? backups.read(body.name) : body?.backup);
     cache.clear(); delivered.clear(); configSeen.clear();
     console.log(`Sauvegarde restaurée par « ${user.name} » : ${done.users} profil(s). Les données précédentes sont mises de côté.`);
     return send(res, 200, done, { 'Set-Cookie': sessionCookie(req, null) });
   }
 
+  if (route === 'GET /api/backups') { requireAdmin(user); return send(res, 200, { keep: backups.keep, files: backups.list() }); }
+  if (route === 'POST /api/backups') {
+    requireAdmin(user);
+    backups.create();
+    console.log(`Sauvegarde faite à la demande de « ${user.name} ».`);
+    return send(res, 200, { keep: backups.keep, files: backups.list() });
+  }
   if (route === 'GET /api/health') { requireAdmin(user); return send(res, 200, healthReport()); }
 
   // --- Profils (administrateur) ---
@@ -666,6 +692,19 @@ async function api(req, res, url) {
     const done = await syncYouTube(user.id, String((await readBody(req))?.section ?? ''));
     return send(res, 200, { ...done, config: redact(accounts.profile(user.id).config) });
   }
+  // --- Home Assistant : choisir des entités, actionner celles de la section ---
+  if (route === 'GET /api/hass/entities') return send(res, 200, await searchHass(findSection(q.get('section')).hass, q.get('q') ?? ''));
+  if (route === 'POST /api/hass/call') {
+    const body = await readBody(req);
+    const section = findSection(String(body?.section ?? ''));
+    // Seules les entités que le profil a placées dans la section peuvent être actionnées, et seulement s'il l'a permis.
+    const listed = section.kind === 'hass' && section.hass.entities.some((e) => e.enabled !== false && String(e.entity).trim().toLowerCase() === String(body?.entity ?? '').trim().toLowerCase());
+    if (!listed || section.hass.allowControl === false) throw Object.assign(new BriefingError('Cette entité ne peut pas être actionnée depuis Lookout'), { status: 403 });
+    await callHass(section.hass, body.entity);
+    for (const key of cache.keys()) if (key.startsWith(`${section.id}|`)) cache.delete(key);   // l'état vient de changer
+    return send(res, 200, await loadSection(section, profile.config));
+  }
+  if (route === 'GET /api/stocks/search') return send(res, 200, await searchSymbols(q.get('q') ?? ''));
   if (route === 'GET /api/youtube/channel') return send(res, 200, await resolveChannel(q.get('q')));
   if (route === 'GET /api/weather/search') return send(res, 200, await searchPlaces(q.get('q') ?? ''));
   if (route === 'GET /api/teams') {

@@ -21,8 +21,9 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 - Fonctionne dans n'importe quel navigateur ; sur iPhone, s'ajoute à l'écran d'accueil comme une app
 - Thèmes clair et sombre, couleur d'accent, densité et nombre de colonnes réglables
 - Plusieurs pages (onglets), disposition par glisser-déposer avec annulation, et pastille sur les articles parus depuis votre dernière visite
-- Recherche dans tous les articles, liste « À lire plus tard », filtres par mots-clés
-- Notifications sur iPhone, iPad, Mac et PC : alertes météo, matchs de vos équipes, nouveaux articles
+- Recherche dans tous les articles et les agendas, liste « À lire plus tard », filtres et mots-clés suivis
+- Agenda (iCal), Home Assistant (états et interrupteurs), Bourse et devises
+- Notifications sur iPhone, iPad, Mac et PC : alertes météo, matchs de vos équipes, nouveaux articles, résumé du matin, heures calmes
 - Mode affichage pour un écran mural ou une télé
 - Un nouveau profil est accueilli par quelques questions qui préparent son tableau de bord
 - Interface bilingue (français / anglais)
@@ -124,7 +125,8 @@ mot de passe). Par la suite, seuls les administrateurs peuvent créer des compte
   plafond et un suivi de la dépense par profil. Un onglet liste les sources en panne de tous les profils.
 - **Sauvegarde complète** (Réglages → Sauvegarde) : un seul fichier avec tous les comptes, les réglages de chaque
   profil et les clés d'API, à restaurer sur le même serveur ou sur une installation neuve. Gardez-le en lieu sûr :
-  il contient les clés.
+  il contient les clés. Une sauvegarde automatique est aussi écrite chaque nuit dans `data/backups/` (quatorze
+  jours gardés).
 - **Créez l'administrateur dès l'installation.** Tant qu'il n'existe pas, la première personne qui ouvre la page
   peut le créer.
 

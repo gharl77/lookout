@@ -191,6 +191,31 @@ The upcoming events of one or more calendars, grouped by day.
 - **Display**: period (today up to 30 days), location, today's events that have already ended.
 - Recurring events, exceptions and all-day events are handled.
 
+
+### Home Assistant
+
+The state of the entities you choose: temperatures, doors, lights, vacuum, power use…
+
+- **Connection**: the Home Assistant address and a **long-lived access token** (in Home Assistant: your
+  profile → *Security* → *Long-lived access tokens*). The token stays on the Lookout server and is no longer
+  shown once saved.
+- **Entities**: *Choose entities…* searches those of Home Assistant; Lookout only reads the ones you tick, in
+  the order you give them. Each can have a display name.
+- **Controls**: the card offers a switch for lights, plugs, fans and helper toggles, and a button for covers,
+  scenes, scripts and automations. The option can be turned off; locks and alarms can never be operated from
+  Lookout.
+- The Lookout server must be able to reach Home Assistant (same network, or a public address).
+
+### Stocks and currencies
+
+Quotes for stocks, indexes and currency pairs, with the change for the day.
+
+- *Search for a stock…* finds a symbol by company name; *Suggestions* offers the main indexes and common
+  currencies.
+- Symbols are those of Yahoo Finance: `SHOP.TO` (Toronto Stock Exchange), `USDCAD=X` (currencies), `^GSPTSE`
+  (index).
+- Quotes are often delayed by about fifteen minutes and are given for information only.
+
 ### Releases
 
 Season premieres of series (TVmaze, no key) and movies in theatres or upcoming (TMDB, free key), for a country
@@ -221,16 +246,19 @@ the one the administrator has opened to you.
 - **Mark all as read**: the ✓ button in a card's header marks all its displayed articles; a banner lets you
   undo. It only appears while unread articles remain.
 - **Duplicates**: when several sections on the same page receive the same story (top stories, world,
-  politics…), only the first one in page order shows it; the others show their next article. Turn it off under
+  politics…), only the first one in page order shows it; the others show their next article. Under the
+  article, *also in…* names the sections that received it too. Turn it off under
   *Settings → Reading and filters*.
+- **Followed keywords** (*Settings → Reading and filters*): an article containing one is highlighted in all
+  your sections, and can trigger a notification.
 - Right-click an article (desktop): open, copy link, save for later, mark read or unread.
 
 ![The Reading and filters pane](../images/en/reglages-lecture.jpg)
 
 ## Search
 
-The magnifying glass, or the `/` key, searches the articles of **all** your sections, across every page, and
-*Read later*. With several words, all must be present.
+The magnifying glass, or the `/` key, searches the articles of **all** your sections, across every page, the
+events of your calendars and *Read later*. With several words, all must be present.
 
 ![Search](../images/en/recherche.jpg)
 
@@ -259,7 +287,16 @@ it with the bookmark button in the top bar.
 - a new **weather alert** for one of your weather sections;
 - the **start of a game** of a team you follow, and its **final score** if you turn that on;
 - a **new article** in a section where you turned on *Notify about new articles*. Tapping the notification
-  opens the article. Beyond three new items at once, a single notification announces them.
+  opens the article. Beyond three new items at once, a single notification announces them;
+- an article containing one of your **followed keywords**, in any of your feeds (except YouTube).
+
+**Quiet hours.** During the chosen range (10 p.m. to 7 a.m. by default) nothing is sent, and nothing is sent
+later to catch up. Weather alerts can still get through.
+
+**Morning summary.** At the chosen time, one notification brings together the weather, today's events and the
+top headlines of your first sections.
+
+Quiet hours and the morning summary follow the server's clock.
 
 Each device subscribes separately. The *Send a test notification* button checks the full path for this device.
 How quickly an article notification arrives depends on the section's interval.
@@ -290,8 +327,8 @@ setting by keyword.
 | | Appearance | Theme, accent colour, backdrop, density, number of columns |
 | | Display mode | Duration of each page; start the mode |
 | Preferences | General | Language, units, greeting, default update interval |
-| | Reading and filters | Dim read articles; built-in reader; words hidden or highlighted in every feed |
-| | Notifications | Subscribe this device; choose what triggers a notification |
+| | Reading and filters | Dim read articles; duplicates; built-in reader; hidden words and followed keywords in every feed |
+| | Notifications | Subscribe this device; choose what triggers a notification; quiet hours; morning summary |
 | Account | My account | Password, sign-out |
 | | My data | Export, import or reset your own configuration |
 | — | About | Version, location of your settings, links |
@@ -302,7 +339,9 @@ Administrators also see the *Administration* group: see the [administration guid
 
 **Updating sources.** Each source is queried at most once per interval, even if you reload the page more
 often: this keeps sites from blocking you. The default interval is 30 minutes; scores and commutes use
-5 minutes, releases and the summary 2 hours. Each section can have its own.
+5 minutes, as does Home Assistant; the calendar and stocks use 15 minutes, YouTube one hour, releases and the
+summary 2 hours. Each section can have its own. A failing source is retried twice, two minutes apart, then at
+the normal pace.
 
 **Export and import.** The exported file contains your sections, sources and preferences, but neither your
 keys nor your tokens.
@@ -311,8 +350,13 @@ keys nor your tokens.
 
 | Key | Action |
 |---|---|
-| `/` or `Cmd`/`Ctrl`+`K` | Search articles |
+| `/` or `Cmd`/`Ctrl`+`K` | Search articles and calendars |
 | `R` | Refresh all sections |
+| `E` | Arrange the dashboard |
+| `L` | Open *Read later* |
+| `1` to `9` | Go to the page at that position |
+| `←` `→` | Previous or next page |
+| `?` | Show the list of shortcuts |
 | `Cmd`/`Ctrl`+`,` | Open settings |
 | `Escape` | Close a window, cancel a drag, leave display mode |
 

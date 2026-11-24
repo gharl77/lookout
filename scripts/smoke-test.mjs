@@ -114,13 +114,14 @@ await check('les clés enregistrées ne sont jamais renvoyées au navigateur', a
   const s = withKeys.sections[0];
   Object.assign(s.sports, { apiSportsKey: secret });
   Object.assign(s.commute, { tomtomKey: secret, hassToken: secret });
+  Object.assign(s.hass, { url: 'http://127.0.0.1:9', token: secret });
   s.api.headers = `Authorization: Bearer ${secret}\nAccept: application/json`;
   const saved = await request('/api/config', { method: 'PUT', ...json(withKeys) });
   expect(!(await saved.text()).includes(secret), 'la réponse à l\'enregistrement contient la clé');
   const body = await (await request('/api/config')).text();
   expect(!body.includes(secret), 'GET /api/config contient la clé');
   const masked = JSON.parse(body).sections[0];
-  expect(masked.sports.apiSportsKey && masked.commute.tomtomKey && masked.commute.hassToken, 'le masque est absent : la clé semble perdue');
+  expect(masked.sports.apiSportsKey && masked.commute.tomtomKey && masked.commute.hassToken && masked.hass.token, 'le masque est absent : la clé semble perdue');
   expect(masked.api.headers.includes('Authorization:') && masked.api.headers.includes('Accept:'), 'les noms des en-têtes ont disparu');
   // Remet la configuration de départ (champs vidés explicitement).
   expect((await request('/api/config', { method: 'PUT', ...json(config) })).status === 200, 'remise en état refusée');
@@ -271,6 +272,23 @@ await check("notifications : clé du serveur, abonnement limité aux services co
   expect((await request('/api/push/subscribe', { method: 'POST', ...json({ subscription: { endpoint: 'https://web.push.apple.com/abc', keys } }) })).status === 200, 'abonnement valide refusé');
   expect((await request('/api/push/unsubscribe', { method: 'POST', ...json({ endpoint: 'https://web.push.apple.com/abc' }) })).status === 200, 'désabonnement refusé');
   expect((await request('/api/push/test', { method: 'POST', ...json({}) })).status === 400, "l'appareil désabonné reçoit encore");
+});
+await check('sauvegardes automatiques : listées, faites à la demande, protégées par le mot de passe', async () => {
+  const made = await (await request('/api/backups', { method: 'POST', ...json({}) })).json();
+  expect(made.keep >= 7 && made.files.length === 1 && /^lookout-\d{4}-\d{2}-\d{2}\.json$/.test(made.files[0].name) && made.files[0].users === 1, 'sauvegarde à la demande absente de la liste');
+  const name = made.files[0].name;
+  expect((await request('/api/backup', { method: 'POST', ...json({ password: 'mauvais-mot-de-passe', name }) })).status === 400, 'sauvegarde automatique remise sans le bon mot de passe');
+  const file = await (await request('/api/backup', { method: 'POST', ...json({ password: ADMIN.password, name }) })).json();
+  expect(file.format === 'lookout-backup' && file.users.length === 1, 'sauvegarde automatique illisible');
+  for (const bad of ['../users.json', 'lookout-1999-01-01.json', 'users.json']) {
+    expect((await request('/api/backup', { method: 'POST', ...json({ password: ADMIN.password, name: bad }) })).status === 400, `nom de sauvegarde accepté : ${bad}`);
+    expect((await request('/api/restore', { method: 'POST', ...json({ password: ADMIN.password, name: bad }) })).status === 400, `restauration acceptée : ${bad}`);
+  }
+});
+await check('Home Assistant : seules les entités de la section peuvent être actionnées', async () => {
+  expect((await request('/api/hass/call', { method: 'POST', ...json({ section: 'inconnue', entity: 'light.x' }) })).status === 400, 'section inconnue acceptée');
+  expect((await request('/api/hass/call', { method: 'POST', ...json({ section: config.sections[0].id, entity: 'light.x' }) })).status === 403, 'entité hors de la section actionnée');
+  expect((await request('/api/stocks/search?q=a')).status === 200, 'recherche de symbole trop courte refusée');
 });
 await check('sauvegarde complète : téléchargement protégé, restauration fidèle, données précédentes mises de côté', async () => {
   expect((await request('/api/backup', { method: 'POST', ...json({ password: 'mauvais-mot-de-passe' }) })).status === 400, 'sauvegarde remise sans le bon mot de passe');

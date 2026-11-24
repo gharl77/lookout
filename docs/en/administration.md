@@ -131,12 +131,13 @@ profiles**, with how long they have been failing and when they last answered.
 
 ## Backup and restore
 
-Three levels, from simplest to most complete.
+Four ways, from simplest to most complete.
 
 | Means | Content | Keys included |
 |---|---|---|
 | *My data → Export* | One profile's configuration | No |
 | *Backup → Download* | Every account, profile, “read later” list and the shared keys | Yes |
+| Automatic backups (`data/backups/`) | The same content, every night, fourteen days kept | Yes |
 | Copy of the `/data` folder | Everything, including notification subscriptions and Google tokens | Yes |
 
 ![The Backup pane](../images/en/reglages-sauvegarde.jpg)
@@ -148,6 +149,15 @@ Three levels, from simplest to most complete.
   backup was made.
 - The data in place is not deleted: it is moved to `data/avant-restauration-<date>/`.
 - The file is checked in full before anything is written; an invalid file changes nothing.
+
+**Automatic backups**
+- Every night, around 3 a.m. (server time), Lookout writes a full backup to `data/backups/`
+  (`lookout-YYYY-MM-DD.json`) and keeps only the fourteen most recent. If the server was stopped at that time,
+  it is made at the next start.
+- *Settings → Backup* lists them: each can be downloaded or restored, with your password. *Back up now* makes
+  one on the spot, for example before an update.
+- These files contain the API keys: they are readable only by the container's user. They live on the same disk
+  as everything else; to guard against a server failure, copy `data/backups/` elsewhere from time to time.
 
 ## Updating
 

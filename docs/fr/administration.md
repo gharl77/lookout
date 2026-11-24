@@ -136,12 +136,13 @@ confondus**, avec la durée de la panne et la dernière réponse reçue.
 
 ## Sauvegarde et restauration
 
-Trois niveaux, du plus simple au plus complet.
+Quatre moyens, du plus simple au plus complet.
 
 | Moyen | Contenu | Clés comprises |
 |---|---|---|
 | *Mes données → Exporter* | La configuration d'un seul profil | Non |
 | *Sauvegarde → Télécharger* | Tous les comptes, profils, listes « à lire plus tard » et clés partagées | Oui |
+| Sauvegardes automatiques (`data/backups/`) | Le même contenu, chaque nuit, quatorze jours gardés | Oui |
 | Copie du dossier `/data` | Tout, y compris les abonnements aux notifications et les jetons Google | Oui |
 
 ![La rubrique Sauvegarde](../images/fr/reglages-sauvegarde.jpg)
@@ -153,6 +154,16 @@ Trois niveaux, du plus simple au plus complet.
   avait au moment de la sauvegarde.
 - Les données en place ne sont pas supprimées : elles sont déplacées dans `data/avant-restauration-<date>/`.
 - Le fichier est vérifié en entier avant toute écriture ; un fichier invalide ne touche à rien.
+
+**Sauvegardes automatiques**
+- Chaque nuit, vers 3 h (heure du serveur), Lookout écrit une sauvegarde complète dans `data/backups/`
+  (`lookout-AAAA-MM-JJ.json`) et ne garde que les quatorze plus récentes. Si le serveur était arrêté à ce
+  moment, elle est faite à son prochain démarrage.
+- *Réglages → Sauvegarde* les liste : chacune peut être téléchargée ou restaurée, mot de passe à l'appui.
+  *Sauvegarder maintenant* en fait une sur-le-champ, par exemple avant une mise à jour.
+- Ces fichiers contiennent les clés d'API : ils ne sont lisibles que par l'utilisateur du conteneur. Ils se
+  trouvent sur le même disque que le reste ; pour vous protéger d'une panne du serveur, copiez `data/backups/`
+  ailleurs de temps à autre.
 
 ## Mise à jour
 

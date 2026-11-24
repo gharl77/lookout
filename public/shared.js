@@ -18,6 +18,8 @@ export const KINDS = {
   sports: { label: 'Pointages sportifs', detail: 'Résultats et matchs à venir (API ESPN, HockeyTech ou API-Sports)', icon: 'sportscourt.fill', color: '#F59E0B', maxItems: 8 },
   api: { label: 'API JSON', detail: "Liste tirée de n'importe quelle API JSON", icon: 'curlybraces', color: '#8B5CF6', maxItems: 6 },
   calendar: { label: 'Agenda', detail: 'Prochains événements de vos calendriers (adresse iCal : Google, iCloud, Outlook)', icon: 'calendar', color: '#EC4899', maxItems: 8 },
+  hass: { label: 'Home Assistant', detail: 'États de vos entités, avec interrupteurs (jeton d’accès longue durée)', icon: 'house.fill', color: '#14B8A6', maxItems: 12 },
+  stocks: { label: 'Bourse et devises', detail: 'Cours de titres, d’indices et de devises (Yahoo Finance)', icon: 'chart.line.uptrend.xyaxis', color: '#22C55E', maxItems: 8 },
   releases: { label: 'Sorties', detail: 'Films en salle et nouvelles saisons de séries (TMDB, TVmaze)', icon: 'film.fill', color: '#F97316', maxItems: 12 },
   summary: { label: 'Résumé du jour', detail: "L'essentiel de vos fils, résumé par Claude (API Anthropic)", icon: 'bolt.fill', color: '#8B5CF6', maxItems: 5 },
 };
@@ -241,7 +243,7 @@ export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
  * Intervalle propre à un type de section, en minutes ; 0 = suivre l'intervalle par défaut des réglages.
  * Les pointages et les trajets changent vite : ils sont interrogés plus souvent que les nouvelles.
  */
-export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120, calendar: 15 };
+export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120, calendar: 15, hass: 5, stocks: 15 };
 
 export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apisports: 'API-Sports' };
 
@@ -253,6 +255,9 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
   displaySeconds: 30,
   notifyAlerts: true, notifyGameStart: true, notifyGameEnd: false,
+  notifyKeywords: false,   // notification quand un article contient un mot-clé suivi (highlightKeywords)
+  quietHours: false, quietStart: '22:00', quietEnd: '07:00', quietAllowAlerts: true,   // heures calmes : aucune notification, sauf les alertes météo si on le veut
+  morningBrief: false, morningTime: '07:00',   // résumé du matin envoyé en notification
   onboarded: true };   // faux pour un profil tout neuf : il est accueilli par quelques questions à sa première visite   // ce qui déclenche une notification                      // mode affichage : durée de chaque page (0 = ne pas changer de page)
 const FEED = { sources: [], layout: 'list', ordering: 'balanced', showImages: true, showSummary: false, showSource: true,
   showTime: true, maxAgeHours: 48, includeKeywords: '', excludeKeywords: '', highlightKeywords: '',
@@ -287,6 +292,21 @@ export function articleFilter(options, general = {}, now = Date.now()) {
 
 const CALENDAR = { calendars: [], days: 7, showLocation: true, showEnded: false };
 export const calendarSource = (name = '', url = '') => ({ id: uuid(), name, url, enabled: true, colorHex: '' });
+const HASS = { url: '', token: '', entities: [], allowControl: true };
+export const hassEntity = (entity = '', name = '') => ({ id: uuid(), entity, name, enabled: true });
+/** Domaines Home Assistant qu'un toucher peut actionner, et le service appelé. Les serrures et les alarmes n'en font pas partie. */
+export const HASS_ACTIONS = { light: 'toggle', switch: 'toggle', input_boolean: 'toggle', fan: 'toggle', cover: 'toggle', scene: 'turn_on', script: 'turn_on',
+  button: 'press', input_button: 'press', automation: 'trigger' };
+const STOCKS = { symbols: [], showChange: true };
+export const stockSymbol = (symbol = '', name = '') => ({ id: uuid(), symbol, name, enabled: true });
+/** Heure « HH:MM » valide, sinon la valeur de repli. */
+export const clockTime = (value, fallback) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value)) ? String(value) : fallback);
+/** Libellés des codes météo de l'OMM (clés françaises, traduites à l'affichage). */
+export const WMO_LABELS = { 0: 'Dégagé', 1: 'Généralement dégagé', 2: 'Partiellement nuageux', 3: 'Couvert', 45: 'Brouillard', 48: 'Brouillard',
+  51: 'Bruine', 53: 'Bruine', 55: 'Bruine', 56: 'Bruine verglaçante', 57: 'Bruine verglaçante', 61: 'Pluie faible', 63: 'Pluie',
+  65: 'Pluie forte', 66: 'Pluie verglaçante', 67: 'Pluie verglaçante', 71: 'Neige faible', 73: 'Neige', 75: 'Neige forte',
+  77: 'Grains de neige', 80: 'Averses', 81: 'Averses', 82: 'Averses fortes', 85: 'Averses de neige', 86: 'Averses de neige',
+  95: 'Orage', 96: 'Orage et grêle', 99: 'Orage et grêle' };
 const RELEASES = { country: 'CA', days: 7, showMovies: true, showSeries: true, tmdbKey: '' };
 /** Modèles offerts pour le résumé, du plus capable au plus économique. */
 export const SUMMARY_MODELS = [['claude-opus-5-5', 'Claude Opus 5.5'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5'], ['claude-haiku-5-5', 'Claude Haiku 5.5']];
@@ -305,7 +325,7 @@ export function newSection(kind, overrides = {}) {
     page: '',     // page du tableau de bord (vide = première page)
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API),
-    releases: clone(RELEASES), summary: clone(SUMMARY), calendar: clone(CALENDAR), ...overrides };
+    releases: clone(RELEASES), summary: clone(SUMMARY), calendar: clone(CALENDAR), hass: clone(HASS), stocks: clone(STOCKS), ...overrides };
 }
 
 /** Identifiant de la vidéo dans une adresse YouTube (vidéo, Short ou lien court), ou null. */
@@ -318,10 +338,13 @@ export const youtubeFeedURL = (channelID, videosOnly = false) => (videosOnly ? `
 /** Identifiant de chaîne contenu dans l'adresse d'un fil YouTube, ou null. */
 export const youtubeChannelID = (url) => /channel_id=(UC[\w-]{22})/.exec(url)?.[1] ?? (/playlist_id=UULF([\w-]{22})/.exec(url) ? `UC${/playlist_id=UULF([\w-]{22})/.exec(url)[1]}` : null);
 
+/** Intervalle par défaut d'une section YouTube, en minutes : une chaîne publie rarement plus d'une vidéo par heure. */
+export const YOUTUBE_REFRESH = 60;
 /** Section YouTube : des vignettes, les plus récentes d'abord, sur deux colonnes. */
 export function youtubeSection() {
   const s = newSection('feed', { title: 'YouTube', icon: 'film.fill', colorHex: '#EF4444', span: 2, maxItems: 8 });
   Object.assign(s.feed, { youtube: true, layout: 'grid', ordering: 'newest', maxAgeHours: 168, showSource: true });
+  s.refreshMinutes = YOUTUBE_REFRESH;
   return s;
 }
 
@@ -348,6 +371,7 @@ export function template(kind) {
   if (kind === 'feed') { s.title = 'Nouveau fil'; s.feed.sources = [catalogSource('Radio-Canada – À la une')]; }
   if (kind === 'commute') s.commute.routes = [commuteRoute('Nouveau trajet')];
   if (kind === 'sports') s.sports.leagues = [league('LNH', 'hockey/nhl')];
+  if (kind === 'stocks') s.stocks.symbols = [['S&P/TSX', '^GSPTSE'], ['S&P 500', '^GSPC'], ['USD → CAD', 'USDCAD=X'], ['EUR → CAD', 'EURCAD=X']].map(([name, symbol]) => stockSymbol(symbol, name));
   if (kind === 'api') {
     s.title = 'Hacker News';
     s.icon = 'flame.fill';
@@ -394,6 +418,7 @@ export function normalize(input) {
   if (!config.pages.length) config.pages.push(newPage('Accueil'));
   // Intervalle de mise à jour : toujours une valeur offerte dans les réglages (30 minutes sinon).
   if (!REFRESH_CHOICES.includes(config.general.refreshMinutes)) config.general.refreshMinutes = 30;
+  for (const [key, fallback] of [['quietStart', GENERAL.quietStart], ['quietEnd', GENERAL.quietEnd], ['morningTime', GENERAL.morningTime]]) config.general[key] = clockTime(config.general[key], fallback);
   for (const raw of input.sections) {
     if (!raw || !KINDS[raw.kind]) continue;
     const s = newSection(raw.kind, { ...raw });
@@ -415,6 +440,10 @@ export function normalize(input) {
     s.releases = { ...RELEASES, ...(raw.releases ?? {}) };
     s.calendar = { ...CALENDAR, ...(raw.calendar ?? {}) };
     s.calendar.calendars = (Array.isArray(s.calendar.calendars) ? s.calendar.calendars : []).map((x) => ({ ...calendarSource(), ...x }));
+    s.hass = { ...HASS, ...(raw.hass ?? {}) };
+    s.hass.entities = (Array.isArray(s.hass.entities) ? s.hass.entities : []).filter((x) => x && typeof x === 'object').map((x) => ({ ...hassEntity(), ...x })).slice(0, 60);
+    s.stocks = { ...STOCKS, ...(raw.stocks ?? {}) };
+    s.stocks.symbols = (Array.isArray(s.stocks.symbols) ? s.stocks.symbols : []).filter((x) => x && typeof x === 'object').map((x) => ({ ...stockSymbol(), ...x })).slice(0, 40);
     s.summary = { ...SUMMARY, ...(raw.summary ?? {}) };
     if (!Array.isArray(s.summary.sections)) s.summary.sections = [];
     if (!SUMMARY_MODELS.some(([id]) => id === s.summary.model)) s.summary.model = SUMMARY.model;
@@ -432,6 +461,8 @@ export function fetchSignature(s, units) {
       s.sports.showStandings, s.sports.leagues.map((l) => l.teams.map((x) => x.id))]
     : s.kind === 'releases' ? s.releases
     : s.kind === 'calendar' ? [s.calendar.calendars.map((c) => [c.id, c.url, c.enabled, c.name, c.colorHex]), s.calendar.days, s.calendar.showEnded]
+    : s.kind === 'hass' ? [s.hass.url, s.hass.token, s.hass.entities.map((e) => [e.id, e.entity, e.enabled])]
+    : s.kind === 'stocks' ? s.stocks.symbols.map((x) => [x.id, x.symbol, x.enabled])
     : s.kind === 'summary' ? [s.summary, s.maxItems]
     : [s.api, s.title];
   return JSON.stringify([s.kind, units, data]);

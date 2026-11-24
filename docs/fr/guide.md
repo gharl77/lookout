@@ -198,6 +198,30 @@ Les prochains événements d'un ou plusieurs calendriers, regroupés par jour.
 - **Affichage** : période (d'aujourd'hui à 30 jours), lieu, événements d'aujourd'hui déjà terminés.
 - Les événements répétés, les exceptions et les journées entières sont pris en compte.
 
+### Home Assistant
+
+L'état des entités de votre choix : températures, portes, lumières, aspirateur, consommation…
+
+- **Connexion** : l'adresse de Home Assistant et un **jeton d'accès longue durée** (dans Home Assistant : votre
+  profil → *Sécurité* → *Jetons d'accès de longue durée*). Le jeton reste sur le serveur de Lookout et n'est
+  plus affiché une fois enregistré.
+- **Entités** : *Choisir des entités…* cherche parmi celles de Home Assistant ; Lookout ne lit que celles que
+  vous cochez, dans l'ordre que vous leur donnez. Chacune peut recevoir un nom d'affichage.
+- **Commandes** : la carte offre un interrupteur pour les lumières, les prises, les ventilateurs et les
+  interrupteurs virtuels, et un bouton pour les stores, les scènes, les scripts et les automatisations.
+  L'option se désactive ; les serrures et les alarmes ne peuvent jamais être actionnées depuis Lookout.
+- Le serveur de Lookout doit pouvoir joindre Home Assistant (même réseau, ou adresse publique).
+
+### Bourse et devises
+
+Le cours de titres, d'indices et de paires de devises, avec la variation du jour.
+
+- *Rechercher un titre…* trouve un symbole par le nom de l'entreprise ; *Suggestions* propose les grands
+  indices et les devises courantes.
+- Les symboles sont ceux de Yahoo Finance : `SHOP.TO` (Bourse de Toronto), `USDCAD=X` (devises), `^GSPTSE`
+  (indice).
+- Les cours sont souvent différés d'une quinzaine de minutes et donnés à titre indicatif.
+
 ### Sorties
 
 Les premières de saisons de séries (TVmaze, sans clé) et les films en salle ou à venir (TMDB, clé gratuite),
@@ -230,15 +254,18 @@ que l'administrateur vous a ouverte.
   bandeau permet d'annuler. Il n'apparaît que s'il reste des articles non lus.
 - **Doublons** : quand plusieurs sections d'une même page reçoivent la même nouvelle (à la une, international,
   politique…), seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant.
-  Se désactive dans *Réglages → Lecture et filtres*.
+  Sous l'article, la mention *aussi dans…* nomme les sections qui l'ont reçu elles aussi. Se désactive dans
+  *Réglages → Lecture et filtres*.
+- **Mots-clés suivis** (*Réglages → Lecture et filtres*) : un article qui en contient un est mis en évidence
+  dans toutes vos sections, et peut déclencher une notification.
 - Clic droit sur un article (ordinateur) : ouvrir, copier le lien, garder pour plus tard, marquer lu ou non lu.
 
 ![La rubrique Lecture et filtres](../images/fr/reglages-lecture.jpg)
 
 ## Recherche
 
-La loupe, ou la touche `/`, cherche dans les articles de **toutes** vos sections, toutes pages confondues, et
-dans *À lire plus tard*. Plusieurs mots doivent tous être présents.
+La loupe, ou la touche `/`, cherche dans les articles de **toutes** vos sections, toutes pages confondues, dans
+les événements de vos agendas et dans *À lire plus tard*. Plusieurs mots doivent tous être présents.
 
 ![La recherche](../images/fr/recherche.jpg)
 
@@ -267,7 +294,16 @@ appareils. Elle s'ouvre par le bouton à signet de la barre du haut.
 - une nouvelle **alerte météo** pour une de vos sections météo ;
 - le **début d'un match** d'une équipe suivie, et son **résultat final** si vous l'activez ;
 - un **nouvel article** dans une section où vous avez activé *Notifier les nouveaux articles*. Un toucher sur
-  la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce.
+  la notification ouvre l'article. Au-delà de trois nouveautés d'un coup, une seule notification les annonce ;
+- un article qui contient un de vos **mots-clés suivis**, dans n'importe lequel de vos fils (sauf YouTube).
+
+**Heures calmes.** Pendant la plage choisie (22 h à 7 h par défaut), rien n'est envoyé, et rien n'est rattrapé
+ensuite. Les alertes météo peuvent passer quand même.
+
+**Résumé du matin.** À l'heure choisie, une notification réunit la météo, vos rendez-vous du jour et les grands
+titres de vos premières sections.
+
+Les heures calmes et le résumé du matin suivent l'heure du serveur.
 
 Chaque appareil s'abonne séparément. Le bouton *Envoyer une notification d'essai* vérifie le chemin complet
 pour cet appareil. Le délai d'une notification d'article dépend de l'intervalle de la section.
@@ -298,8 +334,8 @@ la navigation retrouve un réglage par mot-clé.
 | | Apparence | Thème, couleur d'accent, arrière-plan, densité, nombre de colonnes |
 | | Mode affichage | Durée de chaque page ; lancer le mode |
 | Préférences | Général | Langue, unités, message d'accueil, intervalle de mise à jour par défaut |
-| | Lecture et filtres | Atténuer les articles lus ; lecteur intégré ; mots masqués ou mis en évidence dans tous les fils |
-| | Notifications | Abonner cet appareil ; choisir ce qui déclenche une notification |
+| | Lecture et filtres | Atténuer les articles lus ; doublons ; lecteur intégré ; mots masqués et mots-clés suivis dans tous les fils |
+| | Notifications | Abonner cet appareil ; choisir ce qui déclenche une notification ; heures calmes ; résumé du matin |
 | Compte | Mon compte | Mot de passe, déconnexion |
 | | Mes données | Exporter, importer ou réinitialiser sa propre configuration |
 | — | À propos | Version, emplacement des réglages, liens |
@@ -310,7 +346,9 @@ Les administrateurs voient en plus le groupe *Administration* : voir le [guide d
 
 **Mise à jour des sources.** Chaque source est interrogée au plus une fois par intervalle, même si vous
 rechargez la page plus souvent : cela évite qu'un site vous bloque. L'intervalle par défaut est de 30 minutes ;
-les pointages et les trajets ont 5 minutes, les sorties et le résumé 2 heures. Chaque section peut avoir le sien.
+les pointages, les trajets et Home Assistant ont 5 minutes, l'agenda et la Bourse 15 minutes, YouTube une heure,
+les sorties et le résumé 2 heures. Chaque section peut avoir le sien. Une source en panne est réessayée deux
+fois à deux minutes d'intervalle, puis au rythme normal.
 
 **Export et import.** Le fichier exporté contient vos sections, vos sources et vos préférences, mais ni vos
 clés ni vos jetons.
@@ -319,8 +357,13 @@ clés ni vos jetons.
 
 | Touche | Action |
 |---|---|
-| `/` ou `Cmd`/`Ctrl`+`K` | Rechercher dans les articles |
+| `/` ou `Cmd`/`Ctrl`+`K` | Rechercher dans les articles et les agendas |
 | `R` | Actualiser toutes les sections |
+| `E` | Organiser le tableau de bord |
+| `L` | Ouvrir *À lire plus tard* |
+| `1` à `9` | Aller à la page de ce rang |
+| `←` `→` | Page précédente ou suivante |
+| `?` | Afficher la liste des raccourcis |
 | `Cmd`/`Ctrl`+`,` | Ouvrir les réglages |
 | `Échap` | Fermer une fenêtre, annuler un glissement, quitter le mode affichage |
 

@@ -1,7 +1,7 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, fmt, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, calendarSource, newPage, uuid, SECRET_MASK,
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, calendarSource, hassEntity, stockSymbol, YOUTUBE_REFRESH, newPage, uuid, SECRET_MASK,
   categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions, SUMMARY_MODELS } from './shared.js';
 
 let closeCurrent = null;
@@ -85,7 +85,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
   const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
   const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
-  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points' };
+  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points', hass: "Nombre d'entités", stocks: 'Nombre de cours' };
 
   function iconPicker(s) {
     return h('button', { class: 'btn', 'aria-label': 'Choisir une icône', onClick: (e) => openPopover(e.currentTarget, (close) =>
@@ -105,7 +105,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       s.kind !== 'weather' && line(ITEMS_LABEL[s.kind], stepper(s, 'maxItems', 1, 40)),
       // Après le changement, on redemande la section : le serveur applique tout de suite le nouvel intervalle.
       line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.loadSection(s.id)) }, select(s, 'refreshMinutes',
-        [[0, t('Par défaut ({0} min)', config().general.refreshMinutes)], ...REFRESH_CHOICES.map((m) => [m, intervalLabel(m)])], { label: 'Interroger les sources' }))),
+        [[0, t('Par défaut ({0} min)', s.kind === 'feed' && s.feed.youtube ? YOUTUBE_REFRESH : config().general.refreshMinutes)], ...REFRESH_CHOICES.map((m) => [m, intervalLabel(m)])], { label: 'Interroger les sources' }))),
     ], KINDS[s.kind].detail);
   }
 
@@ -506,6 +506,108 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     ])];
   }
 
+  // --- Home Assistant ---
+  /** Fenêtre de choix : cherche parmi les entités de Home Assistant et ajoute celles qu'on coche. */
+  function hassPicker(s) {
+    const list = s.hass.entities;
+    openDialog((close) => {
+      const results = h('div', { class: 'pick-list', style: { minHeight: '180px' } }), note = h('p', { class: 'a-meta' });
+      const query = h('input', { class: 'field', type: 'search', placeholder: 'ex. salon, température, porte', 'aria-label': 'Rechercher une entité', autofocus: true });
+      let timer = null, latest = 0;
+      const has = (entity) => list.some((e) => e.entity === entity);
+      const search = async () => {
+        const turn = ++latest;
+        note.textContent = t('Recherche…');
+        try {
+          await app.saveNow();   // le serveur doit connaître l'adresse et le jeton
+          const found = await api(`/api/hass/entities?section=${encodeURIComponent(s.id)}&q=${encodeURIComponent(query.value.trim())}`);
+          if (turn !== latest) return;
+          const draw = () => results.replaceChildren(...found.map((e) => h('button', { class: 'pick', role: 'checkbox', 'aria-checked': String(has(e.entity)), onClick: () => {
+            const at = list.findIndex((x) => x.entity === e.entity);
+            if (at >= 0) list.splice(at, 1); else list.push(hassEntity(e.entity));
+            commit(); draw();
+          } }, icon(has(e.entity) ? 'check-on' : 'check-off'),
+          h('span', {}, document.createTextNode(e.name), h('small', {}, document.createTextNode(` ${e.entity} · ${e.state}${e.unit ? ` ${e.unit}` : ''}`))))));
+          draw();
+          note.textContent = found.length ? (found.length >= 80 ? t('Les 80 premières entités. Précisez la recherche pour en voir d’autres.') : '') : t('Aucune entité ne correspond.');
+        } catch (error) { if (turn === latest) { results.replaceChildren(); note.textContent = error.message; } }
+      };
+      query.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(search, 350); });
+      search();
+      return [h('h3', {}, 'Choisir des entités'), query, note, results, h('div', { class: 'actions' }, h('button', { class: 'btn primary', onClick: () => { close(); render(); } }, 'Terminé'))];
+    }, { cls: 'dialog wide', onClose: () => render() });
+  }
+  function hassEditor(s) {
+    const o = s.hass, list = o.entities, ready = Boolean(String(o.url).trim() && String(o.token).trim());
+    return [
+      group('Connexion', [
+        line('Adresse', text(o, 'url', { placeholder: 'http://homeassistant.local:8123', mono: true, label: 'Adresse de Home Assistant' })),
+        line('Jeton', text(o, 'token', { placeholder: "Jeton d'accès longue durée", mono: true, label: "Jeton d'accès" })),
+      ], "Dans Home Assistant : votre profil (en bas à gauche) → Sécurité → « Jetons d'accès de longue durée » → Créer un jeton. Une fois enregistré, le jeton reste sur le serveur de Lookout et n'est plus affiché."),
+      group('Entités', [
+        list.map((e) => h('div', { class: 'item' },
+          toggle(e, 'enabled', { label: t('Activer {0}', e.name || e.entity), rerender: true }),
+          h('div', { class: 'fields' }, text(e, 'name', { placeholder: app.state.data.get(s.id)?.entities?.find((x) => x.id === e.id)?.name ?? 'Nom affiché (facultatif)' }),
+            h('input', { class: 'sub mono', value: e.entity, placeholder: 'ex. sensor.temperature_salon', 'aria-label': "Identifiant de l'entité", autocapitalize: 'off', spellcheck: 'false',
+              onInput: (ev) => { e.entity = ev.target.value.trim(); commit(); } })),
+          statusDot(s, e.id, e.enabled), rowControls(list, e))),
+        h('div', { class: 'line' },
+          h('button', { class: 'btn', disabled: !ready, title: ready ? null : "Indiquez d'abord l'adresse et le jeton", onClick: () => hassPicker(s) }, icon('search'), 'Choisir des entités…'),
+          h('button', { class: 'btn', onClick: () => { list.push(hassEntity()); commit(); render(); } }, icon('plus'), 'Ajouter par identifiant')),
+      ], "Lookout ne lit que les entités listées ici, dans cet ordre. Sans nom affiché, celui de Home Assistant est utilisé."),
+      group('Commandes', [
+        line('Actionner les entités depuis la carte', toggle(o, 'allowControl', { label: 'Actionner les entités depuis la carte' })),
+      ], "Activé, la carte offre un interrupteur pour les lumières, les prises, les ventilateurs et les interrupteurs virtuels, et un bouton pour les stores, les scènes, les scripts et les automatisations. Les serrures et les alarmes ne peuvent jamais être actionnées d'ici."),
+    ];
+  }
+
+  // --- Bourse et devises ---
+  const STOCK_IDEAS = [['Indices'], ['S&P/TSX', '^GSPTSE'], ['S&P 500', '^GSPC'], ['Dow Jones', '^DJI'], ['Nasdaq', '^IXIC'], ['CAC 40', '^FCHI'],
+    ['Devises'], ['USD → CAD', 'USDCAD=X'], ['EUR → CAD', 'EURCAD=X'], ['CAD → USD', 'CADUSD=X'], ['EUR → USD', 'EURUSD=X'],
+    ['Autres'], ['Bitcoin (CAD)', 'BTC-CAD'], ['Or', 'GC=F'], ['Pétrole (WTI)', 'CL=F']];
+  function stockSearch(s) {
+    const list = s.stocks.symbols;
+    openDialog((close) => {
+      const results = h('div', { class: 'pick-list', style: { minHeight: '140px' } }, h('p', {}, 'Tapez le nom d’une entreprise ou un symbole.')), note = h('p', {});
+      const query = h('input', { class: 'field', type: 'search', placeholder: 'ex. Shopify, Apple, BNC', 'aria-label': 'Rechercher un titre', autofocus: true });
+      let timer = null, latest = 0;
+      const search = async () => {
+        const q = query.value.trim(), turn = ++latest;
+        if (q.length < 2) return;
+        try {
+          const found = await api(`/api/stocks/search?q=${encodeURIComponent(q)}`);
+          if (turn !== latest) return;
+          results.replaceChildren(...(found.length ? found.map((x) => h('button', { class: 'pick', disabled: list.some((y) => y.symbol === x.symbol), onClick: (e) => {
+            list.push(stockSymbol(x.symbol, x.name));
+            commit();
+            e.currentTarget.disabled = true;
+            note.textContent = t('« {0} » ajoutée.', x.name);
+          } }, icon('plus'), h('span', {}, document.createTextNode(x.name), h('small', {}, document.createTextNode(` ${x.symbol}${x.where ? ` · ${x.where}` : ''}`))))) : [h('p', {}, 'Aucun titre trouvé.')]));
+        } catch (error) { if (turn === latest) results.replaceChildren(h('p', {}, error.message)); }
+      };
+      query.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(search, 350); });
+      return [h('h3', {}, 'Ajouter un titre'), query, results, note, h('div', { class: 'actions' }, h('button', { class: 'btn primary', onClick: close }, 'Terminé'))];
+    }, { onClose: () => render() });
+  }
+  function stocksEditor(s) {
+    const o = s.stocks, list = o.symbols;
+    return [group('Cours suivis', [
+      list.map((x) => h('div', { class: 'item' },
+        toggle(x, 'enabled', { label: t('Activer {0}', x.name || x.symbol), rerender: true }),
+        h('div', { class: 'fields' }, text(x, 'name', { placeholder: 'Nom affiché' }),
+          h('input', { class: 'sub mono', value: x.symbol, placeholder: 'ex. SHOP.TO, AAPL, USDCAD=X', 'aria-label': 'Symbole', autocapitalize: 'characters', spellcheck: 'false',
+            onInput: (e) => { x.symbol = e.target.value.trim().toUpperCase(); commit(); } })),
+        statusDot(s, x.id, x.enabled), rowControls(list, x))),
+      h('div', { class: 'line' },
+        h('button', { class: 'btn', onClick: () => stockSearch(s) }, icon('search'), 'Rechercher un titre…'),
+        h('button', { class: 'btn', onClick: (e) => openMenu(e.currentTarget, STOCK_IDEAS.map(([name, symbol]) => (symbol
+          ? { label: name, disabled: list.some((x) => x.symbol === symbol), action: () => { list.push(stockSymbol(symbol, t(name))); commit(); render(); } } : { heading: name }))) }, 'Suggestions', icon('down'))),
+    ], "Les symboles sont ceux de Yahoo Finance : « .TO » pour la Bourse de Toronto (SHOP.TO), « =X » pour une paire de devises (USDCAD=X), « ^ » pour un indice (^GSPTSE)."),
+    group('Affichage', [
+      line('Variation du jour', toggle(o, 'showChange', { label: 'Variation du jour' })),
+    ], "Cours fournis par Yahoo Finance, sans clé, souvent différés d'une quinzaine de minutes. À titre indicatif seulement : ce service n'est pas garanti et peut cesser de répondre.")];
+  }
+
   // --- Résumé du jour ---
   function summaryEditor(s) {
     const o = s.summary, shared = app.sharedKeys?.anthropicKey;
@@ -535,6 +637,8 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       s.kind === 'api' && [apiEditor(s), articleDisplay(s, false)],
       s.kind === 'releases' && releasesEditor(s),
       s.kind === 'calendar' && calendarEditor(s),
+      s.kind === 'hass' && hassEditor(s),
+      s.kind === 'stocks' && stocksEditor(s),
       s.kind === 'summary' && summaryEditor(s)];
   }
 
@@ -818,8 +922,8 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       ], "Le lecteur affiche le texte de l'article sans quitter Lookout. Activé, un clic sur un article l'ouvre dans le lecteur ; sinon, utilisez le bouton en forme de livre sur chaque article. Certains sites réservés aux abonnés ne s'y prêtent pas : un bouton ouvre alors l'article sur le site."),
       group('Filtres pour tous les fils', [
         line('Masquer partout', text(g, 'muteKeywords', { placeholder: 'ex. horoscope, célébrités', label: 'Masquer partout' })),
-        line('Mettre en évidence partout', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mettre en évidence partout' })),
-      ], "Mots ou expressions séparés par des virgules, cherchés dans le titre et le résumé. Ils s'ajoutent aux filtres propres à chaque section."));
+        line('Mots-clés suivis', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mots-clés suivis' })),
+      ], "Mots ou expressions séparés par des virgules, cherchés dans le titre et le résumé. Ils s'ajoutent aux filtres propres à chaque section. Un article qui contient un mot-clé suivi est mis en évidence dans toutes vos sections ; pour en être aussi averti, voyez Notifications."));
   }
   function notificationsPane() {
     return pane("Être averti d'une alerte météo, d'un match ou d'un nouvel article, même quand Lookout est fermé.", notificationsGroup(config().general));
@@ -837,7 +941,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   }
   function backupPane() {
     const note = h('p', {});
-    return pane("Toute l'installation dans un seul fichier, pour la reconstruire sur ce serveur ou sur un autre.", fullBackup(note), note);
+    return pane("Toute l'installation dans un seul fichier, pour la reconstruire sur ce serveur ou sur un autre.", autoBackups(note), fullBackup(note), note);
   }
   function aboutPane() {
     const link = (label, href) => h('a', { href, target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } }, label);
@@ -941,7 +1045,19 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       line('Alertes météo', toggle(g, 'notifyAlerts', { label: 'Alertes météo' })),
       line("Début d'un match de mes équipes", toggle(g, 'notifyGameStart', { label: "Début d'un match" })),
       line("Résultat final d'un match de mes équipes", toggle(g, 'notifyGameEnd', { label: 'Résultat final' })),
-    ], "Lookout surveille vos sections météo et sports même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Les nouveaux articles s'activent section par section, dans les réglages de chaque section.")];
+      line('Article qui contient un de mes mots-clés suivis', toggle(g, 'notifyKeywords', { label: 'Mots-clés suivis', rerender: true })),
+      g.notifyKeywords && line('Mots-clés suivis', text(g, 'highlightKeywords', { placeholder: 'ex. Montréal, tempête', label: 'Mots-clés suivis' })),
+    ], "Lookout surveille vos sections même quand la page est fermée. Pour les matchs, seules les ligues où vous avez choisi des équipes comptent. Les mots-clés suivis sont cherchés dans tous vos fils (sauf YouTube) ; pour recevoir tous les nouveaux articles d'une section, activez l'option dans les réglages de cette section."),
+    group('Heures calmes', [
+      line('Ne rien envoyer pendant certaines heures', toggle(g, 'quietHours', { label: 'Heures calmes', rerender: true })),
+      g.quietHours && line('De', text(g, 'quietStart', { type: 'time', bare: false, label: 'Début des heures calmes' })),
+      g.quietHours && line('À', text(g, 'quietEnd', { type: 'time', bare: false, label: 'Fin des heures calmes' })),
+      g.quietHours && line('Laisser passer les alertes météo', toggle(g, 'quietAllowAlerts', { label: 'Laisser passer les alertes météo' })),
+    ], "Pendant ces heures, aucune notification n'est envoyée, et celles qui auraient dû l'être ne sont pas rattrapées ensuite. L'heure est celle du serveur."),
+    group('Résumé du matin', [
+      line('Recevoir un résumé chaque matin', toggle(g, 'morningBrief', { label: 'Résumé du matin', rerender: true })),
+      g.morningBrief && line('Heure', text(g, 'morningTime', { type: 'time', bare: false, label: 'Heure du résumé du matin' })),
+    ], "Une notification avec la météo, vos rendez-vous du jour et les grands titres de vos premières sections. Elle arrive sur les appareils abonnés, même pendant les heures calmes. L'heure est celle du serveur.")];
   }
 
   // --- Données ---
@@ -996,6 +1112,45 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     }, { onClose: () => resolve(answer) });
   });
 
+  /** Sauvegardes automatiques gardées sur le serveur : la liste se charge d'elle-même. */
+  function autoBackups(note) {
+    const box = h('div', {}, h('div', { class: 'line' }, h('span', { class: 'spinner' })));
+    const lang = document.documentElement.lang;
+    const size = (bytes) => (bytes < 1e6 ? `${Math.max(1, Math.round(bytes / 1000))} ko` : `${fmt.number(bytes / 1e6, 1)} Mo`);
+    const save = (backup, name) => {
+      const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' })), download: `Lookout-sauvegarde-${name}.json` });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+    const download = async (file) => {
+      const password = await askPassword('Télécharger cette sauvegarde', "Le fichier contient tous les profils, leurs réglages, leurs clés d'API et les clés partagées. Gardez-le en lieu sûr.", 'Télécharger');
+      if (!password) return;
+      try { save(await api('/api/backup', { method: 'POST', body: { password, name: file.name } }), file.day); } catch (error) { note.textContent = error.message; }
+    };
+    const restore = async (file, day) => {
+      const password = await askPassword(t('Restaurer la sauvegarde du {0} ?', day),
+        "Tous les profils actuels seront remplacés par ceux de cette sauvegarde. Tout le monde devra se reconnecter, avec le mot de passe qu'il avait à ce moment-là. Les données actuelles sont mises de côté sur le serveur.", 'Restaurer');
+      if (!password) return;
+      try { await api('/api/restore', { method: 'POST', body: { password, name: file.name } }); location.reload(); } catch (error) { note.textContent = error.message; }
+    };
+    const draw = ({ files, keep }) => {
+      const dayLabel = (file) => new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${file.day}T12:00:00Z`));
+      box.replaceChildren(group('Sauvegardes automatiques', [
+        files.map((file) => h('div', { class: 'line' },
+          h('span', { class: 'lbl' }, dayLabel(file), h('small', { class: 'sub-line' }, [file.users != null && (file.users > 1 ? t('{0} profils', file.users) : t('1 profil')), size(file.size)].filter(Boolean).join(' · '))),
+          h('div', { class: 'ctl' },
+            h('button', { class: 'btn', onClick: () => download(file) }, icon('download'), 'Télécharger…'),
+            h('button', { class: 'btn danger', onClick: () => restore(file, dayLabel(file)) }, icon('reset'), 'Restaurer…')))),
+        !files.length && h('div', { class: 'line' }, 'Aucune sauvegarde pour le moment : la première sera faite cette nuit.'),
+        h('div', { class: 'line' }, h('button', { class: 'btn', onClick: async () => {
+          try { draw(await api('/api/backups', { method: 'POST', body: {} })); note.textContent = t('Sauvegarde faite.'); } catch (error) { note.textContent = error.message; }
+        } }, icon('plus'), 'Sauvegarder maintenant')),
+      ], t("Chaque nuit, vers 3 h, Lookout écrit toute l'installation dans le dossier « backups » de ses données, et garde les {0} dernières. Ces fichiers contiennent les clés d'API : le dossier de données ne doit être lisible que par vous. Pour vous protéger d'une panne du serveur lui-même, copiez-les de temps à autre ailleurs.", keep)));
+    };
+    api('/api/backups').then(draw).catch((error) => box.replaceChildren(h('p', {}, error.message)));
+    return box;
+  }
+
   function fullBackup(note) {
     const download = async () => {
       const password = await askPassword('Télécharger la sauvegarde complète', "Le fichier contient tous les profils, leurs réglages, leurs clés d'API et les clés partagées. Gardez-le en lieu sûr.", 'Télécharger');
@@ -1023,10 +1178,10 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         location.reload();
       } catch (error) { note.textContent = error instanceof SyntaxError ? t("Ce fichier n'est pas du JSON valide.") : error.message; }
     } });
-    return group(null, [
+    return group('Sauvegarde manuelle', [
       line('Télécharger tous les profils', h('button', { class: 'btn', onClick: download }, icon('download'), 'Télécharger…')),
       line('Restaurer une sauvegarde', h('button', { class: 'btn danger', onClick: () => fileInput.click() }, icon('upload'), 'Restaurer…'), fileInput),
-    ], "Réservé aux administrateurs. Contrairement à l'export ci-dessus, ce fichier contient tout : les comptes, les réglages de chaque profil et les clés d'API. Il permet de reconstruire l'installation sur un autre serveur.");
+    ], "Réservé aux administrateurs. Contrairement à l'export de « Mes données », ce fichier contient tout : les comptes, les réglages de chaque profil et les clés d'API. Il permet de reconstruire l'installation sur un autre serveur.");
   }
 
   // --- Compte ---
@@ -1332,13 +1487,13 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const admin = app.user?.role === 'admin';
   const NAV = [
     { title: 'Tableau de bord', items: [
-      ['sections', 'Sections et pages', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé agenda calendrier onglets ajouter supprimer cards feeds weather calendar tabs pages add'],
+      ['sections', 'Sections et pages', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé agenda calendrier home assistant domotique bourse devises actions stocks currencies onglets ajouter supprimer cards feeds weather calendar tabs pages add'],
       ['appearance', 'Apparence', () => icon('sliders'), 'thème sombre clair couleur accent densité colonnes arrière-plan theme dark light color density columns'],
       ['display', 'Mode affichage', () => sfIcon('desktopcomputer'), 'écran mural télé plein écran wall screen tv kiosk'] ] },
     { title: 'Préférences', items: [
       ['general', 'Général', () => icon('gear'), 'langue unités prénom accueil intervalle mise à jour language units greeting refresh'],
-      ['reading', 'Lecture et filtres', () => sfIcon('newspaper.fill'), 'articles lus lecteur mots masquer évidence read reader words hide highlight'],
-      ['notifications', 'Notifications', () => sfIcon('bell.fill'), 'alertes matchs articles iphone appareil alerts games device'] ] },
+      ['reading', 'Lecture et filtres', () => sfIcon('newspaper.fill'), 'articles lus lecteur mots masquer évidence mots-clés suivis doublons read reader words hide highlight keywords duplicates'],
+      ['notifications', 'Notifications', () => sfIcon('bell.fill'), 'alertes matchs articles iphone appareil heures calmes ne pas déranger résumé du matin mots-clés alerts games device quiet hours do not disturb morning summary keywords'] ] },
     { title: 'Compte', items: [
       ['account', 'Mon compte', () => icon('user'), 'mot de passe déconnexion session password sign out'],
       ['data', 'Mes données', () => icon('drive'), 'exporter importer réinitialiser configuration export import reset'] ] },
@@ -1346,7 +1501,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       ['users', 'Profils', () => icon('users'), 'utilisateurs comptes en ligne appareils users accounts online devices'],
       ['keys', 'Clés partagées', () => icon('key'), 'tomtom tmdb anthropic google api-sports api keys'],
       ['health', 'État des sources', () => icon('shield'), 'pannes fils erreurs santé failing health errors'],
-      ['backup', 'Sauvegarde', () => icon('download'), 'restaurer télécharger restore download backup'] ] }] : []),
+      ['backup', 'Sauvegarde', () => icon('download'), 'restaurer télécharger automatique nuit restore download backup automatic nightly'] ] }] : []),
     { title: null, items: [['about', 'À propos', () => sfIcon('tag.fill'), 'version licence github license']] },
   ];
   const PANES = { sections: sectionsTab, general: generalPane, appearance: appearancePane, reading: readingPane, notifications: notificationsPane,

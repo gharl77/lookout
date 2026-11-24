@@ -116,10 +116,10 @@ async function loadSection(id, force = false) {
   state.data.set(id, payload);
   state.loading.delete(id);
   renderCard(id);
-  // Les sections placées après celle-ci peuvent maintenant avoir des doublons à écarter (ou à reprendre).
+  // Les sections placées après celle-ci peuvent maintenant avoir des doublons à écarter (ou à reprendre) ; celles
+  // placées avant indiquent, sous leurs articles, que cette section les reçoit aussi.
   if (payload.articles && general().dedupeArticles) {
-    const list = visible(), at = list.findIndex((s) => s.id === id);
-    if (at >= 0) for (const s of list.slice(at + 1)) if (state.data.get(s.id)?.articles) renderCard(s.id);
+    for (const s of visible()) if (s.id !== id && state.data.get(s.id)?.articles) renderCard(s.id);
   }
   renderHero();
   updateToolbar();
@@ -270,8 +270,9 @@ async function googleFollowUp() {
 // Les sections des autres pages sont demandées au serveur à l'ouverture ; il les sert depuis son cache.
 function searchDialog() {
   if (hasOverlay()) return;
+  const calendars = state.config.sections.filter((s) => s.enabled && s.kind === 'calendar');
   const feeds = state.config.sections.filter((s) => s.enabled && (s.kind === 'feed' || s.kind === 'api'));
-  for (const s of feeds) if (!state.data.has(s.id) && !state.loading.has(s.id)) loadSection(s.id);
+  for (const s of [...feeds, ...calendars]) if (!state.data.has(s.id) && !state.loading.has(s.id)) loadSection(s.id);
   let timer = null;
   openDialog((close) => {
     const input = h('input', { class: 'field search-input', type: 'search', placeholder: t('Rechercher dans les articles'), 'aria-label': 'Rechercher dans les articles', autofocus: true,
@@ -287,18 +288,28 @@ function searchDialog() {
           for (const a of state.data.get(s.id)?.articles ?? []) if (keep(a) && match(a) && !found.has(a.link ?? a.id)) found.set(a.link ?? a.id, { ...a, where: s.title, section: s });
         }
         for (const a of state.saved) if (match(a) && !found.has(a.link)) found.set(a.link, { ...a, where: t('À lire plus tard') });
+        // Événements des agendas : cherchés dans le titre et le lieu.
+        for (const s of calendars) {
+          for (const e of state.data.get(s.id)?.events ?? []) {
+            const text = `${e.title} ${e.location ?? ''} ${e.calendar ?? ''}`.toLowerCase();
+            if (words.every((w) => text.includes(w))) found.set(`e:${s.id}:${e.start}:${e.title}`, { title: e.title || t('(sans titre)'), link: e.link || null, date: e.start, event: e, where: s.title });
+          }
+        }
       }
       const list = [...found.values()].sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).slice(0, 60);
       results.replaceChildren(...list.map((a) => h(a.link ? 'a' : 'div', { class: 'saved-item search-item', href: a.link, target: '_blank', rel: 'noopener noreferrer',
         onClick: (e) => {
           if (a.section) setRead([a.id], true);
+          if (!a.link) return;
           if (a.section?.feed.playInline !== false && youtubeVideoID(a.link) && !e.metaKey && !e.ctrlKey) { e.preventDefault(); close(); playVideo(a); }
         } },
-      h('span', { class: 'a-title' }, a.title), h('span', { class: 'a-meta' }, [a.where, a.source !== a.where && a.source, a.date && fmt.ago(a.date)].filter(Boolean).join(' · ')))));
-      const pendingCount = feeds.filter((s) => state.loading.has(s.id)).length;
-      status.textContent = !words.length ? t('Tapez un ou plusieurs mots. La recherche couvre toutes vos sections et « À lire plus tard ».')
+      h('span', { class: 'a-title' }, a.title), h('span', { class: 'a-meta' }, (a.event
+        ? [a.where, a.event.allDay ? new Intl.DateTimeFormat(document.documentElement.lang, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(a.date) : fmt.dayTime(a.date), a.event.location]
+        : [a.where, a.source !== a.where && a.source, a.date && fmt.ago(a.date)]).filter(Boolean).join(' · ')))));
+      const pendingCount = [...feeds, ...calendars].filter((s) => state.loading.has(s.id)).length;
+      status.textContent = !words.length ? t('Tapez un ou plusieurs mots. La recherche couvre les articles de toutes vos pages, vos agendas et « À lire plus tard ».')
         : pendingCount ? t('{0} résultats — chargement des autres sections…', list.length)
-        : list.length ? t('{0} résultats', list.length) : t('Aucun article ne contient ces mots.');
+        : list.length ? t('{0} résultats', list.length) : t('Rien ne contient ces mots.');
       // Tant que des sections arrivent, les résultats se complètent d'eux-mêmes.
       clearTimeout(timer);
       if (pendingCount) timer = setTimeout(draw, 600);
@@ -419,7 +430,33 @@ function skipFor(section) {
   return null;   // section absente de la page affichée
 }
 
-const ctx = { get general() { return general(); }, skipFor, isRead: (id) => state.readIDs.has(id), setRead,
+// Clés des articles qu'une section afficherait sans le tri des doublons (mémorisées tant que ses données et ses filtres ne changent pas).
+const keyIndex = new Map();   // id de section -> { articles, stamp, keys }
+function sectionKeys(s) {
+  const articles = state.data.get(s.id)?.articles;
+  if (!articles) return null;
+  const stamp = `${s.feed.includeKeywords}|${s.feed.excludeKeywords}|${s.feed.maxAgeHours}|${general().muteKeywords}`, known = keyIndex.get(s.id);
+  if (known?.articles === articles && known.stamp === stamp) return known.keys;
+  const keys = new Set(articles.filter(articleFilter(s.feed, general())).flatMap(articleKeys));
+  keyIndex.set(s.id, { articles, stamp, keys });
+  return keys;
+}
+/** Titres des sections placées après celle-ci qui reçoivent la même nouvelle (et ne l'affichent donc pas). */
+function alsoIn(article, section) {
+  if (!general().dedupeArticles) return [];
+  const list = visible(), at = list.findIndex((s) => s.id === section.id), keys = articleKeys(article);
+  if (at < 0 || !keys.length) return [];
+  return list.slice(at + 1).filter((s) => { const theirs = sectionKeys(s); return theirs && keys.some((key) => theirs.has(key)); }).map((s) => s.title);
+}
+
+// --- Home Assistant : actionner une entité depuis sa carte ---
+async function callEntity(s, entity) {
+  try { state.data.set(s.id, await api('/api/hass/call', { method: 'POST', body: { section: s.id, entity } })); }
+  catch (error) { showNotice(error.message); }
+  renderCard(s.id);
+}
+
+const ctx = { get general() { return general(); }, skipFor, alsoIn, get callEntity() { return app.viewing ? null : callEntity; }, isRead: (id) => state.readIDs.has(id), setRead,
   get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, get readArticle() { return app.display ? null : readArticle; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 
@@ -862,7 +899,8 @@ async function sendSection(anchor, s) {
 function showNotice(message) { showToast(message, 'OK', () => {}); }
 
 function sourceErrorText(s, payload) {
-  const names = new Map([...s.feed.sources, ...s.sports.leagues].map((x) => [x.id, x.name]));
+  const names = new Map([...s.feed.sources, ...s.sports.leagues, ...s.calendar.calendars, ...s.hass.entities.map((e) => ({ id: e.id, name: e.name || e.entity })),
+    ...s.stocks.symbols.map((x) => ({ id: x.id, name: x.name || x.symbol }))].map((x) => [x.id, x.name]));
   return Object.entries(payload.sourceErrors ?? {}).map(([id, message]) => `${names.get(id) ?? t('Source')} : ${message}`).sort().join('\n');
 }
 
@@ -874,7 +912,7 @@ function newBadge(s, payload) {
 
 function buildCard(s) {
   const payload = state.data.get(s.id), loading = state.loading.has(s.id);
-  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary || payload.events);
+  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary || payload.events || payload.entities || payload.quotes);
   const errors = payload ? sourceErrorText(s, payload) : '';
 
   const controls = state.editing
@@ -1291,10 +1329,22 @@ function renderUserButton() {
     { heading: app.user.name },
     { label: 'Mon compte…', icon: icon('user'), action: () => openSettings(app, { tab: 'account' }) },
     { label: 'Mode affichage', icon: sfIcon('desktopcomputer'), action: () => startDisplay() },
+    !matchMedia('(pointer: coarse)').matches && { label: 'Raccourcis clavier', icon: icon('key'), action: shortcutsDialog },
     app.user.role === 'admin' && { label: 'Profils…', icon: icon('users'), action: () => openSettings(app, { tab: 'users' }) },
     '-',
     { label: 'Se déconnecter', icon: icon('signout'), action: signOut },
   ]);
+}
+
+// --- Raccourcis clavier ---
+const SHORTCUTS = [[['/'], 'Rechercher dans les articles et les agendas'], [['⌘', 'K'], 'Rechercher (Ctrl+K sous Windows et Linux)'], [['R'], 'Actualiser les sections'],
+  [['E'], 'Organiser le tableau de bord'], [['L'], 'Ouvrir « À lire plus tard »'], [['1', '…', '9'], 'Aller à la page de ce rang'], [['←', '→'], 'Page précédente ou suivante'],
+  [['⌘', ','], 'Ouvrir les réglages'], [['?'], 'Afficher cette aide'], [['Échap'], 'Fermer une fenêtre, quitter le mode affichage']];
+function shortcutsDialog() {
+  if (hasOverlay()) return;
+  openDialog((close) => [h('h3', {}, 'Raccourcis clavier'),
+    h('dl', { class: 'shortcuts' }, SHORTCUTS.map(([keys, label]) => [h('dt', {}, keys.map((k) => (k === '…' ? h('span', {}, '…') : h('kbd', {}, k)))), h('dd', {}, label)])),
+    h('div', { class: 'actions' }, h('button', { class: 'btn primary', onClick: close }, 'Fermer'))]);
 }
 
 $('btn-refresh').append(icon('refresh'));
@@ -1313,6 +1363,15 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'r' && !e.metaKey && !e.ctrlKey && !e.altKey) refreshAll();
   if ((e.key === '/' && !e.metaKey && !e.ctrlKey) || (e.key === 'k' && (e.metaKey || e.ctrlKey))) { e.preventDefault(); if (state.config && !app.display) searchDialog(); }
   if (e.key === ',' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSettings(app); }
+  if (e.metaKey || e.ctrlKey || e.altKey || !state.config || app.display) return;
+  if (e.key === '?') shortcutsDialog();
+  if (e.key === 'e' && !app.viewing) setEditing(!state.editing);
+  if (e.key === 'l' && state.saved.length && !app.viewing) savedDialog();
+  // Pages : par leur rang, ou de proche en proche avec les flèches.
+  const list = pages(), at = list.findIndex((p) => p.id === currentPage());
+  if (/^[1-9]$/.test(e.key) && list[Number(e.key) - 1] && list.length > 1) showPage(list[Number(e.key) - 1].id);
+  if (e.key === 'ArrowRight' && list.length > 1) showPage(list[(at + 1) % list.length].id);
+  if (e.key === 'ArrowLeft' && list.length > 1) showPage(list[(at - 1 + list.length) % list.length].id);
 });
 
 (async () => {

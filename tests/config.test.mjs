@@ -42,3 +42,18 @@ test("clés et adresses de calendrier : masquées à l'aller, conservées au ret
   orphan.sections[0].id = 'autre';
   assert.equal(restoreSecrets(orphan, stored).sections[0].calendar.calendars[0].url, '');
 });
+
+test('le jeton Home Assistant est masqué, puis conservé quand le masque revient', () => {
+  const section = newSection('hass');
+  Object.assign(section.hass, { url: 'http://ha.test:8123', token: 'jeton-secret' });
+  const stored = normalize({ sections: [section] });
+  const sent = redact(stored);
+  assert.equal(sent.sections[0].hass.token, SECRET_MASK);
+  assert.ok(!JSON.stringify(sent).includes('jeton-secret'));
+  assert.equal(restoreSecrets(normalize(sent), stored).sections[0].hass.token, 'jeton-secret');
+});
+
+test('les heures invalides reviennent à leur valeur par défaut', () => {
+  const g = normalize({ general: { quietStart: '25:00', quietEnd: '06:30', morningTime: 'matin' }, sections: [] }).general;
+  assert.deepEqual([g.quietStart, g.quietEnd, g.morningTime], ['22:00', '06:30', '07:00']);
+});

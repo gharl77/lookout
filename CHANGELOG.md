@@ -2,6 +2,43 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+Home Assistant, Bourse, sauvegardes automatiques, heures calmes et résumé du matin. / Home Assistant, stocks, automatic backups, quiet hours and morning summary.
+
+### Français
+
+- **Section Home Assistant** : l'état des entités de votre choix, lues avec un jeton d'accès longue durée ;
+  interrupteurs et boutons pour les lumières, prises, stores, scènes et scripts (jamais les serrures ni les
+  alarmes).
+- **Section Bourse et devises** : cours de titres, d'indices et de devises, avec la variation du jour.
+- **Sauvegardes automatiques** : chaque nuit dans `data/backups/`, quatorze jours gardés ; à télécharger ou à
+  restaurer depuis *Réglages → Sauvegarde*.
+- **Notifications** : heures calmes, résumé du matin (météo, rendez-vous, grands titres) et alerte quand un
+  article contient un de vos mots-clés suivis.
+- **Doublons** : sous un article, *aussi dans…* nomme les autres sections qui ont reçu la même nouvelle.
+- **Recherche** : couvre aussi les événements des agendas.
+- **Raccourcis clavier** : `?` en affiche la liste ; nouveaux raccourcis `E`, `L`, `1`–`9`, `←` `→`.
+- **YouTube** : interrogé une fois l'heure par défaut ; une chaîne sans vidéo longue n'est plus signalée en
+  erreur. Correction : une source durablement en panne faisait redemander toute sa section toutes les deux
+  minutes ; elle est maintenant réessayée deux fois, puis au rythme normal.
+
+### English
+
+- **Home Assistant section**: the state of the entities you choose, read with a long-lived access token;
+  switches and buttons for lights, plugs, covers, scenes and scripts (never locks or alarms).
+- **Stocks and currencies section**: quotes for stocks, indexes and currencies, with the change for the day.
+- **Automatic backups**: every night in `data/backups/`, fourteen days kept; download or restore them from
+  *Settings → Backup*.
+- **Notifications**: quiet hours, a morning summary (weather, events, top headlines) and an alert when an
+  article contains one of your followed keywords.
+- **Duplicates**: under an article, *also in…* names the other sections that received the same story.
+- **Search**: also covers calendar events.
+- **Keyboard shortcuts**: `?` lists them; new shortcuts `E`, `L`, `1`–`9`, `←` `→`.
+- **YouTube**: queried once an hour by default; a channel with no long video is no longer flagged as failing.
+  Fix: a source that stayed down made its whole section get requested every two minutes; it is now retried
+  twice, then at the normal pace.
+
 ## 2026.11.5
 
 Doublons écartés et « Tout marquer comme lu » en un clic. / Duplicates removed and one-click “Mark all as read”.

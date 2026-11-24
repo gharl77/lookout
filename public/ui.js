@@ -45,6 +45,8 @@ export const fmt = {
     if (Math.abs(hr) < 24) return rtf.format(-hr, 'hour');
     return rtf.format(-Math.round(hr / 24), 'day');
   },
+  /** Nombre dans la langue de l'interface, avec au plus `digits` décimales. */
+  number(value, digits = 1) { return new Intl.NumberFormat(locale(), { maximumFractionDigits: digits }).format(value); },
   duration(seconds) {
     const minutes = Math.max(1, Math.round(seconds / 60));
     return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;

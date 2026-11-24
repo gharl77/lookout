@@ -21,8 +21,9 @@ every source is either an RSS feed or an API.
 - Works in any browser; on iPhone it can be added to the Home Screen like an app
 - Light and dark themes, accent colour, adjustable density and column count
 - Several pages (tabs), drag-and-drop layout with undo, and a badge on articles published since your last visit
-- Search across every article, a “Read later” list, keyword filters
-- Notifications on iPhone, iPad, Mac and PC: weather alerts, your teams' games, new articles
+- Search across every article and calendar, a “Read later” list, filters and followed keywords
+- Calendar (iCal), Home Assistant (states and switches), stocks and currencies
+- Notifications on iPhone, iPad, Mac and PC: weather alerts, your teams' games, new articles, morning summary, quiet hours
 - Display mode for a wall screen or a TV
 - A new profile is welcomed by a few questions that set up its dashboard
 - Bilingual interface (English / French)
@@ -123,6 +124,7 @@ and password). From then on, only administrators can create accounts.
   profiles they choose, with a model ceiling and per-profile spending. A pane lists the failing sources of every profile.
 - **Full backup** (Settings → Backup): one file with every account, each profile's settings and the API keys, which
   can be restored on the same server or on a fresh installation. Keep it somewhere safe: it contains the keys.
+  An automatic backup is also written every night to `data/backups/` (fourteen days kept).
 - **Create the administrator right after installing.** Until it exists, whoever opens the page first can create it.
 
 ## User and permissions
