@@ -206,6 +206,21 @@ The state of the entities you choose: temperatures, doors, lights, vacuum, power
   Lookout.
 - The Lookout server must be able to reach Home Assistant (same network, or a public address).
 
+### Standings and statistics
+
+The full standings of your leagues and their leaders, in a card with tabs.
+
+- **Leagues**: the same as for scores, from ESPN (NHL, NFL, NBA, MLB, MLS, European soccer) and HockeyTech
+  (QMJHL, PWHL, OHL, WHL, AHL). With several leagues, the card offers one tab per league.
+- **My teams**: pick them for each league; they are highlighted in the standings and among the leaders.
+- **Standings**: by conference or by division (ESPN leagues that have them), with the record, points,
+  differential, last ten games and streak. *Only the groups of my teams* shortens the card. On a narrow card,
+  secondary columns are hidden.
+- **Leaders**: the best players per category (points, goals, assists and goalies in hockey; yards and
+  touchdowns in football; points, rebounds and assists in basketball; average, home runs and pitchers in
+  baseball). The number per category is adjustable from 1 to 10. Not offered for soccer.
+- API-Sports leagues are not offered here.
+
 ### Stocks and currencies
 
 Quotes for stocks, indexes and currency pairs, with the change for the day.
@@ -339,7 +354,7 @@ Administrators also see the *Administration* group: see the [administration guid
 
 **Updating sources.** Each source is queried at most once per interval, even if you reload the page more
 often: this keeps sites from blocking you. The default interval is 30 minutes; scores and commutes use
-5 minutes, as does Home Assistant; the calendar and stocks use 15 minutes, YouTube one hour, releases and the
+5 minutes, as does Home Assistant; the calendar and stocks use 15 minutes, YouTube and standings one hour, releases and the
 summary 2 hours. Each section can have its own. A failing source is retried twice, two minutes apart, then at
 the normal pace.
 

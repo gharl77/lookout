@@ -85,7 +85,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
   const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
   const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
-  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points', hass: "Nombre d'entités", stocks: 'Nombre de cours' };
+  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points', hass: "Nombre d'entités", stocks: 'Nombre de cours', standings: 'Meneurs par catégorie' };
 
   function iconPicker(s) {
     return h('button', { class: 'btn', 'aria-label': 'Choisir une icône', onClick: (e) => openPopover(e.currentTarget, (close) =>
@@ -102,7 +102,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       line('Afficher dans le tableau de bord', toggle(s, 'enabled', { label: 'Afficher dans le tableau de bord' })),
       line('Largeur', select(s, 'span', SPANS, { label: 'Largeur' })),
       line('Page', pageSelect(s)),
-      s.kind !== 'weather' && line(ITEMS_LABEL[s.kind], stepper(s, 'maxItems', 1, 40)),
+      s.kind !== 'weather' && line(ITEMS_LABEL[s.kind], stepper(s, 'maxItems', 1, s.kind === 'standings' ? 10 : 40)),
       // Après le changement, on redemande la section : le serveur applique tout de suite le nouvel intervalle.
       line('Interroger les sources', h('span', { onChange: () => app.saveNow().then(() => app.loadSection(s.id)) }, select(s, 'refreshMinutes',
         [[0, t('Par défaut ({0} min)', s.kind === 'feed' && s.feed.youtube ? YOUTUBE_REFRESH : config().general.refreshMinutes)], ...REFRESH_CHOICES.map((m) => [m, intervalLabel(m)])], { label: 'Interroger les sources' }))),
@@ -506,6 +506,39 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     ])];
   }
 
+  // --- Classements et statistiques ---
+  function standingsEditor(s) {
+    const o = s.standings, list = o.leagues;
+    const has = (provider, path) => list.some((l) => l.provider === provider && l.path === path);
+    const add = (lg) => { list.push(lg); commit(); render(); };
+    return [
+      group('Ligues', [
+        list.map((lg) => h('div', { class: 'item' },
+          toggle(lg, 'enabled', { label: t('Activer {0}', lg.name), rerender: true }),
+          h('div', { class: 'fields' }, text(lg, 'name', { placeholder: 'Nom de la ligue' }),
+            h('div', { class: 'sub-line' }, h('span', {}, PROVIDER_LABELS[lg.provider] ?? 'ESPN'),
+              (lg.provider ?? 'espn') === 'espn' && [h('span', {}, '·'), h('input', { class: 'sub mono', value: lg.path, placeholder: 'sport/ligue', 'aria-label': 'Chemin ESPN',
+                autocapitalize: 'off', spellcheck: 'false', onInput: (e) => { lg.path = e.target.value; commit(); } })])),
+          teamButton(s, lg), statusDot(s, lg.id, lg.enabled), rowControls(list, lg))),
+        h('div', { class: 'line' }, h('button', { class: 'btn', onClick: (e) => openMenu(e.currentTarget, [
+          { heading: 'ESPN' },
+          ...LEAGUES.espn.map(([name, path]) => ({ label: name, disabled: has('espn', path), action: () => add(newLeague(t(name), path)) })),
+          { label: 'Autre ligue ESPN…', action: () => add(newLeague('', '')) },
+          { heading: 'HockeyTech — hockey junior, féminin et LAH' },
+          ...LEAGUES.hockeytech.map(([name, code, key]) => ({ label: name, disabled: has('hockeytech', code), action: () => add(newLeague(t(name), code, 'hockeytech', key)) })),
+        ]) }, icon('plus'), 'Ajouter une ligue')),
+      ], "Pour chaque ligue, choisissez vos équipes : elles sont mises en évidence dans le classement et chez les meneurs. Avec plusieurs ligues, la carte offre un onglet par ligue."),
+      group('Classement', [
+        line('Afficher le classement', toggle(o, 'showStandings', { label: 'Afficher le classement', rerender: true })),
+        o.showStandings && line('Regrouper par', select(o, 'grouping', [['conference', 'Association'], ['division', 'Division']], { label: 'Regrouper par' })),
+        o.showStandings && line('Seulement les groupes de mes équipes', toggle(o, 'onlyMine', { label: 'Seulement les groupes de mes équipes' })),
+      ], "Le regroupement par division vaut pour les ligues ESPN qui en ont (LNH, NFL, NBA, MLB). Les ligues HockeyTech sont toujours présentées par association."),
+      group('Meneurs', [
+        line('Afficher les meneurs', toggle(o, 'showLeaders', { label: 'Afficher les meneurs' })),
+      ], "Les meilleurs joueurs par catégorie : points, buts, passes et gardiens au hockey ; verges et touchés au football ; points, rebonds et passes au basketball ; moyenne, circuits et lanceurs au baseball. Non offert pour le soccer."),
+    ];
+  }
+
   // --- Home Assistant ---
   /** Fenêtre de choix : cherche parmi les entités de Home Assistant et ajoute celles qu'on coche. */
   function hassPicker(s) {
@@ -637,6 +670,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       s.kind === 'api' && [apiEditor(s), articleDisplay(s, false)],
       s.kind === 'releases' && releasesEditor(s),
       s.kind === 'calendar' && calendarEditor(s),
+      s.kind === 'standings' && standingsEditor(s),
       s.kind === 'hass' && hassEditor(s),
       s.kind === 'stocks' && stocksEditor(s),
       s.kind === 'summary' && summaryEditor(s)];
@@ -1487,7 +1521,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const admin = app.user?.role === 'admin';
   const NAV = [
     { title: 'Tableau de bord', items: [
-      ['sections', 'Sections et pages', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé agenda calendrier home assistant domotique bourse devises actions stocks currencies onglets ajouter supprimer cards feeds weather calendar tabs pages add'],
+      ['sections', 'Sections et pages', () => icon('grid'), 'cartes fils rss météo trajets sports youtube sorties résumé agenda calendrier classements statistiques meneurs standings leaders home assistant domotique bourse devises actions stocks currencies onglets ajouter supprimer cards feeds weather calendar tabs pages add'],
       ['appearance', 'Apparence', () => icon('sliders'), 'thème sombre clair couleur accent densité colonnes arrière-plan theme dark light color density columns'],
       ['display', 'Mode affichage', () => sfIcon('desktopcomputer'), 'écran mural télé plein écran wall screen tv kiosk'] ] },
     { title: 'Préférences', items: [

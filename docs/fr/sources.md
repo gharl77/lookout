@@ -17,6 +17,7 @@ D'où viennent les données de chaque section, ce qui demande une clé, et comme
 | Trajets | Home Assistant | Adresse et jeton | Le vôtre |
 | Pointages | ESPN, HockeyTech | Aucune | Gratuit |
 | Pointages | API-Sports | Clé | Forfait gratuit : 100 requêtes par jour et par sport |
+| Classements et statistiques | ESPN, HockeyTech | Aucune | Gratuit |
 | Agenda | L'adresse iCal de chaque calendrier | Aucune | Gratuit |
 | Home Assistant | Votre propre Home Assistant | Adresse et jeton d'accès longue durée | Le vôtre |
 | Bourse et devises | Yahoo Finance (service sans garantie) | Aucune | Gratuit |

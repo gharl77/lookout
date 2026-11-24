@@ -25,6 +25,7 @@ import { fetchSummary } from './lib/summary.js';
 import { fetchHass, searchHass, callHass } from './lib/hass.js';
 import { fetchStocks, searchSymbols } from './lib/stocks.js';
 import { Backups } from './lib/backups.js';
+import { fetchStandings } from './lib/standings.js';
 import * as google from './lib/google.js';
 import { articleFilter, youtubeFeedURL, youtubeChannelID, YOUTUBE_REFRESH } from './public/shared.js';
 
@@ -134,7 +135,7 @@ function nextUpdate(entry, section, config) {
 
 /** Journalise les sources en échec (visible avec « docker logs lookout »), pour comprendre une alerte après coup. */
 function logSourceErrors(section, sourceErrors = {}) {
-  const names = new Map([...section.feed.sources, ...section.sports.leagues, ...section.calendar.calendars, ...section.hass.entities.map((e) => ({ id: e.id, name: e.entity })),
+  const names = new Map([...section.feed.sources, ...section.sports.leagues, ...section.standings.leagues, ...section.calendar.calendars, ...section.hass.entities.map((e) => ({ id: e.id, name: e.entity })),
     ...section.stocks.symbols.map((x) => ({ id: x.id, name: x.symbol }))].map((x) => [x.id, x.name]));
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
@@ -259,6 +260,7 @@ function noteHealth(section, payload) {
     if (source.enabled !== false && (section.kind === 'feed' || section.kind === 'sports')) mark(source.id, payload.sourceErrors?.[source.id] ?? null);
   }
   if (section.kind === 'calendar') for (const c of section.calendar.calendars) if (c.enabled !== false && c.url) mark(c.id, payload.sourceErrors?.[c.id] ?? null);
+  if (section.kind === 'standings') for (const l of section.standings.leagues) if (l.enabled !== false) mark(l.id, payload.sourceErrors?.[l.id] ?? null);
   if (section.kind === 'hass') for (const e of section.hass.entities) if (e.enabled !== false && e.entity) mark(e.id, payload.sourceErrors?.[e.id] ?? null);
   if (section.kind === 'stocks') for (const x of section.stocks.symbols) if (x.enabled !== false && x.symbol) mark(x.id, payload.sourceErrors?.[x.id] ?? null);
   for (const route of payload.routes ?? []) if (route.id) mark(route.id, route.error ?? null);
@@ -278,7 +280,7 @@ function healthReport() {
     for (const section of accounts.profile(user.id).config.sections) {
       if (!section.enabled) continue;
       const parts = [{ id: '', name: null },
-        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'commute' ? section.commute.routes : section.kind === 'calendar' ? section.calendar.calendars
+        ...(section.kind === 'feed' ? section.feed.sources : section.kind === 'sports' ? section.sports.leagues : section.kind === 'standings' ? section.standings.leagues : section.kind === 'commute' ? section.commute.routes : section.kind === 'calendar' ? section.calendar.calendars
           : section.kind === 'hass' ? section.hass.entities.map((e) => ({ ...e, name: e.name || e.entity })) : section.kind === 'stocks' ? section.stocks.symbols.map((x) => ({ ...x, name: x.name || x.symbol })) : [])
           .filter((x) => x.enabled !== false)];
       for (const part of parts) {
@@ -327,6 +329,7 @@ async function loadSection(section, config, force = false) {
         : section.kind === 'calendar' ? await fetchCalendar(section.calendar, process.env.TZ)
         : section.kind === 'hass' ? await fetchHass(section.hass)
         : section.kind === 'stocks' ? await fetchStocks(section.stocks)
+        : section.kind === 'standings' ? await fetchStandings(section.standings, section.maxItems)
         : section.kind === 'summary' ? await summarize(section, config)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
@@ -709,7 +712,7 @@ async function api(req, res, url) {
   if (route === 'GET /api/weather/search') return send(res, 200, await searchPlaces(q.get('q') ?? ''));
   if (route === 'GET /api/teams') {
     const section = findSection(q.get('section'));
-    const league = section.sports.leagues.find((l) => l.id === q.get('league'));
+    const league = [...section.sports.leagues, ...section.standings.leagues].find((l) => l.id === q.get('league'));
     if (!league) throw new BriefingError('Ligue introuvable');
     return send(res, 200, await fetchTeams(league, withSharedKey(section.sports, 'apiSportsKey').apiSportsKey));
   }

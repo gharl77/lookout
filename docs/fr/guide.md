@@ -212,6 +212,22 @@ L'état des entités de votre choix : températures, portes, lumières, aspirate
   L'option se désactive ; les serrures et les alarmes ne peuvent jamais être actionnées depuis Lookout.
 - Le serveur de Lookout doit pouvoir joindre Home Assistant (même réseau, ou adresse publique).
 
+### Classements et statistiques
+
+Le classement complet de vos ligues et leurs meneurs, dans une carte à onglets.
+
+- **Ligues** : les mêmes que pour les pointages, côté ESPN (LNH, NFL, NBA, MLB, MLS, soccer européen) et
+  HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH). Avec plusieurs ligues, la carte offre un onglet par ligue.
+- **Mes équipes** : choisissez-les pour chaque ligue ; elles sont mises en évidence dans le classement et chez
+  les meneurs.
+- **Classement** : par association ou par division (ligues ESPN qui en ont), avec la fiche, les points, le
+  différentiel, les dix derniers matchs et la séquence. *Seulement les groupes de mes équipes* raccourcit la
+  carte. Sur une carte étroite, les colonnes secondaires sont masquées.
+- **Meneurs** : les meilleurs joueurs par catégorie (points, buts, passes et gardiens au hockey ; verges et
+  touchés au football ; points, rebonds et passes au basketball ; moyenne, circuits et lanceurs au baseball).
+  Le nombre par catégorie se règle de 1 à 10. Non offert pour le soccer.
+- Les ligues API-Sports ne sont pas offertes ici.
+
 ### Bourse et devises
 
 Le cours de titres, d'indices et de paires de devises, avec la variation du jour.
@@ -346,7 +362,7 @@ Les administrateurs voient en plus le groupe *Administration* : voir le [guide d
 
 **Mise à jour des sources.** Chaque source est interrogée au plus une fois par intervalle, même si vous
 rechargez la page plus souvent : cela évite qu'un site vous bloque. L'intervalle par défaut est de 30 minutes ;
-les pointages, les trajets et Home Assistant ont 5 minutes, l'agenda et la Bourse 15 minutes, YouTube une heure,
+les pointages, les trajets et Home Assistant ont 5 minutes, l'agenda et la Bourse 15 minutes, YouTube et les classements une heure,
 les sorties et le résumé 2 heures. Chaque section peut avoir le sien. Une source en panne est réessayée deux
 fois à deux minutes d'intervalle, puis au rythme normal.
 

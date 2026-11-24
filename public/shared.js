@@ -16,6 +16,7 @@ export const KINDS = {
   weather: { label: 'Météo', detail: 'Conditions et prévisions (API Open-Meteo)', icon: 'cloud.sun.fill', color: '#0EA5E9', maxItems: 1 },
   commute: { label: 'Trajets', detail: 'Temps de parcours (API OSRM, TomTom ou Home Assistant)', icon: 'car.fill', color: '#10B981', maxItems: 4 },
   sports: { label: 'Pointages sportifs', detail: 'Résultats et matchs à venir (API ESPN, HockeyTech ou API-Sports)', icon: 'sportscourt.fill', color: '#F59E0B', maxItems: 8 },
+  standings: { label: 'Classements et statistiques', detail: 'Classement complet et meneurs de vos ligues (ESPN, HockeyTech)', icon: 'trophy.fill', color: '#F59E0B', maxItems: 5 },
   api: { label: 'API JSON', detail: "Liste tirée de n'importe quelle API JSON", icon: 'curlybraces', color: '#8B5CF6', maxItems: 6 },
   calendar: { label: 'Agenda', detail: 'Prochains événements de vos calendriers (adresse iCal : Google, iCloud, Outlook)', icon: 'calendar', color: '#EC4899', maxItems: 8 },
   hass: { label: 'Home Assistant', detail: 'États de vos entités, avec interrupteurs (jeton d’accès longue durée)', icon: 'house.fill', color: '#14B8A6', maxItems: 12 },
@@ -243,7 +244,7 @@ export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
  * Intervalle propre à un type de section, en minutes ; 0 = suivre l'intervalle par défaut des réglages.
  * Les pointages et les trajets changent vite : ils sont interrogés plus souvent que les nouvelles.
  */
-export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120, calendar: 15, hass: 5, stocks: 15 };
+export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120, calendar: 15, hass: 5, stocks: 15, standings: 60 };
 
 export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apisports: 'API-Sports' };
 
@@ -292,6 +293,7 @@ export function articleFilter(options, general = {}, now = Date.now()) {
 
 const CALENDAR = { calendars: [], days: 7, showLocation: true, showEnded: false };
 export const calendarSource = (name = '', url = '') => ({ id: uuid(), name, url, enabled: true, colorHex: '' });
+const STANDINGS = { leagues: [], showStandings: true, showLeaders: true, grouping: 'conference', onlyMine: false };
 const HASS = { url: '', token: '', entities: [], allowControl: true };
 export const hassEntity = (entity = '', name = '') => ({ id: uuid(), entity, name, enabled: true });
 /** Domaines Home Assistant qu'un toucher peut actionner, et le service appelé. Les serrures et les alarmes n'en font pas partie. */
@@ -325,7 +327,7 @@ export function newSection(kind, overrides = {}) {
     page: '',     // page du tableau de bord (vide = première page)
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API),
-    releases: clone(RELEASES), summary: clone(SUMMARY), calendar: clone(CALENDAR), hass: clone(HASS), stocks: clone(STOCKS), ...overrides };
+    releases: clone(RELEASES), summary: clone(SUMMARY), calendar: clone(CALENDAR), hass: clone(HASS), stocks: clone(STOCKS), standings: clone(STANDINGS), ...overrides };
 }
 
 /** Identifiant de la vidéo dans une adresse YouTube (vidéo, Short ou lien court), ou null. */
@@ -371,6 +373,7 @@ export function template(kind) {
   if (kind === 'feed') { s.title = 'Nouveau fil'; s.feed.sources = [catalogSource('Radio-Canada – À la une')]; }
   if (kind === 'commute') s.commute.routes = [commuteRoute('Nouveau trajet')];
   if (kind === 'sports') s.sports.leagues = [league('LNH', 'hockey/nhl')];
+  if (kind === 'standings') s.standings.leagues = [league('LNH', 'hockey/nhl')];
   if (kind === 'stocks') s.stocks.symbols = [['S&P/TSX', '^GSPTSE'], ['S&P 500', '^GSPC'], ['USD → CAD', 'USDCAD=X'], ['EUR → CAD', 'EURCAD=X']].map(([name, symbol]) => stockSymbol(symbol, name));
   if (kind === 'api') {
     s.title = 'Hacker News';
@@ -440,6 +443,9 @@ export function normalize(input) {
     s.releases = { ...RELEASES, ...(raw.releases ?? {}) };
     s.calendar = { ...CALENDAR, ...(raw.calendar ?? {}) };
     s.calendar.calendars = (Array.isArray(s.calendar.calendars) ? s.calendar.calendars : []).map((x) => ({ ...calendarSource(), ...x }));
+    s.standings = { ...STANDINGS, ...(raw.standings ?? {}) };
+    s.standings.leagues = (Array.isArray(s.standings.leagues) ? s.standings.leagues : []).map((x) => ({ ...league('', ''), ...x, teams: Array.isArray(x.teams) ? x.teams : [] }));
+    if (!['conference', 'division'].includes(s.standings.grouping)) s.standings.grouping = 'conference';
     s.hass = { ...HASS, ...(raw.hass ?? {}) };
     s.hass.entities = (Array.isArray(s.hass.entities) ? s.hass.entities : []).filter((x) => x && typeof x === 'object').map((x) => ({ ...hassEntity(), ...x })).slice(0, 60);
     s.stocks = { ...STOCKS, ...(raw.stocks ?? {}) };
@@ -462,6 +468,7 @@ export function fetchSignature(s, units) {
     : s.kind === 'releases' ? s.releases
     : s.kind === 'calendar' ? [s.calendar.calendars.map((c) => [c.id, c.url, c.enabled, c.name, c.colorHex]), s.calendar.days, s.calendar.showEnded]
     : s.kind === 'hass' ? [s.hass.url, s.hass.token, s.hass.entities.map((e) => [e.id, e.entity, e.enabled])]
+    : s.kind === 'standings' ? [s.standings.leagues.map((l) => [l.id, l.name, l.path, l.enabled, l.provider, l.key, l.teams.map((x) => x.id)]), s.standings.showStandings, s.standings.showLeaders, s.standings.grouping, s.maxItems]
     : s.kind === 'stocks' ? s.stocks.symbols.map((x) => [x.id, x.symbol, x.enabled])
     : s.kind === 'summary' ? [s.summary, s.maxItems]
     : [s.api, s.title];

@@ -669,6 +669,24 @@ export const EN = {
   "Aucun cours pour {0}": "No quote for {0}",
   "Ajoutez au moins un symbole dans les réglages de la section": "Add at least one symbol in the section settings",
   "Sauvegarde introuvable": "Backup not found",
+  // Classements et statistiques
+  "Rien à afficher pour cette ligue pour le moment.": "Nothing to show for this league right now.",
+  "Meneurs par catégorie": "Leaders per category",
+  "Pour chaque ligue, choisissez vos équipes : elles sont mises en évidence dans le classement et chez les meneurs. Avec plusieurs ligues, la carte offre un onglet par ligue.": "For each league, pick your teams: they are highlighted in the standings and among the leaders. With several leagues, the card offers one tab per league.",
+  "Afficher le classement": "Show the standings",
+  "Regrouper par": "Group by",
+  "Association": "Conference",
+  "Division": "Division",
+  "Seulement les groupes de mes équipes": "Only the groups of my teams",
+  "Le regroupement par division vaut pour les ligues ESPN qui en ont (LNH, NFL, NBA, MLB). Les ligues HockeyTech sont toujours présentées par association.": "Grouping by division applies to ESPN leagues that have them (NHL, NFL, NBA, MLB). HockeyTech leagues are always shown by conference.",
+  "Afficher les meneurs": "Show the leaders",
+  "Meneurs": "Leaders",
+  "Ligues": "Leagues",
+  "Les meilleurs joueurs par catégorie : points, buts, passes et gardiens au hockey ; verges et touchés au football ; points, rebonds et passes au basketball ; moyenne, circuits et lanceurs au baseball. Non offert pour le soccer.": "The best players per category: points, goals, assists and goalies in hockey; yards and touchdowns in football; points, rebounds and assists in basketball; average, home runs and pitchers in baseball. Not offered for soccer.",
+  "Classements et statistiques": "Standings and statistics",
+  "Classement complet et meneurs de vos ligues (ESPN, HockeyTech)": "Full standings and leaders of your leagues (ESPN, HockeyTech)",
+  "Classement indisponible pour cette ligue": "Standings unavailable for this league",
+  "Les ligues API-Sports n'offrent pas de classement ici": "API-Sports leagues do not offer standings here",
 };
 
 let provider = () => 'fr';

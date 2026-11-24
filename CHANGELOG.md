@@ -2,6 +2,22 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## 2026.11.7
+
+Classements complets et meneurs de vos ligues. / Full standings and leaders of your leagues.
+
+### Français
+
+- **Section Classements et statistiques** : le classement complet de vos ligues (par association ou par
+  division, vos équipes en évidence) et les meneurs par catégorie, avec un onglet par ligue. Ligues ESPN et
+  HockeyTech, sans clé. Les meneurs ne sont pas offerts pour le soccer.
+
+### English
+
+- **Standings and statistics section**: the full standings of your leagues (by conference or by division, your
+  teams highlighted) and the leaders per category, with one tab per league. ESPN and HockeyTech leagues, no
+  key. Leaders are not offered for soccer.
+
 ## 2026.11.6
 
 Home Assistant, Bourse, sauvegardes automatiques, heures calmes et résumé du matin. / Home Assistant, stocks, automatic backups, quiet hours and morning summary.

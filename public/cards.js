@@ -396,6 +396,48 @@ function stocksView(section, payload) {
   }));
 }
 
+// --- Classements et statistiques ---
+// Vue choisie dans chaque carte (ligue, puis classement ou meneurs) : gardée tant que la page reste ouverte.
+const standingsChoice = new Map();   // id de section -> { league, view }
+
+function leagueView(section, payload) {
+  const o = section.standings, host = h('div', { class: 'st' });
+  const draw = () => {
+    const choice = standingsChoice.get(section.id) ?? {};
+    const table = payload.tables.find((x) => x.leagueID === choice.league) ?? payload.tables[0];
+    const mine = new Set(table.mine);
+    const hasTable = o.showStandings !== false && table.groups.length > 0, hasLeaders = o.showLeaders !== false && table.leaders.length > 0;
+    const view = choice.view === 'leaders' && hasLeaders ? 'leaders' : hasTable ? 'table' : hasLeaders ? 'leaders' : 'none';
+    const pick = (next) => { standingsChoice.set(section.id, { league: table.leagueID, view, ...next }); draw(); };
+    const tabs = (items, current, key) => h('div', { class: 'seg st-tabs', role: 'group' },
+      items.map(([value, label]) => h('button', { 'aria-pressed': String(value === current), onClick: () => pick({ [key]: value }) }, label)));
+    // Avec « seulement mes groupes » : les associations ou divisions où joue une équipe suivie (toutes si aucune n'est choisie).
+    const groups = o.onlyMine && mine.size ? table.groups.filter((g) => g.rows.some((r) => mine.has(r.teamID))) : table.groups;
+    const body = view === 'table' ? groups.map((g) => h('table', { class: 'st-table' },
+      h('thead', {}, h('tr', {}, h('th', { class: 'st-team', colspan: '2', scope: 'col' }, document.createTextNode(g.name || table.league)),
+        table.columns.map((c) => h('th', { class: c.minor ? 'minor' : null, scope: 'col' }, document.createTextNode(c.label))))),
+      h('tbody', {}, g.rows.map((r) => h('tr', { class: mine.has(r.teamID) ? 'mine' : null },
+        h('td', { class: 'st-rank' }, String(r.rank)),
+        h('th', { class: 'st-team', scope: 'row' }, h('div', { class: 'st-name' },
+          r.logo && h('img', { class: 'logo', src: r.logo, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() }),
+          h('span', {}, document.createTextNode(r.name)))),
+        r.values.map((v, i) => h('td', { class: table.columns[i]?.minor ? 'minor' : null }, document.createTextNode(v))))))))
+      : view === 'leaders' ? h('div', { class: 'st-leaders' }, table.leaders.map((c) => h('section', {},
+        h('h3', {}, document.createTextNode(c.name)),
+        h('ol', {}, c.players.map((p) => h('li', { class: mine.has(p.teamID) ? 'mine' : null },
+          h(p.link ? 'a' : 'span', { class: 'st-player', href: p.link, target: '_blank', rel: 'noopener noreferrer' }, document.createTextNode(p.name),
+            h('small', {}, document.createTextNode([p.team, p.detail].filter(Boolean).join(' · ')))),
+          h('b', {}, document.createTextNode(p.value))))))))
+        : h('div', { class: 'hint' }, 'Rien à afficher pour cette ligue pour le moment.');
+    host.replaceChildren(...[
+      payload.tables.length > 1 && tabs(payload.tables.map((x) => [x.leagueID, x.league]), table.leagueID, 'league'),
+      hasTable && hasLeaders && tabs([['table', t('Classement')], ['leaders', t('Meneurs')]], view, 'view'),
+      h('div', { class: 'st-body' }, body)].filter(Boolean));
+  };
+  draw();
+  return host;
+}
+
 // --- Résumé du jour ---
 function summaryView(section, payload) {
   return [h('ol', { class: 'summary' }, payload.summary.map((point) => h('li', {},
@@ -410,6 +452,7 @@ export function cardBody(section, payload, ctx) {
   if (payload.summary) return summaryView(section, payload);
   if (payload.entities) return hassView(section, payload, ctx);
   if (payload.quotes) return stocksView(section, payload);
+  if (payload.tables) return leagueView(section, payload);
   if (payload.articles) return articleList(section, payload.articles, ctx);
   if (payload.weather) return weatherView(section, payload.weather);
   if (payload.games) return sportsView(section, payload.games, ctx, payload.standings);

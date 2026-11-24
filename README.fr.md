@@ -1,7 +1,7 @@
 # Lookout
 
 [![Image Docker](https://github.com/gharl77/lookout/actions/workflows/docker.yml/badge.svg)](https://github.com/gharl77/lookout/actions/workflows/docker.yml)
-![Version](https://img.shields.io/badge/version-2026.11.6-blue)
+![Version](https://img.shields.io/badge/version-2026.11.7-blue)
 ![Licence](https://img.shields.io/badge/licence-MIT-green)
 ![Plateformes](https://img.shields.io/badge/plateformes-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 
@@ -22,7 +22,7 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 - Thèmes clair et sombre, couleur d'accent, densité et nombre de colonnes réglables
 - Plusieurs pages (onglets), disposition par glisser-déposer avec annulation, et pastille sur les articles parus depuis votre dernière visite
 - Recherche dans tous les articles et les agendas, liste « À lire plus tard », filtres et mots-clés suivis
-- Agenda (iCal), Home Assistant (états et interrupteurs), Bourse et devises
+- Agenda (iCal), Home Assistant (états et interrupteurs), Bourse et devises, classements et meneurs de vos ligues
 - Notifications sur iPhone, iPad, Mac et PC : alertes météo, matchs de vos équipes, nouveaux articles, résumé du matin, heures calmes
 - Mode affichage pour un écran mural ou une télé
 - Un nouveau profil est accueilli par quelques questions qui préparent son tableau de bord
@@ -143,7 +143,7 @@ Le conteneur tourne avec l'UID/GID `1000:1000` et doit pouvoir écrire dans `/da
 | Étiquette | Description |
 |---|---|
 | `latest` | Dernière construction de la branche `main` |
-| `2026.11.6` | Une version précise |
+| `2026.11.7` | Une version précise |
 | `test` | Branche de développement, pour essayer avant une version |
 
 Les images sont construites pour `linux/amd64` et `linux/arm64`.

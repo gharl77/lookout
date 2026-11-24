@@ -899,7 +899,7 @@ async function sendSection(anchor, s) {
 function showNotice(message) { showToast(message, 'OK', () => {}); }
 
 function sourceErrorText(s, payload) {
-  const names = new Map([...s.feed.sources, ...s.sports.leagues, ...s.calendar.calendars, ...s.hass.entities.map((e) => ({ id: e.id, name: e.name || e.entity })),
+  const names = new Map([...s.feed.sources, ...s.sports.leagues, ...s.standings.leagues, ...s.calendar.calendars, ...s.hass.entities.map((e) => ({ id: e.id, name: e.name || e.entity })),
     ...s.stocks.symbols.map((x) => ({ id: x.id, name: x.name || x.symbol }))].map((x) => [x.id, x.name]));
   return Object.entries(payload.sourceErrors ?? {}).map(([id, message]) => `${names.get(id) ?? t('Source')} : ${message}`).sort().join('\n');
 }
@@ -912,7 +912,7 @@ function newBadge(s, payload) {
 
 function buildCard(s) {
   const payload = state.data.get(s.id), loading = state.loading.has(s.id);
-  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary || payload.events || payload.entities || payload.quotes);
+  const hasContent = payload && (payload.articles || payload.weather || payload.games || payload.routes || payload.releases || payload.summary || payload.events || payload.entities || payload.quotes || payload.tables);
   const errors = payload ? sourceErrorText(s, payload) : '';
 
   const controls = state.editing
