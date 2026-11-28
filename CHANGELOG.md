@@ -2,7 +2,7 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
-## À venir / Unreleased
+## 2026.11.11
 
 ### Français
 
