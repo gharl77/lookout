@@ -193,7 +193,7 @@ nouvelle version et se recharge d'elle-même, ou le propose si vous êtes en tra
 | Étiquette d'image | Contenu |
 |---|---|
 | `latest` | Dernière version officielle |
-| `2026.11.8` | Une version précise |
+| `2026.11.9` | Une version précise |
 | `test` | Branche de développement, pour essayer avant une version |
 
 ## Ce que contient le dossier de données
