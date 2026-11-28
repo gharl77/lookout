@@ -364,7 +364,8 @@ Les administrateurs voient en plus le groupe *Administration* : voir le [guide d
 rechargez la page plus souvent : cela évite qu'un site vous bloque. L'intervalle par défaut est de 30 minutes ;
 les pointages, les trajets et Home Assistant ont 5 minutes, l'agenda et la Bourse 15 minutes, YouTube et les classements une heure,
 les sorties et le résumé 2 heures. Chaque section peut avoir le sien. Une source en panne est réessayée deux
-fois à deux minutes d'intervalle, puis au rythme normal.
+fois à deux minutes d'intervalle, puis au rythme normal. Quand des données sont à renouveler, la carte affiche
+d'abord celles qu'elle a, puis se met à jour quelques secondes plus tard.
 
 **Export et import.** Le fichier exporté contient vos sections, vos sources et vos préférences, mais ni vos
 clés ni vos jetons.

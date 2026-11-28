@@ -100,6 +100,7 @@ function commit() {
 }
 
 // --- Données ---
+const refreshTries = new Map();   // id de section -> nombre de retours pendant une mise à jour en arrière-plan
 async function loadSection(id, force = false) {
   const s = section(id);
   if (!s) return;
@@ -116,6 +117,12 @@ async function loadSection(id, force = false) {
   state.data.set(id, payload);
   state.loading.delete(id);
   renderCard(id);
+  // Données servies depuis le cache pendant que le serveur interroge les sources : on revient les chercher sous peu.
+  if (payload.refreshing) {
+    const tries = (refreshTries.get(id) ?? 0) + 1;
+    refreshTries.set(id, tries);
+    if (tries <= 15) setTimeout(() => { if (state.signatures.get(id) === signature && !state.loading.has(id)) loadSection(id); }, Math.max(1500, payload.nextUpdateAt - Date.now()));
+  } else refreshTries.delete(id);
   // Les sections placées après celle-ci peuvent maintenant avoir des doublons à écarter (ou à reprendre) ; celles
   // placées avant indiquent, sous leurs articles, que cette section les reçoit aussi.
   if (payload.articles && general().dedupeArticles) {

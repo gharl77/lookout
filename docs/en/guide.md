@@ -356,7 +356,7 @@ Administrators also see the *Administration* group: see the [administration guid
 often: this keeps sites from blocking you. The default interval is 30 minutes; scores and commutes use
 5 minutes, as does Home Assistant; the calendar and stocks use 15 minutes, YouTube and standings one hour, releases and the
 summary 2 hours. Each section can have its own. A failing source is retried twice, two minutes apart, then at
-the normal pace.
+the normal pace. When data is due for renewal, the card first shows what it has, then updates a few seconds later.
 
 **Export and import.** The exported file contains your sections, sources and preferences, but neither your
 keys nor your tokens.

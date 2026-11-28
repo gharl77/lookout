@@ -2,6 +2,28 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+Chargement plus rapide, surtout pour YouTube. / Faster loading, especially for YouTube.
+
+### Français
+
+- **Sections d'articles allégées** : le serveur n'envoie plus que les articles utiles à la carte et à la
+  recherche (250 au plus) au lieu de tout ce que les sources renvoient — une section YouTube de 200 chaînes
+  passait par 3 000 vidéos à chaque chargement.
+- **Réponses compressées** (gzip) : pages, scripts et données pèsent de trois à dix fois moins.
+- **Affichage immédiat** : quand les données d'une section sont à renouveler, la carte montre tout de suite
+  celles qu'elle a et se met à jour quelques secondes plus tard, au lieu d'attendre toutes les sources.
+
+### English
+
+- **Lighter article sections**: the server now sends only the articles the card and search can use (250 at
+  most) instead of everything the sources return — a YouTube section with 200 channels went through 3,000
+  videos on every load.
+- **Compressed responses** (gzip): pages, scripts and data weigh three to ten times less.
+- **Instant display**: when a section's data is due for renewal, the card shows what it has right away and
+  updates a few seconds later, instead of waiting for every source.
+
 ## 2026.11.7
 
 Classements complets et meneurs de vos ligues. / Full standings and leaders of your leagues.

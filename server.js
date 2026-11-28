@@ -3,6 +3,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { setLangProvider, t } from './public/i18n.js';
@@ -26,6 +27,7 @@ import { fetchHass, searchHass, callHass } from './lib/hass.js';
 import { fetchStocks, searchSymbols } from './lib/stocks.js';
 import { Backups } from './lib/backups.js';
 import { fetchStandings } from './lib/standings.js';
+import { trimArticles } from './lib/trim.js';
 import * as google from './lib/google.js';
 import { articleFilter, youtubeFeedURL, youtubeChannelID, YOUTUBE_REFRESH } from './public/shared.js';
 
@@ -309,14 +311,23 @@ async function notify(userID, message, only = null) {
   return result;
 }
 
-async function loadSection(section, config, force = false) {
+// Délai après lequel la page redemande une section servie depuis le cache pendant qu'elle se met à jour.
+const REFRESHING_MS = 4000;
+
+/**
+ * Données d'une section. `stale` (demandes de la page) : si des données existent déjà mais sont à renouveler, elles
+ * sont renvoyées tout de suite, marquées « refreshing », pendant que les sources sont interrogées en arrière-plan ;
+ * la page les redemande quelques secondes plus tard. Personne n'attend donc 200 chaînes YouTube devant une carte vide.
+ */
+async function loadSection(section, config, force = false, stale = false) {
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
   const key = `${section.id}|${signature}`;
   const cached = cache.get(key);
   const due = cached && (force ? cached.time + FORCE_MS : nextUpdate(cached, section, config));
   if (cached && Date.now() < due) return { ...cached.payload, nextUpdateAt: nextUpdate(cached, section, config) };
-  if (pending.has(key)) return pending.get(key);
+  const meanwhile = stale && cached?.payload.updatedAt ? { ...cached.payload, refreshing: true, nextUpdateAt: Date.now() + REFRESHING_MS } : null;
+  if (pending.has(key)) return meanwhile ?? pending.get(key);
 
   const job = (async () => {
     let payload;
@@ -350,6 +361,7 @@ async function loadSection(section, config, force = false) {
     return { ...payload, nextUpdateAt: nextUpdate(entry, section, config) };
   })().finally(() => pending.delete(key));
   pending.set(key, job);
+  if (meanwhile && !force) { job.catch(() => {}); return meanwhile; }
   return job;
 }
 
@@ -369,11 +381,24 @@ const CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self' 'unsaf
 const SECURITY_HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': CSP, 'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'SAMEORIGIN', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()' };
 
+// Compression : le texte (JSON, scripts, styles) est envoyé en gzip aux navigateurs qui l'acceptent. Les fichiers de
+// l'interface ne sont compressés qu'une fois ; leur version compressée est gardée en mémoire.
+const COMPRESSIBLE = /^(text\/|application\/(json|manifest\+json)|image\/svg)/;
+const gzipped = new Map();   // empreinte du fichier -> contenu compressé
+
 function send(res, status, body, headers = {}) {
   const json = typeof body !== 'string' && !Buffer.isBuffer(body);
-  res.writeHead(status, { 'Content-Type': json ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8',
-    'Cache-Control': 'no-store', ...SECURITY_HEADERS, ...headers });
-  res.end(json ? JSON.stringify(body) : body);
+  const all = { 'Content-Type': json ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...SECURITY_HEADERS, ...headers };
+  const data = Buffer.isBuffer(body) ? body : Buffer.from(json ? JSON.stringify(body) : body);
+  if (!res.acceptsGzip || data.length < 1024 || !COMPRESSIBLE.test(all['Content-Type'])) { res.writeHead(status, all); return res.end(data); }
+  const finish = (packed) => { res.writeHead(status, { ...all, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); res.end(packed); };
+  const known = all.ETag && gzipped.get(all.ETag);
+  if (known) return finish(known);
+  zlib.gzip(data, { level: all.ETag ? 9 : 5 }, (error, packed) => {
+    if (error) { res.writeHead(status, all); return res.end(data); }
+    if (all.ETag) { if (gzipped.size > 200) gzipped.clear(); gzipped.set(all.ETag, packed); }
+    finish(packed);
+  });
 }
 
 async function readBody(req, limit = 2e6) {
@@ -605,7 +630,9 @@ async function api(req, res, url) {
   if (req.method === 'GET' && url.pathname.startsWith('/api/section/')) {
     let id;
     try { id = decodeURIComponent(url.pathname.slice('/api/section/'.length)); } catch { throw new BriefingError('Section introuvable'); }
-    return send(res, 200, await loadSection(findSection(id), profile.config, q.get('force') === '1'));
+    const section = findSection(id), payload = await loadSection(section, profile.config, q.get('force') === '1', true);
+    // La page ne reçoit que les articles qui peuvent lui servir (voir lib/trim.js) ; le cache garde tout.
+    return send(res, 200, payload.articles ? { ...payload, articles: trimArticles(payload.articles, section, profile.config.general) } : payload);
   }
   if (route === 'GET /api/read') return send(res, 200, [...profile.readIDs]);
   if (route === 'POST /api/read') {
@@ -753,6 +780,7 @@ function serveStatic(req, res, url) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    res.acceptsGzip = /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
     if (url.pathname === '/healthz') return send(res, 200, 'ok');
     if (!authorized(req)) return send(res, 401, 'Authentification requise / Authentication required', { 'WWW-Authenticate': 'Basic realm="Lookout", charset="UTF-8"' });
     if (url.pathname.startsWith('/api/')) {
