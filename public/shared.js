@@ -251,6 +251,7 @@ export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apispor
 const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appearance: 'system', accentHex: '#3B82F6',
   tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
   dimReadArticles: true, units: 'metric',
+  unreadFirst: true,      // les articles nouveaux, puis non lus, passent devant ceux déjà lus
   dedupeArticles: true,   // une même nouvelle n'apparaît qu'une fois par page
   readerDefault: false,   // un clic sur un article l'ouvre dans le lecteur intégré plutôt que dans un nouvel onglet
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
@@ -289,6 +290,48 @@ export function articleFilter(options, general = {}, now = Date.now()) {
     const haystack = `${a.title} ${a.summary}`.toLowerCase();
     return (!include.length || include.some((k) => haystack.includes(k))) && !exclude.some((k) => haystack.includes(k));
   };
+}
+
+/** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
+/**
+ * `rank` (facultatif) donne le rang d'un article : 0 = nouveau, 1 = non lu, 2 = déjà lu. Les rangs sont servis l'un
+ * après l'autre : tant qu'il reste des nouveaux ou des non lus, ils passent devant les articles lus, même plus récents.
+ */
+export function present(articles, options, sourceOrder, limit, general = {}, skip = null, rank = null) {
+  if (rank) {
+    const tiers = [[], [], []];
+    for (const a of articles) tiers[rank(a)].push(a);
+    const out = [];
+    // Les doublons de titre sont écartés d'un rang à l'autre aussi.
+    const titles = new Set(), fresh = (a) => { const key = a.title.toLowerCase(); return titles.has(key) ? false : (titles.add(key), true); };
+    for (const tier of tiers) {
+      if (out.length >= limit) break;
+      out.push(...present(tier.filter((a) => !titles.has(a.title.toLowerCase())), options, sourceOrder, limit - out.length, general, skip).filter(fresh));
+    }
+    return out;
+  }
+  const keep = articleFilter(options, general), seen = new Set();
+  const sorted = articles.filter((a) => {
+    if (!keep(a) || skip?.(a)) return false;
+    const key = a.title.toLowerCase();
+    return seen.has(key) ? false : (seen.add(key), true);
+  }).sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
+  if (options.ordering !== 'balanced') return sorted.slice(0, limit);
+
+  // Alterne entre les sources pour qu'un fil très actif ne monopolise pas la section.
+  const queues = new Map();
+  for (const a of sorted) queues.set(a.source, [...(queues.get(a.source) ?? []), a]);
+  const order = [...sourceOrder.filter((n) => queues.has(n)), ...[...queues.keys()].filter((n) => !sourceOrder.includes(n)).sort()];
+  const out = [];
+  while (out.length < limit) {
+    let added = false;
+    for (const name of order) {
+      const queue = queues.get(name);
+      if (out.length < limit && queue.length) { out.push(queue.shift()); added = true; }
+    }
+    if (!added) break;
+  }
+  return out;
 }
 
 const CALENDAR = { calendars: [], days: 7, showLocation: true, showEnded: false };

@@ -3,7 +3,7 @@ import { h, icon, sfIcon, badge, fmt, t, api, openMenu, openDialog, confirmDialo
 import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { runOnboarding } from './onboarding.js';
 import { setLangProvider, resolveLang } from './i18n.js';
-import { cardBody, shownArticles, articleKeys, countNew, WMO } from './cards.js';
+import { cardBody, shownArticles, articleKeys, countNew, setRankProvider, WMO } from './cards.js';
 import { KINDS, FEED_CATALOG, template, youtubeSection, categorySection, newPage, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
 import { openSettings } from './settings.js';
 
@@ -100,6 +100,7 @@ function commit() {
 }
 
 // --- Données ---
+const readAtLoad = new Map();     // id de section -> articles déjà lus quand ses données sont arrivées
 const refreshTries = new Map();   // id de section -> nombre de retours pendant une mise à jour en arrière-plan
 async function loadSection(id, force = false) {
   const s = section(id);
@@ -116,6 +117,9 @@ async function loadSection(id, force = false) {
   if (state.signatures.get(id) !== signature) return;   // une demande plus récente est en cours
   state.data.set(id, payload);
   state.loading.delete(id);
+  // L'ordre « non lus d'abord » se fie aux articles lus à l'arrivée des données : un article qu'on vient d'ouvrir
+  // reste à sa place, au lieu de sauter au bas de la carte sous le doigt.
+  if (payload.articles && (!payload.refreshing || !readAtLoad.has(id))) readAtLoad.set(id, new Set(state.readIDs));
   renderCard(id);
   // Données servies depuis le cache pendant que le serveur interroge les sources : on revient les chercher sous peu.
   if (payload.refreshing) {
@@ -462,6 +466,13 @@ async function callEntity(s, entity) {
   catch (error) { showNotice(error.message); }
   renderCard(s.id);
 }
+
+// --- Nouveaux et non lus d'abord ---
+setRankProvider((s) => {
+  if (!general().unreadFirst) return null;
+  const read = readAtLoad.get(s.id) ?? state.readIDs;
+  return (a) => (read.has(a.id) ? 2 : newSince && a.date && a.date > newSince ? 0 : 1);
+});
 
 const ctx = { get general() { return general(); }, skipFor, alsoIn, get callEntity() { return app.viewing ? null : callEntity; }, isRead: (id) => state.readIDs.has(id), setRead,
   get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, get readArticle() { return app.display ? null : readArticle; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,

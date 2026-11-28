@@ -669,6 +669,8 @@ export const EN = {
   "Aucun cours pour {0}": "No quote for {0}",
   "Ajoutez au moins un symbole dans les réglages de la section": "Add at least one symbol in the section settings",
   "Sauvegarde introuvable": "Backup not found",
+  "Afficher d'abord les articles nouveaux et non lus": "Show new and unread articles first",
+  "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils. Avec la seconde option, chaque carte montre d'abord les articles parus depuis votre dernière visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Un article que vous venez d'ouvrir garde sa place jusqu'à la prochaine mise à jour de la section.": "The read state is stored on the server: it is shared across all your devices. With the second option, each card first shows the articles published since your last visit, then the other unread ones; an article already read only comes back if there is room left. An article you just opened keeps its place until the section next updates.",
   // Classements et statistiques
   "Rien à afficher pour cette ligue pour le moment.": "Nothing to show for this league right now.",
   "Meneurs par catégorie": "Leaders per category",

@@ -947,7 +947,8 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     return pane("Ce qui s'applique à tous vos fils d'articles. Chaque section a en plus ses propres filtres.",
       group('Lecture', [
         line('Atténuer les articles déjà lus', toggle(g, 'dimReadArticles', { label: 'Atténuer les articles lus' })),
-      ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils."),
+        line("Afficher d'abord les articles nouveaux et non lus", toggle(g, 'unreadFirst', { label: "Afficher d'abord les articles nouveaux et non lus" })),
+      ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils. Avec la seconde option, chaque carte montre d'abord les articles parus depuis votre dernière visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Un article que vous venez d'ouvrir garde sa place jusqu'à la prochaine mise à jour de la section."),
       group('Doublons', [
         line('Afficher chaque nouvelle une seule fois par page', toggle(g, 'dedupeArticles', { label: 'Afficher chaque nouvelle une seule fois par page' })),
       ], "Quand plusieurs sections d'une même page reçoivent la même nouvelle, seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant. Deux articles différents sur le même sujet ne sont pas considérés comme des doublons."),

@@ -3,33 +3,9 @@ import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 
 // --- Articles (RSS et API JSON) ---
 
-import { keywords, articleFilter, youtubeVideoID, WMO_LABELS } from './shared.js';
+import { keywords, articleFilter, youtubeVideoID, WMO_LABELS, present } from './shared.js';
 
-/** Filtre, trie et limite les articles selon les réglages d'affichage de la section. */
-export function present(articles, options, sourceOrder, limit, general = {}, skip = null) {
-  const keep = articleFilter(options, general), seen = new Set();
-  const sorted = articles.filter((a) => {
-    if (!keep(a) || skip?.(a)) return false;
-    const key = a.title.toLowerCase();
-    return seen.has(key) ? false : (seen.add(key), true);
-  }).sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
-  if (options.ordering !== 'balanced') return sorted.slice(0, limit);
-
-  // Alterne entre les sources pour qu'un fil très actif ne monopolise pas la section.
-  const queues = new Map();
-  for (const a of sorted) queues.set(a.source, [...(queues.get(a.source) ?? []), a]);
-  const order = [...sourceOrder.filter((n) => queues.has(n)), ...[...queues.keys()].filter((n) => !sourceOrder.includes(n)).sort()];
-  const out = [];
-  while (out.length < limit) {
-    let added = false;
-    for (const name of order) {
-      const queue = queues.get(name);
-      if (out.length < limit && queue.length) { out.push(queue.shift()); added = true; }
-    }
-    if (!added) break;
-  }
-  return out;
-}
+export { present };
 
 /** L'article contient-il un mot à mettre en évidence (réglages de la section ou réglages généraux) ? */
 function highlighted(article, section, general) {
@@ -129,8 +105,11 @@ export function articleKeys(article) {
 
 /** Articles affichés par une section. `skip` écarte ceux qu'une section placée avant elle montre déjà. */
 export function shownArticles(section, articles, general, skip = null) {
-  return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems), general, skip);
+  return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems), general, skip, rankProvider(section));
 }
+// Rang des articles d'une section (nouveaux et non lus d'abord), fourni par le tableau de bord ; nul si l'option est coupée.
+let rankProvider = () => null;
+export function setRankProvider(fn) { rankProvider = fn; }
 
 function articleList(section, articles, ctx) {
   const shown = shownArticles(section, articles, ctx.general, ctx.skipFor?.(section));

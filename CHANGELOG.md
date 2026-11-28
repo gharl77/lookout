@@ -4,10 +4,13 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ## À venir / Unreleased
 
-Chargement plus rapide, surtout pour YouTube. / Faster loading, especially for YouTube.
+Chargement plus rapide, surtout pour YouTube ; nouveaux articles en premier. / Faster loading, especially for YouTube; new articles first.
 
 ### Français
 
+- **Nouveaux et non lus d'abord** : chaque carte montre d'abord les articles parus depuis votre dernière
+  visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Réglable dans
+  *Lecture et filtres*.
 - **Sections d'articles allégées** : le serveur n'envoie plus que les articles utiles à la carte et à la
   recherche (250 au plus) au lieu de tout ce que les sources renvoient — une section YouTube de 200 chaînes
   passait par 3 000 vidéos à chaque chargement.
@@ -17,6 +20,9 @@ Chargement plus rapide, surtout pour YouTube. / Faster loading, especially for Y
 
 ### English
 
+- **New and unread first**: each card first shows the articles published since your last visit, then the
+  other unread ones; an article already read only comes back if there is room left. Adjustable under
+  *Reading and filters*.
 - **Lighter article sections**: the server now sends only the articles the card and search can use (250 at
   most) instead of everything the sources return — a YouTube section with 200 channels went through 3,000
   videos on every load.

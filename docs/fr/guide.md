@@ -266,6 +266,10 @@ que l'administrateur vous a ouverte.
   tous vos appareils.
 - La pastille **Nouveau** signale les articles parus depuis votre visite précédente sur cet appareil. Le repère
   n'avance que si vous êtes parti au moins dix minutes.
+- **Nouveaux et non lus d'abord** : chaque carte montre d'abord les articles parus depuis votre dernière
+  visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Un article que
+  vous venez d'ouvrir garde sa place jusqu'à la prochaine mise à jour. Se désactive dans
+  *Réglages → Lecture et filtres*.
 - **Tout marquer comme lu** : le bouton ✓ dans l'en-tête d'une carte marque tous ses articles affichés ; un
   bandeau permet d'annuler. Il n'apparaît que s'il reste des articles non lus.
 - **Doublons** : quand plusieurs sections d'une même page reçoivent la même nouvelle (à la une, international,
