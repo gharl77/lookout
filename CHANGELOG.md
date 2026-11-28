@@ -2,7 +2,7 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
-## À venir / Unreleased
+## 2026.11.8
 
 Fiches d'équipe, sujets regroupés, résumé d'article, chargement plus rapide. / Team sheets, grouped topics, article summaries, faster loading.
 

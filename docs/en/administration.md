@@ -171,7 +171,7 @@ by itself, or offers to if you are in the middle of something.
 | Image tag | Content |
 |---|---|
 | `latest` | Latest official release |
-| `2026.11.7` | A specific release |
+| `2026.11.8` | A specific release |
 | `test` | Development branch, to try things before a release |
 
 ## What the data folder holds
