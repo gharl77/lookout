@@ -22,7 +22,6 @@ export const KINDS = {
   hass: { label: 'Home Assistant', detail: 'États de vos entités, avec interrupteurs (jeton d’accès longue durée)', icon: 'house.fill', color: '#14B8A6', maxItems: 12 },
   stocks: { label: 'Bourse et devises', detail: 'Cours de titres, d’indices et de devises (Yahoo Finance)', icon: 'chart.line.uptrend.xyaxis', color: '#22C55E', maxItems: 8 },
   releases: { label: 'Sorties', detail: 'Films en salle et nouvelles saisons de séries (TMDB, TVmaze)', icon: 'film.fill', color: '#F97316', maxItems: 12 },
-  summary: { label: 'Résumé du jour', detail: "L'essentiel de vos fils, résumé par Claude (API Anthropic)", icon: 'bolt.fill', color: '#8B5CF6', maxItems: 5 },
 };
 
 export const SWATCHES = ['#EF4444', '#F97316', '#F59E0B', '#22C55E', '#10B981', '#14B8A6', '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#64748B'];
@@ -244,7 +243,7 @@ export const REFRESH_CHOICES = [5, 10, 15, 30, 60, 120];
  * Intervalle propre à un type de section, en minutes ; 0 = suivre l'intervalle par défaut des réglages.
  * Les pointages et les trajets changent vite : ils sont interrogés plus souvent que les nouvelles.
  */
-export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, summary: 120, calendar: 15, hass: 5, stocks: 15, standings: 60 };
+export const KIND_REFRESH = { feed: 0, weather: 0, api: 0, commute: 5, sports: 5, releases: 120, calendar: 15, hass: 5, stocks: 15, standings: 60 };
 
 export const PROVIDER_LABELS = { espn: 'ESPN', hockeytech: 'HockeyTech', apisports: 'API-Sports' };
 
@@ -411,12 +410,14 @@ export const WMO_LABELS = { 0: 'Dégagé', 1: 'Généralement dégagé', 2: 'Par
 const RELEASES = { country: 'CA', days: 7, showMovies: true, showSeries: true, tmdbKey: '' };
 /** Modèles offerts pour le résumé, du plus capable au plus économique. */
 export const SUMMARY_MODELS = [['claude-opus-5-5', 'Claude Opus 5.5'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5'], ['claude-haiku-5-5', 'Claude Haiku 5.5']];
-const SUMMARY = { anthropicKey: '', model: 'claude-opus-5-5', sections: [], focus: '',
-  scheduled: true, time: '05:30',   // édition du matin : produite une fois par jour, à l'heure choisie (heure du serveur)
-  showGlance: true, showVideos: true,      // ce que la carte affiche en plus des points
-  email: false, emailTo: '',               // envoyée par courriel, que la carte soit affichée ou non
-  emailGlance: true, emailVideos: true,    // ce que le courriel contient en plus des points
-  notify: true };                   // annoncée par une notification sur les appareils abonnés   // sections vides = tous les fils
+/**
+ * Résumé par courriel : un résumé quotidien des sections choisies, envoyé à l'heure dite. Il se règle dans les
+ * réglages (rubrique « Résumé par courriel ») et n'a pas de carte sur le tableau de bord.
+ */
+const DIGEST = { enabled: false, time: '05:30', emailTo: '', sections: [], model: 'claude-opus-5-5', anthropicKey: '', focus: '', points: 5 };
+/** Comment une section entre dans le résumé : matière des points, liste de vidéos, coup d'œil — ou pas du tout (null). */
+export const digestRole = (s) => (s.kind === 'feed' ? (s.feed.youtube ? 'videos' : 'points') : s.kind === 'api' ? 'points'
+  : ['weather', 'calendar', 'commute', 'sports'].includes(s.kind) ? 'glance' : null);
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 export const feedSource = (name, url) => ({ id: uuid(), name, url, enabled: true });
@@ -431,7 +432,7 @@ export function newSection(kind, overrides = {}) {
     page: '',     // page du tableau de bord (vide = première page)
     column: -1,   // colonne dans la grille ; -1 = pas encore placée à la main (colonne la moins remplie)
     feed: clone(FEED), weather: clone(WEATHER), commute: clone(COMMUTE), sports: clone(SPORTS), api: clone(API),
-    releases: clone(RELEASES), summary: clone(SUMMARY), calendar: clone(CALENDAR), hass: clone(HASS), stocks: clone(STOCKS), standings: clone(STANDINGS), ...overrides };
+    releases: clone(RELEASES), calendar: clone(CALENDAR), hass: clone(HASS), stocks: clone(STOCKS), standings: clone(STANDINGS), ...overrides };
 }
 
 /** Identifiant de la vidéo dans une adresse YouTube (vidéo, Short ou lien court), ou null. */
@@ -554,14 +555,30 @@ export function normalize(input) {
     s.hass.entities = (Array.isArray(s.hass.entities) ? s.hass.entities : []).filter((x) => x && typeof x === 'object').map((x) => ({ ...hassEntity(), ...x })).slice(0, 60);
     s.stocks = { ...STOCKS, ...(raw.stocks ?? {}) };
     s.stocks.symbols = (Array.isArray(s.stocks.symbols) ? s.stocks.symbols : []).filter((x) => x && typeof x === 'object').map((x) => ({ ...stockSymbol(), ...x })).slice(0, 40);
-    s.summary = { ...SUMMARY, ...(raw.summary ?? {}) };
-    if (!Array.isArray(s.summary.sections)) s.summary.sections = [];
-    if (!SUMMARY_MODELS.some(([id]) => id === s.summary.model)) s.summary.model = SUMMARY.model;
-    s.summary.time = clockTime(s.summary.time, SUMMARY.time);
     if (!config.pages.some((p) => p.id === s.page)) s.page = config.pages[0].id;   // page inconnue ou supprimée
     config.sections.push(s);
   }
+  // Résumé par courriel. Une ancienne carte « Résumé du jour » est convertie en ces réglages, puis disparaît.
+  const legacy = input.sections.find((raw) => raw?.kind === 'summary');
+  const digest = { ...DIGEST, ...(input.digest && typeof input.digest === 'object' ? input.digest : legacy ? digestFromLegacy(legacy, config.sections) : {}) };
+  const known = new Set(config.sections.filter(digestRole).map((x) => x.id));
+  digest.sections = [...new Set((Array.isArray(digest.sections) ? digest.sections : []).filter((id) => known.has(id)))];
+  digest.time = clockTime(digest.time, DIGEST.time);
+  if (!SUMMARY_MODELS.some(([id]) => id === digest.model)) digest.model = DIGEST.model;
+  digest.points = Math.min(10, Math.max(3, Math.round(Number(digest.points)) || DIGEST.points));
+  for (const key of ['emailTo', 'anthropicKey', 'focus']) digest[key] = String(digest[key] ?? '').slice(0, 300);
+  digest.enabled = Boolean(digest.enabled);
+  config.digest = digest;
   return config;
+}
+
+/** Réglages du résumé par courriel tirés d'une ancienne carte « Résumé du jour » (clé, modèle, heure, adresse, sections). */
+function digestFromLegacy(legacy, sections) {
+  const o = legacy.summary ?? {}, picked = new Set(Array.isArray(o.sections) ? o.sections : []);
+  // « Toutes mes sections » : celles qui étaient affichées. Sinon, les sections cochées, plus le coup d'œil.
+  const chosen = sections.filter((s) => digestRole(s) && (digestRole(s) === 'glance' ? s.enabled : picked.size ? picked.has(s.id) : s.enabled));
+  return { enabled: Boolean(o.email && String(o.emailTo ?? '').trim()), time: o.time, emailTo: o.emailTo, sections: chosen.map((s) => s.id), model: o.model,
+    anthropicKey: o.anthropicKey, focus: o.focus, points: legacy.maxItems };
 }
 
 /** Empreinte des réglages qui exigent de retélécharger les données (pas la présentation). */
@@ -575,7 +592,6 @@ export function fetchSignature(s, units) {
     : s.kind === 'hass' ? [s.hass.url, s.hass.token, s.hass.entities.map((e) => [e.id, e.entity, e.enabled])]
     : s.kind === 'standings' ? [s.standings.leagues.map((l) => [l.id, l.name, l.path, l.enabled, l.provider, l.key, l.teams.map((x) => x.id)]), s.standings.showStandings, s.standings.showLeaders, s.standings.showTeams, s.standings.upcoming, s.standings.grouping, s.maxItems]
     : s.kind === 'stocks' ? s.stocks.symbols.map((x) => [x.id, x.symbol, x.enabled])
-    : s.kind === 'summary' ? [s.summary, s.maxItems]
     : [s.api, s.title];
   return JSON.stringify([s.kind, units, data]);
 }

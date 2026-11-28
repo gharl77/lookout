@@ -22,7 +22,7 @@ import { resolveChannel } from './lib/youtube.js';
 import { fetchReleases } from './lib/releases.js';
 import { fetchCalendar } from './lib/calendar.js';
 import { readArticle } from './lib/reader.js';
-import { fetchSummary, summarizeArticle, fetchEdition } from './lib/summary.js';
+import { summarizeArticle, fetchEdition } from './lib/summary.js';
 import { collectEdition, renderEmail, dayKey } from './lib/edition.js';
 import { sendMail, checkAddress } from './lib/mail.js';
 import { fetchHass, searchHass, callHass } from './lib/hass.js';
@@ -31,7 +31,7 @@ import { Backups } from './lib/backups.js';
 import { fetchStandings } from './lib/standings.js';
 import { trimArticles } from './lib/trim.js';
 import * as google from './lib/google.js';
-import { articleFilter, youtubeFeedURL, youtubeChannelID, YOUTUBE_REFRESH } from './public/shared.js';
+import { youtubeFeedURL, youtubeChannelID, YOUTUBE_REFRESH } from './public/shared.js';
 
 installDnsCache();
 
@@ -108,7 +108,7 @@ setInterval(() => {
 // Le résumé appelle un service payant : jamais plus d'une fois par heure, quel que soit l'intervalle choisi.
 // Une section YouTube laissée à l'intervalle « par défaut » est interrogée une fois l'heure : chaque mise à jour
 // demande le fil de chacune des chaînes, et une chaîne publie rarement plus souvent.
-const intervalMs = (section, config) => Math.max(section?.kind === 'summary' ? 60 : 1,
+const intervalMs = (section, config) => Math.max(1,
   Number(section?.refreshMinutes) || (section?.kind === 'feed' && section.feed.youtube ? YOUTUBE_REFRESH : 0) || Number(config.general.refreshMinutes) || 30) * 60e3;
 const FAST_RETRIES = 2;
 const hasErrors = (payload) => Boolean(payload.error) || Object.keys(payload.sourceErrors ?? {}).length > 0
@@ -132,7 +132,7 @@ function nextUpdate(entry, section, config) {
   // Après un échec, on réessaie vite — sauf pour le résumé, dont chaque essai peut être un appel payant.
   // Une source qui échoue encore après deux essais rapprochés (chaîne supprimée, fil fermé) ne fait plus redemander
   // toute la section toutes les deux minutes : elle sera réessayée au rythme normal.
-  if (hasErrors(entry.payload) && (entry.retries ?? 0) <= FAST_RETRIES) wait = Math.min(wait, section?.kind === 'summary' ? 15 * 60e3 : RETRY_MS);
+  if (hasErrors(entry.payload) && (entry.retries ?? 0) <= FAST_RETRIES) wait = Math.min(wait, RETRY_MS);
   if (hasLiveGame(entry.payload, section)) wait = Math.min(wait, LIVE_MS);   // pendant un match : chaque minute
   return entry.time + wait;
 }
@@ -144,41 +144,17 @@ function logSourceErrors(section, sourceErrors = {}) {
   for (const [id, message] of Object.entries(sourceErrors)) console.warn(`[${section.title}] ${names.get(id) || 'source'} : ${message}`);
 }
 
-/**
- * Résumé du jour : rassemble les titres récents des fils du profil (ceux que leurs cartes afficheraient), puis les
- * fait condenser. Les fils passent par le cache habituel : le résumé ne fait interroger aucune source plus souvent.
- */
-async function summarize(section, config, force = false) {
-  // Édition du matin : la carte montre l'édition gardée sur disque. Elle n'est produite sur demande que la toute
-  // première fois, ou quand on appuie sur « Mettre à jour maintenant » ; sinon, c'est l'horloge qui s'en charge.
-  if (section.summary.scheduled !== false) {
-    const owner = accounts.ownerOfConfig(config);
-    if (!owner) throw new BriefingError('Profil introuvable');
-    const stored = force ? null : readEdition(owner.id, section.id);
-    return stored ?? produceEdition(owner, section, config, false);
-  }
-  const wanted = new Set(section.summary.sections);
-  const feeds = config.sections.filter((s) => s.enabled && (s.kind === 'feed' || s.kind === 'api') && !s.feed.youtube && (!wanted.size || wanted.has(s.id)));
-  const items = [];
-  for (const feed of feeds) {
-    const payload = await loadSection(feed, config);
-    const keep = articleFilter({ ...feed.feed, maxAgeHours: Math.min(feed.feed.maxAgeHours || 24, 24) }, config.general);
-    const recent = (payload.articles ?? []).filter(keep).sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).slice(0, 8);
-    for (const a of recent) items.push({ section: feed.title, source: a.source ?? '', title: a.title, link: a.link });
-  }
-  const { key, model, payer } = anthropicAccess(section.summary, accounts.ownerOfConfig(config));
-  const result = await fetchSummary(section.id, { ...section.summary, model, points: section.maxItems }, key, items.slice(0, 90),
-    payer ? (spent) => recordUsage(payer, spent) : null);
-  return { ...result, sourceErrors: {} };
+// --- Résumé par courriel ---
+// Une fois par jour, à l'heure choisie par le profil, le résumé est produit et envoyé : sujets des dernières
+// 24 heures réunis par événement, choix des nouvelles par Claude, coup d'œil et vidéos mis en forme par le code.
+// Il n'a pas de carte : tout se règle dans les réglages, et l'état du dernier envoi est gardé sur disque.
+const digestFile = (userID) => path.join(DATA, 'profiles', String(userID).replace(/[^A-Za-z0-9-]/g, ''), 'digest.json');
+function digestState(userID) {
+  try { const saved = JSON.parse(fs.readFileSync(digestFile(userID), 'utf8')); return saved && typeof saved === 'object' ? saved : {}; } catch { return {}; }
 }
-
-// --- Édition du matin ---
-// Une fois par jour, à l'heure choisie dans la section, le résumé est produit pour de bon : sujets des dernières
-// 24 heures réunis par événement, choix des nouvelles par Claude, puis mise en forme. Il est gardé sur disque
-// (data/profiles/<profil>/edition-<section>.json) : la carte l'affiche toute la journée sans nouvel appel.
-const editionFile = (userID, sectionID) => path.join(DATA, 'profiles', String(userID).replace(/[^A-Za-z0-9-]/g, ''), `edition-${String(sectionID).replace(/[^A-Za-z0-9-]/g, '')}.json`);
-function readEdition(userID, sectionID) {
-  try { const saved = JSON.parse(fs.readFileSync(editionFile(userID, sectionID), 'utf8')); return saved?.summary ? saved : null; } catch { return null; }
+function saveDigestState(userID, state) {
+  fs.mkdirSync(path.dirname(digestFile(userID)), { recursive: true });
+  fs.writeFileSync(digestFile(userID), JSON.stringify(state), { mode: 0o600 });
 }
 /** Réglages du serveur d'envoi de courriels (fournis par un administrateur), ou null s'il n'est pas configuré. */
 function mailConfig() {
@@ -186,78 +162,58 @@ function mailConfig() {
   return host && from ? { host, from, port: accounts.sharedKey('smtpPort'), security: accounts.sharedKey('smtpSecurity') || 'starttls', user: accounts.sharedKey('smtpUser'), password: accounts.sharedKey('smtpPassword') } : null;
 }
 
-/** Envoie une édition par courriel à l'adresse de la section, avec le contenu choisi pour le courriel. */
-async function mailEdition(section, edition) {
-  const mail = mailConfig();
-  if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
-  await sendMail(mail, { to: section.summary.emailTo, ...renderEmail(edition, section.title, new Date(`${edition.edition}T12:00:00`),
-    { glance: section.summary.emailGlance !== false, videos: section.summary.emailVideos !== false }) });
-}
-
 /**
- * Produit l'édition d'une section, l'enregistre et, si `deliver`, l'envoie (courriel, notification).
- * Un envoi qui échoue n'annule pas l'édition : elle reste affichée, et l'échec est noté dans le journal et sur la carte.
+ * Produit le résumé d'un profil et l'envoie par courriel. Tout est vérifié avant d'appeler le modèle (adresse,
+ * serveur d'envoi, clé), pour ne jamais payer un résumé qui ne pourrait pas partir.
  */
-async function produceEdition(owner, section, config, deliver) {
-  const draft = await collectEdition(section, config, (s) => loadSection(s, config));
-  const { key, model, payer } = anthropicAccess(section.summary, owner);
-  const result = await fetchEdition({ model, points: section.maxItems, focus: section.summary.focus }, key, draft.topics, payer ? (spent) => recordUsage(payer, spent) : null);
-  const edition = { summary: result.points, glance: draft.glance, videos: draft.videos, model: result.model, basedOn: result.basedOn,
-    edition: dayKey(), generatedAt: Date.now(), scheduled: true, mailed: null, sourceErrors: {} };
-  if (deliver) {
-    if (section.summary.email && String(section.summary.emailTo).trim()) {
-      try {
-        await mailEdition(section, edition);
-        edition.mailed = { ok: true, at: Date.now() };
-        console.log(`Édition du matin de « ${owner.name} » envoyée par courriel.`);
-      } catch (error) {
-        edition.mailed = { ok: false, error: String(error.message).slice(0, 200) };
-        console.warn(`Édition du matin de « ${owner.name} » — courriel non envoyé : ${error.message}`);
-      }
-    }
-    if (section.summary.notify !== false) {
-      notify(owner.id, { title: section.title, body: edition.summary.slice(0, 2).map((p, i) => `${i + 1}. ${p.text}`).join('\n').slice(0, 400), tag: `edition-${section.id}` }).catch(() => {});
-    }
+async function sendDigest(owner, config) {
+  const digest = config.digest, to = checkAddress(digest.emailTo), mail = mailConfig();
+  if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
+  if (!digest.sections.length) throw new BriefingError('Aucune section cochée : le résumé serait vide.');
+  const draft = await collectEdition(digest, config, (section) => loadSection(section, config));
+  let points = [], model = digest.model;
+  if (draft.topics.length) {
+    const access = anthropicAccess(digest, owner);
+    if (!access.key) throw new BriefingError('Clé Anthropic manquante : saisissez-la dans Réglages → Résumé par courriel, ou demandez-la à un administrateur');
+    const result = await fetchEdition({ model: access.model, points: digest.points, focus: digest.focus }, access.key, draft.topics, access.payer ? (spent) => recordUsage(access.payer, spent) : null);
+    points = result.points;
+    model = result.model;
   }
-  fs.mkdirSync(path.dirname(editionFile(owner.id, section.id)), { recursive: true });
-  fs.writeFileSync(editionFile(owner.id, section.id), JSON.stringify(edition), { mode: 0o600 });
-  // La carte ne doit pas continuer à servir l'édition précédente depuis le cache.
-  for (const cacheKey of cache.keys()) if (cacheKey.startsWith(`${section.id}|`)) cache.delete(cacheKey);
-  return edition;
+  if (!points.length && !draft.videos.length && !draft.glance.length) throw new BriefingError('Rien à résumer pour le moment dans les sections cochées');
+  const edition = { summary: points, glance: draft.glance, videos: draft.videos, model, basedOn: draft.topics.length };
+  await sendMail(mail, { to, ...renderEmail(edition, t('Résumé du jour')) });
+  return { points: points.length, videos: draft.videos.length, to };
 }
 
-/** Horloge des éditions : chaque minute, produit celles dont l'heure est passée et qui manquent encore pour aujourd'hui. */
-const editionTries = new Map();   // « profil|section|jour » -> essais faits (trois au plus par jour)
-let editionBusy = false;
-async function editionTick() {
-  if (editionBusy) return;
-  editionBusy = true;
+/** Horloge du résumé : chaque minute, envoie ceux dont l'heure est passée et qui manquent encore pour aujourd'hui. */
+const digestTries = new Map();   // « profil|jour » -> essais faits (trois au plus par jour)
+let digestBusy = false;
+async function digestTick() {
+  if (digestBusy) return;
+  digestBusy = true;
   try {
     const now = new Date(), today = dayKey(now), minutes = now.getHours() * 60 + now.getMinutes();
-    for (const key of editionTries.keys()) if (!key.endsWith(today)) editionTries.delete(key);
+    for (const key of digestTries.keys()) if (!key.endsWith(today)) digestTries.delete(key);
     for (const listed of accounts.list()) {
-      const owner = accounts.user(listed.id), config = accounts.profile(listed.id).config;
-      for (const section of config.sections) {
-        if (section.kind !== 'summary' || section.summary.scheduled === false) continue;
-        // La carte et le courriel sont indépendants : une section masquée du tableau de bord produit quand même
-        // son édition si elle doit partir par courriel.
-        const mailed = section.summary.email && String(section.summary.emailTo).trim();
-        if (!section.enabled && !mailed) continue;
-        const [h, m] = section.summary.time.split(':').map(Number), tryKey = `${owner.id}|${section.id}|${today}`;
-        if (minutes < h * 60 + m || readEdition(owner.id, section.id)?.edition === today || (editionTries.get(tryKey) ?? 0) >= 3) continue;
-        // Sans clé, rien à tenter : la carte le dit déjà, inutile de remplir le journal chaque matin.
-        if (!String(section.summary.anthropicKey ?? '').trim() && !accounts.sharedAllowed(owner.id, 'anthropicKey')) continue;
-        editionTries.set(tryKey, (editionTries.get(tryKey) ?? 0) + 1);
-        const lang = config.general.language === 'en' ? 'en' : 'fr';
-        try {
-          await requestLang.run(lang, () => produceEdition(owner, section, config, true));
-          console.log(`Édition du matin produite pour « ${owner.name} » (${section.title}).`);
-        } catch (error) { console.warn(`Édition du matin de « ${owner.name} » : ${error.message}`); }
+      const owner = accounts.user(listed.id), config = accounts.profile(listed.id).config, digest = config.digest;
+      if (!digest?.enabled || !String(digest.emailTo).trim() || !digest.sections.length) continue;
+      const [h, m] = digest.time.split(':').map(Number), tryKey = `${owner.id}|${today}`, state = digestState(owner.id);
+      if (minutes < h * 60 + m || state.scheduledDay === today || (digestTries.get(tryKey) ?? 0) >= 3) continue;
+      digestTries.set(tryKey, (digestTries.get(tryKey) ?? 0) + 1);
+      try {
+        const sent = await requestLang.run(config.general.language === 'en' ? 'en' : 'fr', () => sendDigest(owner, config));
+        saveDigestState(owner.id, { scheduledDay: today, lastSentAt: Date.now(), lastError: null, lastPoints: sent.points });
+        console.log(`Résumé par courriel envoyé pour « ${owner.name} » (${sent.points} points, ${sent.videos} vidéos).`);
+      } catch (error) {
+        // Au troisième échec, on abandonne pour aujourd'hui : l'erreur reste visible dans les réglages.
+        saveDigestState(owner.id, { ...state, lastError: String(error.message).slice(0, 200), lastErrorAt: Date.now(),
+          ...((digestTries.get(tryKey) ?? 0) >= 3 ? { scheduledDay: today } : {}) });
+        console.warn(`Résumé par courriel de « ${owner.name} » : ${error.message}`);
       }
     }
-  } finally { editionBusy = false; }
+  } finally { digestBusy = false; }
 }
-setInterval(() => { editionTick().catch((error) => console.error('Édition du matin :', error)); }, 60e3).unref();
+setInterval(() => { digestTick().catch((error) => console.error('Résumé par courriel :', error)); }, 60e3).unref();
 
 /**
  * Clé et modèle pour un appel à Claude. Clé du profil : aucun plafond, c'est lui qui paie. Clé partagée : seulement
@@ -461,7 +417,6 @@ async function loadSection(section, config, force = false, stale = false) {
         : section.kind === 'hass' ? await fetchHass(section.hass)
         : section.kind === 'stocks' ? await fetchStocks(section.stocks)
         : section.kind === 'standings' ? await fetchStandings(section.standings, section.maxItems)
-        : section.kind === 'summary' ? await summarize(section, config, force)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
       logSourceErrors(section, data.sourceErrors);
@@ -676,15 +631,26 @@ async function api(req, res, url) {
     console.log(`Sauvegarde faite à la demande de « ${user.name} ».`);
     return send(res, 200, { keep: backups.keep, files: backups.list() });
   }
-  // Envoyer tout de suite par courriel l'édition déjà produite (aucun nouvel appel au modèle).
-  if (route === 'POST /api/edition/send') {
-    const section = findSection(String((await readBody(req))?.section ?? ''));
-    if (section.kind !== 'summary') throw new BriefingError('Section introuvable');
-    checkAddress(section.summary.emailTo);
-    const edition = readEdition(user.id, section.id);
-    if (!edition) throw new BriefingError("Aucune édition n'a encore été produite : attendez la prochaine, ou mettez la carte à jour");
-    await mailEdition(section, edition);
-    return send(res, 200, { ok: true, edition: edition.edition });
+  // Résumé par courriel : état du dernier envoi, et envoi immédiat (en plus de l'envoi planifié).
+  if (route === 'GET /api/digest') {
+    const state = digestState(user.id), digest = profile.config.digest;
+    return send(res, 200, { lastSentAt: state.lastSentAt ?? null, lastError: state.lastError ?? null, lastErrorAt: state.lastErrorAt ?? null,
+      mailReady: Boolean(mailConfig()), keyReady: Boolean(String(digest.anthropicKey ?? '').trim()) || accounts.sharedAllowed(user.id, 'anthropicKey') });
+  }
+  if (route === 'POST /api/digest/send') {
+    const state = digestState(user.id);
+    // Chaque envoi est un appel facturé au modèle : pas plus d'un par minute.
+    if (state.manualAt && Date.now() - state.manualAt < 60e3) throw new BriefingError('Un résumé vient de partir : attendez une minute avant le suivant');
+    saveDigestState(user.id, { ...state, manualAt: Date.now() });
+    try {
+      const sent = await sendDigest(user, profile.config);
+      saveDigestState(user.id, { ...digestState(user.id), lastSentAt: Date.now(), lastError: null, lastPoints: sent.points });
+      console.log(`Résumé par courriel envoyé à la demande de « ${user.name} ».`);
+      return send(res, 200, { ok: true, ...sent, lastSentAt: Date.now() });
+    } catch (error) {
+      if (error instanceof BriefingError) saveDigestState(user.id, { ...digestState(user.id), lastError: String(error.message).slice(0, 200), lastErrorAt: Date.now() });
+      throw error;
+    }
   }
   // Courriel d'essai : vérifie le serveur d'envoi avec l'adresse donnée (administrateur).
   if (route === 'POST /api/mail/test') {
@@ -816,10 +782,9 @@ async function api(req, res, url) {
   // Résumé d'un article par Claude : avec la clé d'une section « Résumé du jour » du profil, sinon la clé partagée.
   if (route === 'POST /api/reader/summary') {
     const body = await readBody(req);
-    const own = profile.config.sections.filter((s) => s.kind === 'summary').sort((a, b) => Boolean(b.summary.anthropicKey) - Boolean(a.summary.anthropicKey))[0];
-    const { key, model, payer } = anthropicAccess(own?.summary, user);
+    const { key, model, payer } = anthropicAccess(profile.config.digest, user);
     // Sans clé, on le dit tout de suite, avant d'aller chercher l'article.
-    if (!key) throw new BriefingError('Clé Anthropic manquante : ajoutez-la dans une section « Résumé du jour », ou demandez-la à un administrateur');
+    if (!key) throw new BriefingError('Clé Anthropic manquante : saisissez-la dans Réglages → Résumé par courriel, ou demandez-la à un administrateur');
     const page = await readArticle(checkURL(body?.url).href);
     return send(res, 200, await summarizeArticle(page, model, key, payer ? (spent) => recordUsage(payer, spent) : null));
   }

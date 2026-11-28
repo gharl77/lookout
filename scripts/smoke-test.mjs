@@ -294,6 +294,17 @@ await check('courriel : essai refusé tant que le serveur d\'envoi n\'est pas co
   expect(failed.status === 400 && !(await failed.text()).includes('SECRET-SMTP-123'), 'serveur injoignable mal signalé');
   await request('/api/shared-keys', { method: 'PUT', ...json({ smtpHost: '', smtpPort: '', smtpSecurity: '', smtpFrom: '', smtpPassword: '' }) });
 });
+await check('résumé par courriel : clé jamais renvoyée, envoi refusé proprement tant que rien n\'est configuré', async () => {
+  const withDigest = structuredClone(config);
+  Object.assign(withDigest.digest, { anthropicKey: 'SECRET-RESUME-123', emailTo: 'lecteur@exemple.test', sections: withDigest.sections.map((s) => s.id) });
+  const saved = await (await request('/api/config', { method: 'PUT', ...json(withDigest) })).text();
+  expect(!saved.includes('SECRET-RESUME-123') && JSON.parse(saved).digest.anthropicKey, 'la clé du résumé est renvoyée ou perdue');
+  const status = await (await request('/api/digest')).json();
+  expect(status.keyReady === true && status.mailReady === false && status.lastSentAt === null, 'état du résumé inattendu');
+  const refused = await request('/api/digest/send', { method: 'POST', ...json({}) });
+  expect(refused.status === 400 && !(await refused.text()).includes('SECRET-RESUME-123'), 'envoi accepté sans serveur de courriel');
+  expect((await request('/api/config', { method: 'PUT', ...json(config) })).status === 200, 'remise en état refusée');
+});
 await check('Home Assistant : seules les entités de la section peuvent être actionnées', async () => {
   expect((await request('/api/hass/call', { method: 'POST', ...json({ section: 'inconnue', entity: 'light.x' }) })).status === 400, 'section inconnue acceptée');
   expect((await request('/api/hass/call', { method: 'POST', ...json({ section: config.sections[0].id, entity: 'light.x' }) })).status === 403, 'entité hors de la section actionnée');

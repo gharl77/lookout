@@ -23,7 +23,7 @@ Where each section's data comes from, what needs a key, and how to get it.
 | Stocks and currencies | Yahoo Finance (no guarantee of service) | None | Free |
 | Releases, series | TVmaze | None | Free |
 | Releases, movies | TMDB | Key | Free |
-| Daily summary | Anthropic API (Claude) | Key | **Billed per use** |
+| Email summary, article summary | Anthropic API (Claude) | Key | **Billed per use** |
 | JSON API | The API of your choice | Depends on the API | Depends on the API |
 
 A key is entered in the section's settings. An administrator can also provide it once for every profile (see
@@ -58,7 +58,7 @@ This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 1. Create an account at `platform.claude.com` and add a payment method.
 2. Under *Settings → API keys*, create a key.
-3. Paste it into the Daily summary section.
+3. Paste it under *Settings → Email summary*.
 
 | Model | Use |
 |---|---|

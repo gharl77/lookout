@@ -57,3 +57,28 @@ test('les heures invalides reviennent à leur valeur par défaut', () => {
   const g = normalize({ general: { quietStart: '25:00', quietEnd: '06:30', morningTime: 'matin' }, sections: [] }).general;
   assert.deepEqual([g.quietStart, g.quietEnd, g.morningTime], ['22:00', '06:30', '07:00']);
 });
+
+test('une ancienne carte « Résumé du jour » devient les réglages du résumé par courriel, clé comprise', () => {
+  const news = newSection('feed', { title: 'À la une' }), tech = newSection('feed', { title: 'Techno' }), weather = newSection('weather'), hidden = newSection('feed', { title: 'Masquée', enabled: false });
+  const old = { kind: 'summary', id: 'ANCIENNE', title: 'Résumé du jour', enabled: true, maxItems: 7,
+    summary: { anthropicKey: 'cle-secrete', model: 'claude-sonnet-5-5', sections: [tech.id], focus: 'le Québec', time: '06:15', email: true, emailTo: 'moi@exemple.test' } };
+  const config = normalize({ sections: [weather, news, tech, hidden, old] });
+  assert.ok(!config.sections.some((s) => s.kind === 'summary'));   // la carte a disparu
+  assert.deepEqual(config.digest, { enabled: true, time: '06:15', emailTo: 'moi@exemple.test', sections: [weather.id, tech.id], model: 'claude-sonnet-5-5', anthropicKey: 'cle-secrete', focus: 'le Québec', points: 7 });
+  // « Toutes mes sections » : les sections affichées, pas les masquées. Sans courriel réglé, le résumé reste coupé.
+  const all = normalize({ sections: [weather, news, tech, hidden, { ...old, summary: { ...old.summary, sections: [], email: false } }] });
+  assert.deepEqual(all.digest.sections, [weather.id, news.id, tech.id]);
+  assert.equal(all.digest.enabled, false);
+  // La clé ne revient jamais au navigateur, et elle est conservée quand le masque revient.
+  const sent = redact(config);
+  assert.equal(sent.digest.anthropicKey, SECRET_MASK);
+  assert.ok(!JSON.stringify(sent).includes('cle-secrete'));
+  assert.equal(restoreSecrets(normalize(sent), config).digest.anthropicKey, 'cle-secrete');
+});
+
+test('les réglages du résumé par courriel sont bornés et ignorent les sections inconnues', () => {
+  const news = newSection('feed'), stocks = newSection('stocks');
+  const d = normalize({ sections: [news, stocks], digest: { enabled: 1, time: '99:00', sections: [news.id, stocks.id, 'inconnue', news.id], points: 40, model: 'autre' } }).digest;
+  assert.deepEqual([d.enabled, d.time, d.sections, d.points, d.model], [true, '05:30', [news.id], 10, 'claude-opus-5-5']);
+  assert.equal(normalize({ sections: [] }).digest.enabled, false);
+});

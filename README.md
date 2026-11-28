@@ -40,7 +40,7 @@ every source is either an RSS feed or an API.
 | Sports scores | ESPN, HockeyTech (QMJHL, PWHL, OHL, WHL, AHL), API-Sports — pick teams per league, standings, live games refreshed every minute | API-Sports only |
 | JSON API | Any API returning a list, mapped by field path | Depends on the API |
 | Releases | New series seasons (TVmaze) and movies in theatres or upcoming (TMDB) | TMDB only |
-| Daily summary | The essentials of your feeds in a few points, by Claude (Anthropic API) | Yes, billed per use |
+| Email summary | The essentials of your pages and sections every morning, by Claude (Anthropic API); set up in Settings, no card | Yes, billed per use |
 
 ## Quick start
 
@@ -224,4 +224,4 @@ read-only install, and an unwritable data folder. Run the same checks against an
 ## Disclaimer
 
 Personal project. ESPN, HockeyTech and YouTube's public feeds are undocumented interfaces that may change
-without notice. The daily summary sends your feeds' headlines to Anthropic. Respect the terms of use of each service you connect.
+without notice. The email summary sends your feeds' headlines to Anthropic. Respect the terms of use of each service you connect.

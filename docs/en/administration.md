@@ -84,7 +84,7 @@ in a section keeps its own.
 | TomTom | Commutes with traffic | Every profile |
 | API-Sports | API-Sports leagues | Every profile |
 | TMDB | Movies in the Releases section | Every profile |
-| Anthropic | Daily summary | Administrators, and the profiles you tick |
+| Anthropic | Email summary, article summary | Administrators, and the profiles you tick |
 
 Saved keys are no longer shown to anyone, not even an administrator. Clear a field to remove a key.
 
@@ -132,7 +132,7 @@ profiles**, with how long they have been failing and when they last answered.
 
 ## Email delivery
 
-The morning edition can be sent by email. *Settings → Shared keys → Email delivery*:
+The daily summary is sent by email. *Settings → Shared keys → Email delivery*:
 
 | Field | Value |
 |---|---|
@@ -142,8 +142,7 @@ The morning edition can be sent by email. *Settings → Shared keys → Email de
 | From address | The address shown as the sender; providers often require it to be the account's own |
 
 Save, then *Send a test email*. The password stays on the server and is no longer shown; it is part of the full
-backup. Without encryption, Lookout refuses to transmit a password. Each profile then chooses, in its *Daily
-summary* section, the address that receives its edition.
+backup. Without encryption, Lookout refuses to transmit a password. Each profile then chooses, under *Settings → Email summary*, the address that receives its summary.
 
 ## Backup and restore
 

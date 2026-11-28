@@ -242,29 +242,6 @@ Quotes for stocks, indexes and currency pairs, with the change for the day.
 Season premieres of series (TVmaze, no key) and movies in theatres or upcoming (TMDB, free key), for a country
 and a period.
 
-### Daily summary
-
-The essentials of your feeds in a few points, picked by Claude, produced once a day.
-
-- **Morning edition**: every day at the chosen time (5:30 a.m. by default, server time), Lookout gathers the news
-  of the last 24 hours, groups stories about the same event, and has Claude pick what matters. The result is
-  kept: the card shows it all day without another call.
-- **The card**: the day at a glance (weather, events, commute, your teams' latest result), then the numbered
-  points. Each point names its sources; clicking a name opens the article. A point the model cannot tie to an
-  article is never shown.
-- **Sections covered**: the list of your article sections, each with its tick box. New videos from the ticked
-  YouTube sections are listed under the points, without going through Claude.
-- **Card and email are independent**: *On the dashboard* controls the card (shown or not, with or without the
-  at-a-glance strip and the videos); *By email* controls delivery (address, at-a-glance, videos). You can keep
-  one, the other or both: a hidden card keeps sending its email every morning.
-- **Send now**: emails the edition already produced, without another call to Claude. An administrator must
-  first enter the mail server (see the administration guide).
-- **Notification**: the first two points are announced on your subscribed devices.
-- **Key and cost**: an Anthropic key is required, yours in the section or one shared by an administrator. Each
-  edition costs a few cents with Claude Opus 5.5, less with Sonnet or Haiku. The card's update button produces a
-  new one on the spot, also billed.
-- Only the headlines and standfirsts of your feeds are sent to Anthropic.
-
 ## Reading articles
 
 - A click opens the article in a new tab and marks it as read.
@@ -297,7 +274,7 @@ The essentials of your feeds in a few points, picked by Claude, produced once a 
 ![The Reading and filters pane](../images/en/reglages-lecture.jpg)
 
 **Summarizing an article.** In the built-in reader, *Summarize* asks Claude for three to five points about the
-article. The button only appears if you have an Anthropic key (in a *Daily summary* section, or shared by an
+article. The button only appears if you have an Anthropic key (under *Settings → Email summary*, or shared by an
 administrator). Each summary is billed per use, a few cents at most; the same article is not summarized twice.
 
 ## Search
@@ -314,6 +291,28 @@ on touch screens. The list (200 articles at most) is stored on the server and sh
 it with the bookmark button in the top bar.
 
 ![The “Read later” list](../images/en/a-lire-plus-tard.jpg)
+
+## Email summary
+
+*Settings → Email summary.* A summary of your pages and sections, written by Claude and emailed every day. It
+has no card: it takes no room on the dashboard.
+
+- **Delivery**: the time (5:30 a.m. by default, server time) and the address. *Send now* produces an
+  up-to-date summary and sends it right away, on top of the scheduled delivery; one per minute at most.
+- **Content**: the tree of your pages and their sections. Ticking a page ticks all its sections. Article feeds
+  supply the summary points; YouTube sections, the list of new videos from the last 24 hours; weather,
+  calendar, commutes and scores, the at-a-glance strip at the top of the email. A section hidden from the
+  dashboard can be ticked; a section added later is not ticked automatically.
+- **Writing**: the model (Claude Opus 5.5 by default), the number of points (3 to 10), a particular emphasis,
+  and the Anthropic key — yours, or one shared by an administrator.
+- **Reliability**: each point names its sources, with a link to each article. A point Claude cannot tie to an
+  article is never sent. The at-a-glance strip and the videos are laid out without going through Claude.
+- **Cost**: each summary is a billed call, a few cents with Opus, less with Sonnet or Haiku. Only the headlines
+  and standfirsts of the ticked feeds are sent to Anthropic.
+- An administrator must first enter the mail server (see the administration guide). A failed delivery is
+  retried twice, then reported in this pane.
+
+An older *Daily summary* card is converted into these settings by itself, then removed from the dashboard.
 
 ## Notifications
 
@@ -373,6 +372,7 @@ setting by keyword.
 | | Display mode | Duration of each page; start the mode |
 | Preferences | General | Language, units, greeting, default update interval |
 | | Reading and filters | Dim read articles; duplicates; built-in reader; hidden words and followed keywords in every feed |
+| | Email summary | Time, address, pages and sections covered, model; send now |
 | | Notifications | Subscribe this device; choose what triggers a notification; quiet hours; morning summary |
 | Account | My account | Password, sign-out |
 | | My data | Export, import or reset your own configuration |

@@ -85,7 +85,7 @@ propre clé dans une section garde la sienne.
 | TomTom | Trajets avec circulation | Tous les profils |
 | API-Sports | Ligues API-Sports | Tous les profils |
 | TMDB | Films de la section Sorties | Tous les profils |
-| Anthropic | Résumé du jour | Les administrateurs, et les profils que vous cochez |
+| Anthropic | Résumé par courriel, résumé d'article | Les administrateurs, et les profils que vous cochez |
 
 Les clés enregistrées ne sont plus affichées à personne, pas même à un administrateur. Videz un champ pour
 retirer une clé.
@@ -137,7 +137,7 @@ confondus**, avec la durée de la panne et la dernière réponse reçue.
 
 ## Envoi de courriels
 
-L'édition du matin peut être envoyée par courriel. *Réglages → Clés partagées → Envoi de courriels* :
+Le résumé quotidien est envoyé par courriel. *Réglages → Clés partagées → Envoi de courriels* :
 
 | Champ | Valeur |
 |---|---|
@@ -148,7 +148,7 @@ L'édition du matin peut être envoyée par courriel. *Réglages → Clés parta
 
 Enregistrez, puis *Envoyer un courriel d'essai*. Le mot de passe reste sur le serveur et n'est plus affiché ; il
 fait partie de la sauvegarde complète. Sans chiffrement, Lookout refuse de transmettre un mot de passe. Chaque
-profil choisit ensuite, dans sa section *Résumé du jour*, l'adresse qui reçoit son édition.
+profil choisit ensuite, dans *Réglages → Résumé par courriel*, l'adresse qui reçoit son résumé.
 
 ## Sauvegarde et restauration
 

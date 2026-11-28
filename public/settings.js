@@ -1,7 +1,7 @@
 // Briefing — réglages : sections (liste + éditeur), général, données.
 import { h, icon, sfIcon, badge, fmt, SF_NAMES, t, api, openMenu, openPopover, openDialog, confirmDialog } from './ui.js';
 import { signOut } from './auth.js';
-import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, calendarSource, hassEntity, stockSymbol, YOUTUBE_REFRESH, newPage, uuid, SECRET_MASK,
+import { KINDS, SWATCHES, FEED_CATALOG, LEAGUES, PROVIDER_LABELS, REFRESH_CHOICES, template, feedSource, league as newLeague, commuteRoute, calendarSource, hassEntity, stockSymbol, YOUTUBE_REFRESH, newPage, uuid, SECRET_MASK, digestRole,
   categorySection, youtubeSection, youtubeFeedURL, youtubeChannelID, parseSubscriptions, SUMMARY_MODELS } from './shared.js';
 
 let closeCurrent = null;
@@ -85,7 +85,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   const SPANS = [[1, '1 colonne'], [2, '2 colonnes'], [3, '3 colonnes'], [99, 'Pleine largeur']];
   const INTERVAL_LABELS = { 5: 'Toutes les 5 minutes', 10: 'Toutes les 10 minutes', 15: 'Toutes les 15 minutes', 30: 'Toutes les 30 minutes', 60: 'Toutes les heures', 120: 'Toutes les 2 heures' };
   const intervalLabel = (minutes) => t(INTERVAL_LABELS[minutes] ?? 'Toutes les 30 minutes');
-  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', summary: 'Nombre de points', hass: "Nombre d'entités", stocks: 'Nombre de cours', standings: 'Meneurs par catégorie' };
+  const ITEMS_LABEL = { calendar: "Nombre d'événements", feed: "Nombre d'articles", api: "Nombre d'articles", sports: 'Nombre de matchs', commute: 'Nombre de trajets', releases: 'Nombre de sorties', hass: "Nombre d'entités", stocks: 'Nombre de cours', standings: 'Meneurs par catégorie' };
 
   function iconPicker(s) {
     return h('button', { class: 'btn', 'aria-label': 'Choisir une icône', onClick: (e) => openPopover(e.currentTarget, (close) =>
@@ -646,59 +646,6 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     ], "Cours fournis par Yahoo Finance, sans clé, souvent différés d'une quinzaine de minutes. À titre indicatif seulement : ce service n'est pas garanti et peut cesser de répondre.")];
   }
 
-  // --- Résumé du jour ---
-  let mailNote = null;   // résultat du dernier « Envoyer maintenant », affiché une fois
-  function summaryEditor(s) {
-    const sendNote = mailNote;
-    mailNote = null;
-    const o = s.summary, shared = app.sharedKeys?.anthropicKey, mailReady = Boolean(app.sharedKeys?.smtpHost);
-    const feeds = config().sections.filter((x) => x.kind === 'feed' || x.kind === 'api');
-    const all = !o.sections.length;
-    return [group('Édition du matin', [
-      line('Produire le résumé une fois par jour', toggle(o, 'scheduled', { label: 'Produire le résumé une fois par jour', rerender: true })),
-      o.scheduled && line('Heure', text(o, 'time', { type: 'time', bare: false, label: "Heure de l'édition" })),
-      o.scheduled && line('Annoncer par une notification', toggle(o, 'notify', { label: 'Annoncer par une notification' })),
-    ], o.scheduled ? "Chaque jour à cette heure (celle du serveur), Lookout réunit les nouvelles des dernières 24 heures, fait choisir l'essentiel par Claude et garde le résultat : la carte l'affiche toute la journée sans nouvel appel. Si le serveur était arrêté à cette heure, l'édition est produite à son retour. Le bouton de mise à jour de la carte en produit une nouvelle sur-le-champ."
-      : "Sans édition quotidienne, le résumé est redemandé quand vous ouvrez la page, au plus une fois par heure, et seulement si les titres ont changé."),
-    group('Résumé', [
-      line('Modèle', select(o, 'model', SUMMARY_MODELS, { label: 'Modèle' })),
-      line('Clé Anthropic', text(o, 'anthropicKey', { placeholder: shared ? "Fournie par l'administrateur" : 'sk-ant-…', mono: true })),
-      !shared && h('div', { class: 'line' }, h('a', { href: 'https://platform.claude.com/settings/keys', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
-        'Créer une clé sur platform.claude.com')),
-      line('Accent particulier', text(o, 'focus', { placeholder: 'ex. le Québec et la techno d’abord', label: 'Accent particulier' })),
-    ], "Chaque édition envoie à Anthropic les titres et les chapeaux récents de vos fils (jamais vos réglages, vos clés, votre agenda ni vos données de maison) et coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku."),
-    group('Sections couvertes', [
-      line('Toutes mes sections d’articles', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: all, 'aria-label': 'Toutes mes sections d’articles',
-        onChange: (e) => { o.sections = e.target.checked ? [] : feeds.filter((x) => x.enabled).map((x) => x.id); commit(); render(); } })),
-      // La liste reste visible : avec « toutes », chaque section est cochée ; en décocher une passe au choix à la pièce.
-      feeds.map((x) => line(h('span', {}, x.feed.youtube ? t('{0} (vidéos)', x.title) : x.title, !x.enabled && h('small', { class: 'sub-line' }, 'Masquée du tableau de bord : non couverte')),
-        h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: x.enabled && (all || o.sections.includes(x.id)), disabled: !x.enabled, 'aria-label': x.title,
-          onChange: (e) => {
-            const current = all ? feeds.filter((y) => y.enabled).map((y) => y.id) : o.sections;
-            o.sections = e.target.checked ? [...new Set([...current, x.id])] : current.filter((id) => id !== x.id);
-            commit(); render();
-          } }))),
-      !all && !o.sections.some((id) => feeds.some((x) => x.id === id && x.enabled)) && h('div', { class: 'line' }, noteView({ text: t('Aucune section cochée : le résumé serait vide.'), ok: false })),
-    ], "Cochez les sections dont les nouvelles entrent dans le résumé. Seuls les articles des dernières 24 heures comptent. Les nouvelles vidéos des sections YouTube cochées sont listées à part, sans passer par Claude."),
-    o.scheduled && group('Dans le tableau de bord', [
-      line('Afficher la carte', toggle(s, 'enabled', { label: 'Afficher la carte' })),
-      line('La journée en un coup d’œil', toggle(o, 'showGlance', { label: 'La journée en un coup d’œil' })),
-      line('Nouvelles vidéos', toggle(o, 'showVideos', { label: 'Nouvelles vidéos' })),
-    ], "La carte et le courriel sont indépendants : vous pouvez garder l'un, l'autre ou les deux. Les points du résumé figurent toujours dans les deux."),
-    o.scheduled && group('Par courriel', [
-      line("Envoyer l'édition par courriel", toggle(o, 'email', { label: "Envoyer l'édition par courriel", rerender: true })),
-      o.email && line('Adresse', text(o, 'emailTo', { type: 'email', bare: false, placeholder: 'vous@exemple.com', label: 'Adresse de courriel' })),
-      o.email && line('La journée en un coup d’œil', toggle(o, 'emailGlance', { label: 'Coup d’œil dans le courriel' })),
-      o.email && line('Nouvelles vidéos', toggle(o, 'emailVideos', { label: 'Vidéos dans le courriel' })),
-      o.email && mailReady && h('div', { class: 'line' }, h('div', {}, sendNote && noteView(sendNote)), h('button', { class: 'btn', onClick: async () => {
-        try { await app.saveNow(); const done = await api('/api/edition/send', { method: 'POST', body: { section: s.id } }); mailNote = { text: t("Édition du {0} envoyée à {1}.", done.edition, o.emailTo), ok: true }; }
-        catch (error) { mailNote = { text: error.message, ok: false }; }
-        render();
-      } }, "Envoyer l'édition actuelle maintenant")),
-    ], mailReady ? "L'édition part à cette adresse dès qu'elle est produite, même si la carte n'est pas affichée. « Envoyer maintenant » renvoie l'édition déjà produite, sans nouvel appel à Claude."
-      : "L'envoi de courriels n'est pas encore configuré sur ce serveur : un administrateur doit indiquer le serveur d'envoi dans Réglages → Clés partagées.")].filter(Boolean);
-  }
-
   function editor(s) {
     return [commonGroup(s),
       s.kind === 'feed' && [s.feed.youtube ? youtubeSources(s) : feedSources(s), articleDisplay(s, true)],
@@ -711,7 +658,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       s.kind === 'standings' && standingsEditor(s),
       s.kind === 'hass' && hassEditor(s),
       s.kind === 'stocks' && stocksEditor(s),
-      s.kind === 'summary' && summaryEditor(s)];
+      null];
   }
 
   // --- Liste des sections ---
@@ -1001,6 +948,64 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   }
   function notificationsPane() {
     return pane("Être averti d'une alerte météo, d'un match ou d'un nouvel article, même quand Lookout est fermé.", notificationsGroup(config().general));
+  }
+  // --- Résumé par courriel ---
+  // Un résumé quotidien des pages et sections choisies, envoyé à l'heure dite. Il n'a pas de carte.
+  let digestStatus = null, digestNote = null, digestBusy = false;
+  function digestPane() {
+    const d = config().digest, pagesList = config().pages, all = config().sections;
+    if (!digestStatus) { digestStatus = {}; api('/api/digest').then((status) => { digestStatus = status; if (ui.tab === 'digest') render(); }).catch(() => {}); }
+    const shared = app.sharedKeys?.anthropicKey, chosen = new Set(d.sections);
+    const ROLE = { points: 'Points du résumé', videos: 'Nouvelles vidéos, 24 h', glance: "Coup d'œil" };
+    const setMany = (ids, on) => { for (const id of ids) on ? chosen.add(id) : chosen.delete(id); d.sections = all.filter((x) => chosen.has(x.id)).map((x) => x.id); commit(); render(); };
+    const box = (checked, mixed, label, onChange) => { const el = h('input', { type: 'checkbox', class: 'check', checked, 'aria-label': label, onChange: (e) => onChange(e.target.checked) }); el.indeterminate = mixed; return el; };
+    const tree = pagesList.map((p) => {
+      const eligible = all.filter((x) => x.page === p.id && digestRole(x));
+      if (!eligible.length) return null;
+      const picked = eligible.filter((x) => chosen.has(x.id)).length;
+      return [
+        h('label', { class: 'line dg-page' }, box(picked === eligible.length, picked > 0 && picked < eligible.length, p.name || t('Sans titre'), (on) => setMany(eligible.map((x) => x.id), on)),
+          h('span', { class: 'lbl grow' }, p.name || t('Sans titre')), h('small', { class: 'sub-line' }, t('{0} sur {1}', picked, eligible.length))),
+        eligible.map((x) => h('label', { class: 'line dg-section' }, box(chosen.has(x.id), false, x.title, (on) => setMany([x.id], on)),
+          badge(x, true), h('span', { class: 'lbl grow' }, document.createTextNode(x.title), !x.enabled && h('small', { class: 'sub-line' }, 'Masquée du tableau de bord')),
+          h('span', { class: 'dg-role' }, ROLE[digestRole(x)])))];
+    }).filter(Boolean);
+    const sendNow = async () => {
+      if (digestBusy) return;
+      digestBusy = true; digestNote = null; render();
+      try {
+        await app.saveNow();
+        const sent = await api('/api/digest/send', { method: 'POST', body: {} });
+        digestStatus = { ...digestStatus, lastSentAt: sent.lastSentAt, lastError: null };
+        digestNote = { text: t('Résumé envoyé à {0}.', sent.to), ok: true };
+      } catch (error) { digestNote = { text: error.message, ok: false }; }
+      digestBusy = false;
+      if (ui.tab === 'digest') render();
+    };
+    const note = digestNote; digestNote = null;
+    const ready = digestStatus.mailReady !== false, last = digestStatus.lastSentAt;
+    const status = digestStatus.lastError && (!last || digestStatus.lastErrorAt > last) ? h('span', { class: 'form-note error' }, icon('warning'), ' ', t('Dernier essai : {0}', digestStatus.lastError))
+      : h('span', { class: 'sub-line' }, last ? t('Dernier envoi : {0}', fmt.ago(last)) : 'Aucun envoi pour le moment');
+    return pane("Un résumé de vos pages et sections, écrit par Claude et envoyé chaque jour par courriel. Il ne prend aucune place sur le tableau de bord.",
+      group('Envoi', [
+        line('Recevoir un résumé chaque jour', toggle(d, 'enabled', { label: 'Recevoir un résumé chaque jour' })),
+        line('Heure', text(d, 'time', { type: 'time', bare: false, label: "Heure d'envoi" })),
+        line('Adresse', text(d, 'emailTo', { type: 'email', bare: false, placeholder: 'vous@exemple.com', label: 'Adresse de courriel' })),
+        h('div', { class: 'line' }, h('div', { class: 'grow' }, note ? noteView(note) : status),
+          h('button', { class: 'btn', disabled: digestBusy || !ready, onClick: sendNow }, digestBusy ? h('span', { class: 'spinner' }) : sfIcon('bolt.fill'), 'Envoyer maintenant')),
+      ], ready ? "L'heure est celle du serveur. « Envoyer maintenant » produit un résumé à jour et l'envoie tout de suite, en plus de l'envoi planifié ; chaque envoi est un appel à Claude, facturé quelques cents."
+        : "L'envoi de courriels n'est pas encore configuré sur ce serveur : un administrateur doit indiquer le serveur d'envoi dans Réglages → Clés partagées."),
+      group('Contenu : pages et sections', [
+        tree.length ? tree : h('div', { class: 'line' }, 'Aucune section à résumer pour le moment.'),
+      ], "Cocher une page coche toutes ses sections. Les fils d'articles fournissent les points du résumé ; les sections YouTube, la liste des nouvelles vidéos des dernières 24 heures ; la météo, l'agenda, les trajets et les pointages, le coup d'œil en tête du courriel. Une section masquée du tableau de bord peut être cochée. Une section ajoutée plus tard n'est pas cochée d'office."),
+      group('Rédaction', [
+        line('Modèle', select(d, 'model', SUMMARY_MODELS, { label: 'Modèle' })),
+        line('Nombre de points', stepper(d, 'points', 3, 10)),
+        line('Accent particulier', text(d, 'focus', { placeholder: 'ex. le Québec et la techno d’abord', label: 'Accent particulier' })),
+        line('Clé Anthropic', text(d, 'anthropicKey', { placeholder: shared ? "Fournie par l'administrateur" : 'sk-ant-…', mono: true, label: 'Clé Anthropic' })),
+        !shared && h('div', { class: 'line' }, h('a', { href: 'https://platform.claude.com/settings/keys', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
+          'Créer une clé sur platform.claude.com')),
+      ], "Chaque résumé envoie à Anthropic les titres et les chapeaux récents des fils cochés (jamais vos réglages, vos clés, votre agenda ni vos données de maison). Un point que Claude ne peut pas rattacher à un article n'est jamais envoyé. Cette clé sert aussi au bouton « Résumer » du lecteur d'article."));
   }
   function displayPane() {
     const g = config().general;
@@ -1426,7 +1431,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     // À l'ouverture de la rubrique : état à jour des clés et de la dépense (une fois par ouverture des réglages).
     if (!keysFresh) { keysFresh = true; api('/api/shared-keys').then((fresh) => { app.sharedKeys = fresh; policyDraft = null; if (ui.tab === 'keys') render(); }).catch(() => {}); }
     const API_KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports'],
-      ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé du jour — facturé à l’usage']];
+      ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé par courriel — facturé à l’usage']];
     const GOOGLE_KEYS = [['googleClientId', 'Identifiant client', 'Fourni par Google Cloud'], ['googleClientSecret', 'Secret client', 'Fourni par Google Cloud']];
     const MAIL_KEYS = [['smtpHost', 'Serveur', 'ex. smtp.fournisseur.com'], ['smtpPort', 'Port', '587 (STARTTLS) ou 465 (TLS)'], ['smtpUser', "Nom d'utilisateur", 'Souvent votre adresse'],
       ['smtpPassword', 'Mot de passe', "Mot de passe d'application"], ['smtpFrom', "Adresse d'expédition", 'ex. lookout@votredomaine.com']];
@@ -1586,6 +1591,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     { title: 'Préférences', items: [
       ['general', 'Général', () => icon('gear'), 'langue unités prénom accueil intervalle mise à jour language units greeting refresh'],
       ['reading', 'Lecture et filtres', () => sfIcon('newspaper.fill'), 'articles lus lecteur mots masquer évidence mots-clés suivis doublons read reader words hide highlight keywords duplicates'],
+      ['digest', 'Résumé par courriel', () => sfIcon('bolt.fill'), 'résumé du jour matin courriel email claude anthropic quotidien digest daily summary morning'],
       ['notifications', 'Notifications', () => sfIcon('bell.fill'), 'alertes matchs articles iphone appareil heures calmes ne pas déranger résumé du matin mots-clés alerts games device quiet hours do not disturb morning summary keywords'] ] },
     { title: 'Compte', items: [
       ['account', 'Mon compte', () => icon('user'), 'mot de passe déconnexion session password sign out'],
@@ -1597,7 +1603,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       ['backup', 'Sauvegarde', () => icon('download'), 'restaurer télécharger automatique nuit restore download backup automatic nightly'] ] }] : []),
     { title: null, items: [['about', 'À propos', () => sfIcon('tag.fill'), 'version licence github license']] },
   ];
-  const PANES = { sections: sectionsTab, general: generalPane, appearance: appearancePane, reading: readingPane, notifications: notificationsPane,
+  const PANES = { sections: sectionsTab, general: generalPane, appearance: appearancePane, reading: readingPane, digest: digestPane, notifications: notificationsPane,
     display: displayPane, account: accountTab, data: dataTab, users: usersTab, keys: keysPane, health: healthTab, backup: backupPane, about: aboutPane };
   const labelOf = (id) => NAV.flatMap((g) => g.items).find((item) => item[0] === id)?.[1] ?? '';
   if (!PANES[ui.tab] || (!admin && ['users', 'keys', 'health', 'backup'].includes(ui.tab))) ui.tab = 'sections';

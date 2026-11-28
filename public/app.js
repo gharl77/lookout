@@ -229,8 +229,8 @@ function readArticle(article, section = null) {
       toggleSaved(article, section);
       e.currentTarget.setAttribute('aria-pressed', String(!saved()));
     } }, sfIcon('bookmark.fill'), 'À lire plus tard');
-    // Résumé par Claude : offert quand le profil a une clé (la sienne dans une section « Résumé du jour », ou la clé partagée).
-    const canSummarize = !app.viewing && (app.sharedKeys?.anthropicKey || state.config.sections.some((s) => s.kind === 'summary' && s.summary.anthropicKey));
+    // Résumé par Claude : offert quand le profil a une clé (la sienne, dans Réglages → Résumé par courriel, ou la clé partagée).
+    const canSummarize = !app.viewing && (app.sharedKeys?.anthropicKey || state.config.digest?.anthropicKey);
     const summarize = canSummarize && h('button', { class: 'btn', onClick: async (e) => {
       const button = e.currentTarget;
       button.disabled = true;

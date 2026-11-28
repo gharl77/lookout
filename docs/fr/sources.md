@@ -23,7 +23,7 @@ D'où viennent les données de chaque section, ce qui demande une clé, et comme
 | Bourse et devises | Yahoo Finance (service sans garantie) | Aucune | Gratuit |
 | Sorties, séries | TVmaze | Aucune | Gratuit |
 | Sorties, films | TMDB | Clé | Gratuit |
-| Résumé du jour | API d'Anthropic (Claude) | Clé | **Payant à l'usage** |
+| Résumé par courriel, résumé d'article | API d'Anthropic (Claude) | Clé | **Payant à l'usage** |
 | API JSON | L'API de votre choix | Selon l'API | Selon l'API |
 
 Une clé se saisit dans les réglages de la section. Un administrateur peut aussi la fournir une fois pour tous
@@ -59,7 +59,7 @@ Ce produit utilise l'API de TMDB mais n'est ni approuvé ni certifié par TMDB.
 
 1. Créez un compte sur `platform.claude.com` et ajoutez un moyen de paiement.
 2. Dans *Settings → API keys*, créez une clé.
-3. Collez-la dans la section Résumé du jour.
+3. Collez-la dans *Réglages → Résumé par courriel*.
 
 | Modèle | Usage |
 |---|---|

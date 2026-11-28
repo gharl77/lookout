@@ -40,7 +40,7 @@ taille, leurs sources — et chaque source est soit un fil RSS, soit une API.
 | Pointages | ESPN, HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH), API-Sports — choix des équipes par ligue, classement, matchs en direct mis à jour chaque minute | API-Sports seulement |
 | API JSON | N'importe quelle API qui renvoie une liste, par chemin de champs | Selon l'API |
 | Sorties | Nouvelles saisons de séries (TVmaze) et films en salle ou à venir (TMDB) | TMDB seulement |
-| Résumé du jour | L'essentiel de vos fils en quelques points, par Claude (API d'Anthropic) | Oui, payante à l'usage |
+| Résumé par courriel | L'essentiel de vos pages et sections chaque matin, par Claude (API d'Anthropic) ; se règle dans les réglages, sans carte | Oui, payante à l'usage |
 
 ## Démarrage rapide
 
@@ -227,4 +227,4 @@ se lancent sur n'importe quelle instance avec `node scripts/smoke-test.mjs http:
 ## Avertissement
 
 Projet personnel. ESPN, HockeyTech et les fils publics de YouTube sont des interfaces non documentées,
-qui peuvent changer sans préavis. Le résumé du jour envoie les titres de vos fils à Anthropic. Respectez les conditions d'utilisation de chaque service que vous branchez.
+qui peuvent changer sans préavis. Le résumé par courriel envoie les titres de vos fils à Anthropic. Respectez les conditions d'utilisation de chaque service que vous branchez.

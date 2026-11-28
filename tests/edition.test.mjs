@@ -1,4 +1,4 @@
-// Édition du matin : sujets réunis par événement, vidéos des dernières 24 heures, appel au modèle simulé, courriel.
+// Résumé par courriel : sujets réunis par événement, vidéos des dernières 24 heures, appel au modèle simulé, courriel.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { collectEdition, renderEmail, dayKey } from '../lib/edition.js';
@@ -8,8 +8,7 @@ import { newSection, youtubeSection, normalize } from '../public/shared.js';
 const now = new Date(2026, 10, 28, 5, 30).getTime(), hours = (n) => now - n * 3600e3;
 const article = (id, title, source, age, extra = {}) => ({ id, title, summary: `Chapeau de ${id}.`, link: `https://exemple.test/${id}`, date: hours(age), source, ...extra });
 const news = newSection('feed', { title: 'À la une' }), quebec = newSection('feed', { title: 'Québec' }), tube = youtubeSection(), weather = newSection('weather');
-const summary = newSection('summary');
-const config = normalize({ sections: [weather, news, quebec, tube, summary] });
+const config = normalize({ sections: [weather, news, quebec, tube] });
 const payloads = new Map([
   [news.id, { articles: [article('a', 'Le Pentagone critique les dépenses de défense du Canada', 'Radio-Canada', 2), article('vieux', 'Une nouvelle d’avant-hier sur un autre sujet complètement', 'Radio-Canada', 40),
     article('seul', 'Budget du Québec : hausse des taxes sur le tabac', 'Le Devoir', 3)] }],
@@ -18,10 +17,10 @@ const payloads = new Map([
   [weather.id, { weather: { temperature: -3.2, code: 71, days: [{ high: 1.4, low: -6 }], alerts: [] } }],
 ]);
 const load = async (s) => payloads.get(s.id) ?? { error: 'aucune donnée', updatedAt: null };
-const stored = config.sections.at(-1);
+const digest = { sections: [weather.id, news.id, quebec.id, tube.id] };
 
 test('les sujets sont réunis par événement, les plus couverts d’abord ; les vidéos récentes sont à part', async () => {
-  const draft = await collectEdition(stored, config, load, now);
+  const draft = await collectEdition(digest, config, load, now);
   assert.equal(draft.topics.length, 2);
   assert.deepEqual(draft.topics[0].sources.map((s) => s.name).sort(), ['La Presse', 'Radio-Canada']);
   assert.equal(draft.topics[1].title, 'Budget du Québec : hausse des taxes sur le tabac');
@@ -30,17 +29,20 @@ test('les sujets sont réunis par événement, les plus couverts d’abord ; les
 });
 
 test('seules les sections cochées comptent', async () => {
-  const only = { ...stored, summary: { ...stored.summary, sections: [quebec.id] } };
-  const draft = await collectEdition(only, config, load, now);
+  const draft = await collectEdition({ sections: [quebec.id] }, config, load, now);
   assert.equal(draft.topics.length, 1);
   assert.equal(draft.videos.length, 0);
+  assert.deepEqual(draft.glance, []);   // la météo n'est pas cochée : pas de coup d'œil
+  // Une section masquée du tableau de bord peut quand même nourrir le résumé.
+  const hidden = normalize({ sections: [{ ...news, enabled: false }] });
+  assert.equal((await collectEdition({ sections: [news.id] }, hidden, load, now)).topics.length, 2);
 });
 
 const realFetch = globalThis.fetch;
 test.afterEach(() => { globalThis.fetch = realFetch; });
 
 test('chaque point garde les sources de ses sujets ; un point sans sujet valable est écarté', async () => {
-  const draft = await collectEdition(stored, config, load, now);
+  const draft = await collectEdition(digest, config, load, now);
   let sent;
   globalThis.fetch = async (url, init) => {
     sent = JSON.parse(init.body);

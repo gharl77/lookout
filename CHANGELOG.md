@@ -2,6 +2,22 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+### Français
+
+- **Résumé par courriel** : le résumé quotidien n'est plus une carte. Il se règle dans *Réglages → Résumé par
+  courriel* : heure, adresse, arborescence des pages et des sections à couvrir (articles, YouTube, météo,
+  agenda, trajets, pointages), modèle et nombre de points. Bouton *Envoyer maintenant*. Une carte *Résumé du
+  jour* existante est convertie d'elle-même, clé comprise.
+
+### English
+
+- **Email summary**: the daily summary is no longer a card. It is set up under *Settings → Email summary*:
+  time, address, the tree of pages and sections to cover (articles, YouTube, weather, calendar, commutes,
+  scores), model and number of points. *Send now* button. An existing *Daily summary* card is converted by
+  itself, key included.
+
 ## 2026.11.10
 
 ### Français

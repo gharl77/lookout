@@ -249,29 +249,6 @@ Le cours de titres, d'indices et de paires de devises, avec la variation du jour
 Les premières de saisons de séries (TVmaze, sans clé) et les films en salle ou à venir (TMDB, clé gratuite),
 pour un pays et une période.
 
-### Résumé du jour
-
-L'essentiel de vos fils en quelques points, choisi par Claude, produit une fois par jour.
-
-- **Édition du matin** : chaque jour à l'heure choisie (5 h 30 par défaut, heure du serveur), Lookout réunit les
-  nouvelles des dernières 24 heures, regroupe celles qui parlent du même événement, et fait choisir l'essentiel
-  par Claude. Le résultat est gardé : la carte l'affiche toute la journée sans nouvel appel.
-- **La carte** : la journée en un coup d'œil (météo, rendez-vous, trajet, dernier résultat de vos équipes), puis
-  les points numérotés. Chaque point nomme ses sources ; un clic sur un nom ouvre l'article. Un point que le
-  modèle ne peut pas rattacher à un article n'est jamais affiché.
-- **Sections couvertes** : la liste de vos sections d'articles, chacune avec sa case à cocher. Les nouvelles
-  vidéos des sections YouTube cochées sont listées sous les points, sans passer par Claude.
-- **Carte et courriel indépendants** : *Dans le tableau de bord* règle la carte (l'afficher ou non, avec ou
-  sans le coup d'œil et les vidéos) ; *Par courriel* règle l'envoi (adresse, coup d'œil, vidéos). Vous pouvez
-  garder l'un, l'autre ou les deux : une carte masquée continue d'envoyer son courriel chaque matin.
-- **Envoyer maintenant** : renvoie par courriel l'édition déjà produite, sans nouvel appel à Claude. Un
-  administrateur doit d'abord indiquer le serveur d'envoi (voir le guide d'administration).
-- **Notification** : les deux premiers points sont annoncés sur vos appareils abonnés.
-- **Clé et coût** : il faut une clé Anthropic, la vôtre dans la section ou celle que partage un administrateur.
-  Chaque édition coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku. Le bouton de mise à jour
-  de la carte en produit une nouvelle sur-le-champ, facturée elle aussi.
-- Seuls les titres et les chapeaux de vos fils sont envoyés à Anthropic.
-
 ## Lire les articles
 
 - Un clic ouvre l'article dans un nouvel onglet et le marque comme lu.
@@ -307,7 +284,7 @@ L'essentiel de vos fils en quelques points, choisi par Claude, produit une fois 
 ![La rubrique Lecture et filtres](../images/fr/reglages-lecture.jpg)
 
 **Résumé d'un article.** Dans le lecteur intégré, *Résumer* demande à Claude trois à cinq points sur l'article.
-Le bouton n'apparaît que si vous avez une clé Anthropic (dans une section *Résumé du jour*, ou partagée par un
+Le bouton n'apparaît que si vous avez une clé Anthropic (dans *Réglages → Résumé par courriel*, ou partagée par un
 administrateur). Chaque résumé est facturé à l'usage, quelques cents au plus ; le même article n'est pas
 résumé deux fois.
 
@@ -325,6 +302,29 @@ toujours visible au doigt. La liste (200 articles au plus) est enregistrée sur 
 appareils. Elle s'ouvre par le bouton à signet de la barre du haut.
 
 ![La liste « À lire plus tard »](../images/fr/a-lire-plus-tard.jpg)
+
+## Résumé par courriel
+
+*Réglages → Résumé par courriel.* Un résumé de vos pages et sections, écrit par Claude et envoyé chaque jour
+par courriel. Il n'a pas de carte : il ne prend aucune place sur le tableau de bord.
+
+- **Envoi** : l'heure (5 h 30 par défaut, heure du serveur) et l'adresse. *Envoyer maintenant* produit un résumé
+  à jour et l'envoie tout de suite, en plus de l'envoi planifié ; au plus un par minute.
+- **Contenu** : l'arborescence de vos pages et de leurs sections. Cocher une page coche toutes ses sections.
+  Les fils d'articles fournissent les points du résumé ; les sections YouTube, la liste des nouvelles vidéos des
+  dernières 24 heures ; la météo, l'agenda, les trajets et les pointages, le coup d'œil en tête du courriel.
+  Une section masquée du tableau de bord peut être cochée ; une section ajoutée plus tard ne l'est pas d'office.
+- **Rédaction** : le modèle (Claude Opus 5.5 par défaut), le nombre de points (3 à 10), un accent particulier,
+  et la clé Anthropic — la vôtre, ou celle que partage un administrateur.
+- **Fiabilité** : chaque point nomme ses sources, avec un lien vers chaque article. Un point que Claude ne peut
+  pas rattacher à un article n'est jamais envoyé. Le coup d'œil et les vidéos sont mis en forme sans passer
+  par Claude.
+- **Coût** : chaque résumé est un appel facturé, quelques cents avec Opus, moins avec Sonnet ou Haiku. Seuls
+  les titres et les chapeaux des fils cochés sont envoyés à Anthropic.
+- Un administrateur doit d'abord indiquer le serveur d'envoi (voir le guide d'administration). Un envoi manqué
+  est réessayé deux fois, puis signalé dans cette rubrique.
+
+Une ancienne carte *Résumé du jour* est convertie d'elle-même en ces réglages, puis retirée du tableau de bord.
 
 ## Notifications
 
@@ -384,6 +384,7 @@ la navigation retrouve un réglage par mot-clé.
 | | Mode affichage | Durée de chaque page ; lancer le mode |
 | Préférences | Général | Langue, unités, message d'accueil, intervalle de mise à jour par défaut |
 | | Lecture et filtres | Atténuer les articles lus ; doublons ; lecteur intégré ; mots masqués et mots-clés suivis dans tous les fils |
+| | Résumé par courriel | Heure, adresse, pages et sections couvertes, modèle ; envoi immédiat |
 | | Notifications | Abonner cet appareil ; choisir ce qui déclenche une notification ; heures calmes ; résumé du matin |
 | Compte | Mon compte | Mot de passe, déconnexion |
 | | Mes données | Exporter, importer ou réinitialiser sa propre configuration |
