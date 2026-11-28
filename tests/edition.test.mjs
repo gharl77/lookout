@@ -70,3 +70,13 @@ test('le courriel reprend la journée, les points, leurs sources et les vidéos,
   assert.match(mail.html, /Nouvelle vidéo/);
   assert.equal(dayKey(new Date(2026, 0, 5)), '2026-01-05');
 });
+
+test('le courriel a son propre contenu : coup d’œil et vidéos se retirent sans toucher aux points', () => {
+  const edition = { glance: [{ kind: 'weather', title: '-3°, neige', detail: 'max. 1°' }], model: 'claude-opus-5-5', basedOn: 12,
+    summary: [{ text: 'Un point.', sources: [{ name: 'La Presse', link: 'https://exemple.test/a' }] }], videos: [{ title: 'Nouvelle vidéo', source: 'Chaîne A', link: 'https://exemple.test/v1' }] };
+  const bare = renderEmail(edition, 'Résumé du jour', new Date(2026, 10, 28), { glance: false, videos: false });
+  assert.ok(!bare.html.includes('neige') && !bare.html.includes('Nouvelle vidéo') && !bare.text.includes('Nouvelle vidéo'));
+  assert.match(bare.html, /Un point\./);
+  assert.equal(edition.glance.length, 1);   // l'édition gardée n'est pas modifiée : la carte garde tout
+  assert.match(renderEmail(edition, 'Résumé du jour', new Date(2026, 10, 28), { videos: false }).html, /neige/);
+});

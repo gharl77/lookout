@@ -413,7 +413,9 @@ const RELEASES = { country: 'CA', days: 7, showMovies: true, showSeries: true, t
 export const SUMMARY_MODELS = [['claude-opus-5-5', 'Claude Opus 5.5'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5'], ['claude-haiku-5-5', 'Claude Haiku 5.5']];
 const SUMMARY = { anthropicKey: '', model: 'claude-opus-5-5', sections: [], focus: '',
   scheduled: true, time: '05:30',   // édition du matin : produite une fois par jour, à l'heure choisie (heure du serveur)
-  email: false, emailTo: '',        // envoyée aussi par courriel
+  showGlance: true, showVideos: true,      // ce que la carte affiche en plus des points
+  email: false, emailTo: '',               // envoyée par courriel, que la carte soit affichée ou non
+  emailGlance: true, emailVideos: true,    // ce que le courriel contient en plus des points
   notify: true };                   // annoncée par une notification sur les appareils abonnés   // sections vides = tous les fils
 
 const clone = (x) => JSON.parse(JSON.stringify(x));

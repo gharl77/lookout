@@ -252,10 +252,13 @@ The essentials of your feeds in a few points, picked by Claude, produced once a 
 - **The card**: the day at a glance (weather, events, commute, your teams' latest result), then the numbered
   points. Each point names its sources; clicking a name opens the article. A point the model cannot tie to an
   article is never shown.
-- **Sections covered**: all your article sections, or only the ones you tick. New videos from the chosen YouTube
-  sections are listed under the points, without going through Claude.
-- **Email**: the edition can be sent to the address of your choice as soon as it is produced. An administrator
-  must first enter the mail server (see the administration guide).
+- **Sections covered**: the list of your article sections, each with its tick box. New videos from the ticked
+  YouTube sections are listed under the points, without going through Claude.
+- **Card and email are independent**: *On the dashboard* controls the card (shown or not, with or without the
+  at-a-glance strip and the videos); *By email* controls delivery (address, at-a-glance, videos). You can keep
+  one, the other or both: a hidden card keeps sending its email every morning.
+- **Send now**: emails the edition already produced, without another call to Claude. An administrator must
+  first enter the mail server (see the administration guide).
 - **Notification**: the first two points are announced on your subscribed devices.
 - **Key and cost**: an Anthropic key is required, yours in the section or one shared by an administrator. Each
   edition costs a few cents with Claude Opus 5.5, less with Sonnet or Haiku. The card's update button produces a

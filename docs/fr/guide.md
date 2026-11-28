@@ -259,9 +259,12 @@ L'essentiel de vos fils en quelques points, choisi par Claude, produit une fois 
 - **La carte** : la journée en un coup d'œil (météo, rendez-vous, trajet, dernier résultat de vos équipes), puis
   les points numérotés. Chaque point nomme ses sources ; un clic sur un nom ouvre l'article. Un point que le
   modèle ne peut pas rattacher à un article n'est jamais affiché.
-- **Sections couvertes** : toutes vos sections d'articles, ou seulement celles que vous cochez. Les nouvelles
-  vidéos des sections YouTube choisies sont listées sous les points, sans passer par Claude.
-- **Courriel** : l'édition peut être envoyée à l'adresse de votre choix dès qu'elle est produite. Un
+- **Sections couvertes** : la liste de vos sections d'articles, chacune avec sa case à cocher. Les nouvelles
+  vidéos des sections YouTube cochées sont listées sous les points, sans passer par Claude.
+- **Carte et courriel indépendants** : *Dans le tableau de bord* règle la carte (l'afficher ou non, avec ou
+  sans le coup d'œil et les vidéos) ; *Par courriel* règle l'envoi (adresse, coup d'œil, vidéos). Vous pouvez
+  garder l'un, l'autre ou les deux : une carte masquée continue d'envoyer son courriel chaque matin.
+- **Envoyer maintenant** : renvoie par courriel l'édition déjà produite, sans nouvel appel à Claude. Un
   administrateur doit d'abord indiquer le serveur d'envoi (voir le guide d'administration).
 - **Notification** : les deux premiers points sont annoncés sur vos appareils abonnés.
 - **Clé et coût** : il faut une clé Anthropic, la vôtre dans la section ou celle que partage un administrateur.

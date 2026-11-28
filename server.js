@@ -186,6 +186,14 @@ function mailConfig() {
   return host && from ? { host, from, port: accounts.sharedKey('smtpPort'), security: accounts.sharedKey('smtpSecurity') || 'starttls', user: accounts.sharedKey('smtpUser'), password: accounts.sharedKey('smtpPassword') } : null;
 }
 
+/** Envoie une édition par courriel à l'adresse de la section, avec le contenu choisi pour le courriel. */
+async function mailEdition(section, edition) {
+  const mail = mailConfig();
+  if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
+  await sendMail(mail, { to: section.summary.emailTo, ...renderEmail(edition, section.title, new Date(`${edition.edition}T12:00:00`),
+    { glance: section.summary.emailGlance !== false, videos: section.summary.emailVideos !== false }) });
+}
+
 /**
  * Produit l'édition d'une section, l'enregistre et, si `deliver`, l'envoie (courriel, notification).
  * Un envoi qui échoue n'annule pas l'édition : elle reste affichée, et l'échec est noté dans le journal et sur la carte.
@@ -199,9 +207,7 @@ async function produceEdition(owner, section, config, deliver) {
   if (deliver) {
     if (section.summary.email && String(section.summary.emailTo).trim()) {
       try {
-        const mail = mailConfig();
-        if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
-        await sendMail(mail, { to: section.summary.emailTo, ...renderEmail(edition, section.title) });
+        await mailEdition(section, edition);
         edition.mailed = { ok: true, at: Date.now() };
         console.log(`Édition du matin de « ${owner.name} » envoyée par courriel.`);
       } catch (error) {
@@ -232,7 +238,11 @@ async function editionTick() {
     for (const listed of accounts.list()) {
       const owner = accounts.user(listed.id), config = accounts.profile(listed.id).config;
       for (const section of config.sections) {
-        if (!section.enabled || section.kind !== 'summary' || section.summary.scheduled === false) continue;
+        if (section.kind !== 'summary' || section.summary.scheduled === false) continue;
+        // La carte et le courriel sont indépendants : une section masquée du tableau de bord produit quand même
+        // son édition si elle doit partir par courriel.
+        const mailed = section.summary.email && String(section.summary.emailTo).trim();
+        if (!section.enabled && !mailed) continue;
         const [h, m] = section.summary.time.split(':').map(Number), tryKey = `${owner.id}|${section.id}|${today}`;
         if (minutes < h * 60 + m || readEdition(owner.id, section.id)?.edition === today || (editionTries.get(tryKey) ?? 0) >= 3) continue;
         // Sans clé, rien à tenter : la carte le dit déjà, inutile de remplir le journal chaque matin.
@@ -665,6 +675,16 @@ async function api(req, res, url) {
     backups.create();
     console.log(`Sauvegarde faite à la demande de « ${user.name} ».`);
     return send(res, 200, { keep: backups.keep, files: backups.list() });
+  }
+  // Envoyer tout de suite par courriel l'édition déjà produite (aucun nouvel appel au modèle).
+  if (route === 'POST /api/edition/send') {
+    const section = findSection(String((await readBody(req))?.section ?? ''));
+    if (section.kind !== 'summary') throw new BriefingError('Section introuvable');
+    checkAddress(section.summary.emailTo);
+    const edition = readEdition(user.id, section.id);
+    if (!edition) throw new BriefingError("Aucune édition n'a encore été produite : attendez la prochaine, ou mettez la carte à jour");
+    await mailEdition(section, edition);
+    return send(res, 200, { ok: true, edition: edition.edition });
   }
   // Courriel d'essai : vérifie le serveur d'envoi avec l'adresse donnée (administrateur).
   if (route === 'POST /api/mail/test') {

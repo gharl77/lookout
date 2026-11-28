@@ -2,6 +2,20 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+### Français
+
+- **Résumé du jour** : la carte et le courriel se règlent séparément (l'un, l'autre ou les deux ; contenu propre
+  à chacun), et une carte masquée continue d'envoyer son courriel. Les sections couvertes se cochent dans une
+  liste toujours visible. Nouveau bouton *Envoyer l'édition actuelle maintenant*.
+
+### English
+
+- **Daily summary**: the card and the email are set separately (one, the other or both; each with its own
+  content), and a hidden card keeps sending its email. Covered sections are ticked in a list that is always
+  visible. New *Send the current edition now* button.
+
 ## 2026.11.9
 
 Édition du matin par Claude, envoyée par courriel. / Morning edition by Claude, sent by email.

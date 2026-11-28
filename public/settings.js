@@ -647,7 +647,10 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   }
 
   // --- Résumé du jour ---
+  let mailNote = null;   // résultat du dernier « Envoyer maintenant », affiché une fois
   function summaryEditor(s) {
+    const sendNote = mailNote;
+    mailNote = null;
     const o = s.summary, shared = app.sharedKeys?.anthropicKey, mailReady = Boolean(app.sharedKeys?.smtpHost);
     const feeds = config().sections.filter((x) => x.kind === 'feed' || x.kind === 'api');
     const all = !o.sections.length;
@@ -666,14 +669,33 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     ], "Chaque édition envoie à Anthropic les titres et les chapeaux récents de vos fils (jamais vos réglages, vos clés, votre agenda ni vos données de maison) et coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku."),
     group('Sections couvertes', [
       line('Toutes mes sections d’articles', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: all, 'aria-label': 'Toutes mes sections d’articles',
-        onChange: (e) => { o.sections = e.target.checked ? [] : feeds.map((x) => x.id); commit(); render(); } })),
-      !all && feeds.map((x) => line(x.feed.youtube ? t('{0} (vidéos)', x.title) : x.title, h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: o.sections.includes(x.id), 'aria-label': x.title,
-        onChange: (e) => { o.sections = e.target.checked ? [...o.sections, x.id] : o.sections.filter((id) => id !== x.id); commit(); } }))),
-    ], "Seuls les articles des dernières 24 heures comptent. Les nouvelles vidéos de vos sections YouTube sont listées à part, sous les points du résumé, sans passer par Claude."),
-    o.scheduled && group('Courriel', [
-      line('Envoyer aussi par courriel', toggle(o, 'email', { label: 'Envoyer aussi par courriel', rerender: true })),
+        onChange: (e) => { o.sections = e.target.checked ? [] : feeds.filter((x) => x.enabled).map((x) => x.id); commit(); render(); } })),
+      // La liste reste visible : avec « toutes », chaque section est cochée ; en décocher une passe au choix à la pièce.
+      feeds.map((x) => line(h('span', {}, x.feed.youtube ? t('{0} (vidéos)', x.title) : x.title, !x.enabled && h('small', { class: 'sub-line' }, 'Masquée du tableau de bord : non couverte')),
+        h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: x.enabled && (all || o.sections.includes(x.id)), disabled: !x.enabled, 'aria-label': x.title,
+          onChange: (e) => {
+            const current = all ? feeds.filter((y) => y.enabled).map((y) => y.id) : o.sections;
+            o.sections = e.target.checked ? [...new Set([...current, x.id])] : current.filter((id) => id !== x.id);
+            commit(); render();
+          } }))),
+      !all && !o.sections.some((id) => feeds.some((x) => x.id === id && x.enabled)) && h('div', { class: 'line' }, noteView({ text: t('Aucune section cochée : le résumé serait vide.'), ok: false })),
+    ], "Cochez les sections dont les nouvelles entrent dans le résumé. Seuls les articles des dernières 24 heures comptent. Les nouvelles vidéos des sections YouTube cochées sont listées à part, sans passer par Claude."),
+    o.scheduled && group('Dans le tableau de bord', [
+      line('Afficher la carte', toggle(s, 'enabled', { label: 'Afficher la carte' })),
+      line('La journée en un coup d’œil', toggle(o, 'showGlance', { label: 'La journée en un coup d’œil' })),
+      line('Nouvelles vidéos', toggle(o, 'showVideos', { label: 'Nouvelles vidéos' })),
+    ], "La carte et le courriel sont indépendants : vous pouvez garder l'un, l'autre ou les deux. Les points du résumé figurent toujours dans les deux."),
+    o.scheduled && group('Par courriel', [
+      line("Envoyer l'édition par courriel", toggle(o, 'email', { label: "Envoyer l'édition par courriel", rerender: true })),
       o.email && line('Adresse', text(o, 'emailTo', { type: 'email', bare: false, placeholder: 'vous@exemple.com', label: 'Adresse de courriel' })),
-    ], mailReady ? "L'édition est envoyée à cette adresse dès qu'elle est produite. Un envoi manqué est signalé sur la carte."
+      o.email && line('La journée en un coup d’œil', toggle(o, 'emailGlance', { label: 'Coup d’œil dans le courriel' })),
+      o.email && line('Nouvelles vidéos', toggle(o, 'emailVideos', { label: 'Vidéos dans le courriel' })),
+      o.email && mailReady && h('div', { class: 'line' }, h('div', {}, sendNote && noteView(sendNote)), h('button', { class: 'btn', onClick: async () => {
+        try { await app.saveNow(); const done = await api('/api/edition/send', { method: 'POST', body: { section: s.id } }); mailNote = { text: t("Édition du {0} envoyée à {1}.", done.edition, o.emailTo), ok: true }; }
+        catch (error) { mailNote = { text: error.message, ok: false }; }
+        render();
+      } }, "Envoyer l'édition actuelle maintenant")),
+    ], mailReady ? "L'édition part à cette adresse dès qu'elle est produite, même si la carte n'est pas affichée. « Envoyer maintenant » renvoie l'édition déjà produite, sans nouvel appel à Claude."
       : "L'envoi de courriels n'est pas encore configuré sur ce serveur : un administrateur doit indiquer le serveur d'envoi dans Réglages → Clés partagées.")].filter(Boolean);
   }
 
