@@ -216,6 +216,10 @@ The full standings of your leagues and their leaders, in a card with tabs.
 - **Standings**: by conference or by division (ESPN leagues that have them), with the record, points,
   differential, last ten games and streak. *Only the groups of my teams* shortens the card. On a narrow card,
   secondary columns are hidden.
+- **Playoff race**: in the conference standings, a line marks the playoff cut, and a note gives your teams'
+  gap in points (hockey and soccer). It follows the source's ranking, without every tie-breaker.
+- **My teams**: a tab with, for each followed team (six at most per league), its next 5 or 10 games, its last
+  five results and its best players.
 - **Leaders**: the best players per category (points, goals, assists and goalies in hockey; yards and
   touchdowns in football; points, rebounds and assists in basketball; average, home runs and pitchers in
   baseball). The number per category is adjustable from 1 to 10. Not offered for soccer.
@@ -267,11 +271,19 @@ the one the administrator has opened to you.
   politics…), only the first one in page order shows it; the others show their next article. Under the
   article, *also in…* names the sections that received it too. Turn it off under
   *Settings → Reading and filters*.
+- **Grouped topics**: when several sources cover the same event with similar headlines, a single article is
+  shown, followed by *also: La Presse, Le Devoir*; clicking a name opens its article. Matching works on
+  headline words, within one language: it may miss a topic or bring together two neighbouring stories. Turn
+  it off under *Settings → Reading and filters*.
 - **Followed keywords** (*Settings → Reading and filters*): an article containing one is highlighted in all
   your sections, and can trigger a notification.
 - Right-click an article (desktop): open, copy link, save for later, mark read or unread.
 
 ![The Reading and filters pane](../images/en/reglages-lecture.jpg)
+
+**Summarizing an article.** In the built-in reader, *Summarize* asks Claude for three to five points about the
+article. The button only appears if you have an Anthropic key (in a *Daily summary* section, or shared by an
+administrator). Each summary is billed per use, a few cents at most; the same article is not summarized twice.
 
 ## Search
 

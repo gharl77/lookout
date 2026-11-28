@@ -3,8 +3,8 @@ import { h, icon, sfIcon, badge, fmt, t, api, openMenu, openDialog, confirmDialo
 import { showAuth, showPasswordChange, signOut } from './auth.js';
 import { runOnboarding } from './onboarding.js';
 import { setLangProvider, resolveLang } from './i18n.js';
-import { cardBody, shownArticles, articleKeys, countNew, setRankProvider, WMO } from './cards.js';
-import { KINDS, FEED_CATALOG, template, youtubeSection, categorySection, newPage, fetchSignature, youtubeVideoID, articleFilter } from './shared.js';
+import { cardBody, shownArticles, articleKeys, countNew, setRankProvider, setTopicProvider, WMO } from './cards.js';
+import { KINDS, FEED_CATALOG, template, youtubeSection, categorySection, newPage, fetchSignature, youtubeVideoID, articleFilter, topicClusters } from './shared.js';
 import { openSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -217,6 +217,7 @@ function readArticle(article, section = null) {
   const body = h('div', { class: 'reader-body' }, h('div', { class: 'skeleton', role: 'status', 'aria-label': 'Chargement' }, Array.from({ length: 12 }, () => h('i'))));
   const meta = h('div', { class: 'a-meta' }, [article.source, article.date && fmt.ago(article.date)].filter(Boolean).join(' · '));
   const title = h('h2', {}, article.title);
+  const summaryBox = h('aside', { class: 'reader-summary', hidden: true, 'aria-live': 'polite' });
   const images = section ? section.feed.showImages !== false : true;
   const picture = (src, alt = '') => h('img', { src, alt, loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
   let closed = false;
@@ -226,9 +227,27 @@ function readArticle(article, section = null) {
       toggleSaved(article, section);
       e.currentTarget.setAttribute('aria-pressed', String(!saved()));
     } }, sfIcon('bookmark.fill'), 'À lire plus tard');
+    // Résumé par Claude : offert quand le profil a une clé (la sienne dans une section « Résumé du jour », ou la clé partagée).
+    const canSummarize = !app.viewing && (app.sharedKeys?.anthropicKey || state.config.sections.some((s) => s.kind === 'summary' && s.summary.anthropicKey));
+    const summarize = canSummarize && h('button', { class: 'btn', onClick: async (e) => {
+      const button = e.currentTarget;
+      button.disabled = true;
+      summaryBox.hidden = false;
+      summaryBox.replaceChildren(h('div', { class: 'skeleton', role: 'status', 'aria-label': 'Chargement' }, Array.from({ length: 4 }, () => h('i'))));
+      try {
+        const done = await api('/api/reader/summary', { method: 'POST', body: { url: article.link }, asViewed: false });
+        if (closed) return;
+        summaryBox.replaceChildren(h('h3', {}, 'En bref'), h('ul', {}, done.points.map((p) => h('li', {}, document.createTextNode(p)))),
+          h('small', {}, t('Résumé par {0}. À vérifier dans le texte.', String(done.model ?? '').replace(/^claude-/, 'Claude ').replace(/-/g, ' '))));
+      } catch (error) {
+        if (closed) return;
+        summaryBox.replaceChildren(h('span', { class: 'note' }, icon('warning'), document.createTextNode(error.message)));
+        button.disabled = false;
+      }
+    } }, sfIcon('bolt.fill'), 'Résumer');
     return [
-      h('div', { class: 'reader-scroll' }, h('article', { class: 'reader-text' }, meta, title, body)),
-      h('div', { class: 'actions' }, keep, h('span', { class: 'grow' }),
+      h('div', { class: 'reader-scroll' }, h('article', { class: 'reader-text' }, meta, title, summaryBox, body)),
+      h('div', { class: 'actions' }, keep, summarize, h('span', { class: 'grow' }),
         h('a', { class: 'btn', href: article.link, target: '_blank', rel: 'noopener noreferrer' }, icon('open'), 'Ouvrir sur le site'),
         h('button', { class: 'btn primary', onClick: close }, 'Fermer'))].filter(Boolean);
   }, { cls: 'dialog reader', onClose: () => { closed = true; } });
@@ -430,13 +449,46 @@ document.addEventListener('visibilitychange', () => {
 // Une nouvelle reprise par plusieurs fils (à la une, international, politique…) reste dans la première section qui
 // l'affiche, dans l'ordre de la page ; les suivantes montrent à la place l'article suivant de leur liste.
 /** Filtre pour une section : vrai pour un article qu'une section placée avant elle affiche déjà. Nul si l'option est coupée. */
+// --- Sujets regroupés ---
+// Les articles de la page affichée qui parlent du même événement (sources différentes, titres proches) forment un
+// sujet : un seul est affiché, et il nomme les autres sources. Le calcul est repris quand les données changent.
+let topicMemo = { stamp: '', topics: new Map(), members: new Map() };
+function topics() {
+  const g = general();
+  const sections = g.groupTopics && g.dedupeArticles ? visible().filter((s) => (s.kind === 'feed' && !s.feed.youtube) || s.kind === 'api') : [];
+  const loaded = sections.map((s) => [s, state.data.get(s.id)?.articles]).filter(([, articles]) => articles);
+  const stamp = loaded.map(([s, articles]) => `${s.id}:${articles.length}:${articles[0]?.id}:${s.feed.includeKeywords}|${s.feed.excludeKeywords}|${s.feed.maxAgeHours}`).join('~') + g.muteKeywords;
+  if (stamp === topicMemo.stamp) return topicMemo;
+  const all = loaded.flatMap(([s, articles]) => articles.filter(articleFilter(s.feed, g)).map((a) => ({ ...a, section: s })));
+  const map = topicClusters(all), members = new Map();
+  for (const a of all) { const topic = map.get(a.id); if (topic != null) { if (!members.has(topic)) members.set(topic, []); members.get(topic).push(a); } }
+  topicMemo = { stamp, topics: map, members };
+  return topicMemo;
+}
+setTopicProvider(() => { const { topics: map } = topics(); return map.size ? (a) => map.get(a.id) ?? null : null; });
+/** Ce qui identifie une nouvelle pour l'écarter ailleurs : son adresse, son titre, et son sujet quand il est regroupé. */
+function keysOf(article) {
+  const topic = topics().topics.get(article.id);
+  return topic == null ? articleKeys(article) : [...articleKeys(article), `s:${topic}`];
+}
+/** Autres sources qui couvrent le même sujet : une par source, la plus récente, quatre au plus. */
+function related(article) {
+  const { topics: map, members } = topics(), topic = map.get(article.id);
+  if (topic == null) return [];
+  const bySource = new Map();
+  for (const a of members.get(topic).sort((x, y) => (y.date ?? 0) - (x.date ?? 0))) {
+    if (a.link && a.link !== article.link && a.source && a.source !== article.source && !bySource.has(a.source)) bySource.set(a.source, { source: a.source, title: a.title, link: a.link });
+  }
+  return [...bySource.values()].slice(0, 4);
+}
+
 function skipFor(section) {
   if (!general().dedupeArticles) return null;
-  const taken = new Set(), skip = (a) => articleKeys(a).some((key) => taken.has(key));
+  const taken = new Set(), skip = (a) => keysOf(a).some((key) => taken.has(key));
   for (const s of visible()) {
     if (s.id === section.id) return taken.size ? skip : null;
     const articles = state.data.get(s.id)?.articles;
-    if (articles) for (const a of shownArticles(s, articles, general(), skip)) for (const key of articleKeys(a)) taken.add(key);
+    if (articles) for (const a of shownArticles(s, articles, general(), skip)) for (const key of keysOf(a)) taken.add(key);
   }
   return null;   // section absente de la page affichée
 }
@@ -447,15 +499,15 @@ function sectionKeys(s) {
   const articles = state.data.get(s.id)?.articles;
   if (!articles) return null;
   const stamp = `${s.feed.includeKeywords}|${s.feed.excludeKeywords}|${s.feed.maxAgeHours}|${general().muteKeywords}`, known = keyIndex.get(s.id);
-  if (known?.articles === articles && known.stamp === stamp) return known.keys;
-  const keys = new Set(articles.filter(articleFilter(s.feed, general())).flatMap(articleKeys));
-  keyIndex.set(s.id, { articles, stamp, keys });
+  if (known?.articles === articles && known.stamp === stamp && known.topics === topics()) return known.keys;
+  const keys = new Set(articles.filter(articleFilter(s.feed, general())).flatMap(keysOf));
+  keyIndex.set(s.id, { articles, stamp, keys, topics: topics() });
   return keys;
 }
 /** Titres des sections placées après celle-ci qui reçoivent la même nouvelle (et ne l'affichent donc pas). */
 function alsoIn(article, section) {
   if (!general().dedupeArticles) return [];
-  const list = visible(), at = list.findIndex((s) => s.id === section.id), keys = articleKeys(article);
+  const list = visible(), at = list.findIndex((s) => s.id === section.id), keys = keysOf(article);
   if (at < 0 || !keys.length) return [];
   return list.slice(at + 1).filter((s) => { const theirs = sectionKeys(s); return theirs && keys.some((key) => theirs.has(key)); }).map((s) => s.title);
 }
@@ -474,7 +526,7 @@ setRankProvider((s) => {
   return (a) => (read.has(a.id) ? 2 : newSince && a.date && a.date > newSince ? 0 : 1);
 });
 
-const ctx = { get general() { return general(); }, skipFor, alsoIn, get callEntity() { return app.viewing ? null : callEntity; }, isRead: (id) => state.readIDs.has(id), setRead,
+const ctx = { get general() { return general(); }, skipFor, alsoIn, related, get callEntity() { return app.viewing ? null : callEntity; }, isRead: (id) => state.readIDs.has(id), setRead,
   get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, get readArticle() { return app.display ? null : readArticle; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 

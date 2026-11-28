@@ -22,7 +22,7 @@ import { resolveChannel } from './lib/youtube.js';
 import { fetchReleases } from './lib/releases.js';
 import { fetchCalendar } from './lib/calendar.js';
 import { readArticle } from './lib/reader.js';
-import { fetchSummary } from './lib/summary.js';
+import { fetchSummary, summarizeArticle } from './lib/summary.js';
 import { fetchHass, searchHass, callHass } from './lib/hass.js';
 import { fetchStocks, searchSymbols } from './lib/stocks.js';
 import { Backups } from './lib/backups.js';
@@ -156,10 +156,19 @@ async function summarize(section, config) {
     const recent = (payload.articles ?? []).filter(keep).sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).slice(0, 8);
     for (const a of recent) items.push({ section: feed.title, source: a.source ?? '', title: a.title, link: a.link });
   }
-  // Clé du profil : aucun plafond, c'est lui qui paie. Clé partagée : seulement pour les profils autorisés, et jusqu'au modèle permis.
-  let key = String(section.summary.anthropicKey ?? '').trim(), model = section.summary.model, payer = null;
+  const { key, model, payer } = anthropicAccess(section.summary, accounts.ownerOfConfig(config));
+  const result = await fetchSummary(section.id, { ...section.summary, model, points: section.maxItems }, key, items.slice(0, 90),
+    payer ? (spent) => recordUsage(payer, spent) : null);
+  return { ...result, sourceErrors: {} };
+}
+
+/**
+ * Clé et modèle pour un appel à Claude. Clé du profil : aucun plafond, c'est lui qui paie. Clé partagée : seulement
+ * pour les profils autorisés, et jusqu'au modèle permis ; `payer` désigne alors le profil à qui compter l'usage.
+ */
+function anthropicAccess(summary, owner) {
+  let key = String(summary?.anthropicKey ?? '').trim(), model = summary?.model, payer = null;
   if (!key && accounts.sharedKey('anthropicKey')) {
-    const owner = accounts.ownerOfConfig(config);
     if (!owner || !accounts.sharedAllowed(owner.id, 'anthropicKey')) {
       throw new BriefingError("La clé Anthropic partagée n'est pas offerte à ce profil : demandez à un administrateur, ou saisissez votre propre clé");
     }
@@ -167,9 +176,7 @@ async function summarize(section, config) {
     model = accounts.sharedModel(model);
     payer = owner.id;
   }
-  const result = await fetchSummary(section.id, { ...section.summary, model, points: section.maxItems }, key, items.slice(0, 90),
-    payer ? (spent) => recordUsage(payer, spent) : null);
-  return { ...result, sourceErrors: {} };
+  return { key, model, payer };
 }
 
 // --- Suivi de l'usage de la clé Anthropic partagée ---
@@ -673,6 +680,16 @@ async function api(req, res, url) {
   if (route === 'POST /api/reader') {
     const body = await readBody(req);
     return send(res, 200, await readArticle(checkURL(body?.url).href));
+  }
+  // Résumé d'un article par Claude : avec la clé d'une section « Résumé du jour » du profil, sinon la clé partagée.
+  if (route === 'POST /api/reader/summary') {
+    const body = await readBody(req);
+    const own = profile.config.sections.filter((s) => s.kind === 'summary').sort((a, b) => Boolean(b.summary.anthropicKey) - Boolean(a.summary.anthropicKey))[0];
+    const { key, model, payer } = anthropicAccess(own?.summary, user);
+    // Sans clé, on le dit tout de suite, avant d'aller chercher l'article.
+    if (!key) throw new BriefingError('Clé Anthropic manquante : ajoutez-la dans une section « Résumé du jour », ou demandez-la à un administrateur');
+    const page = await readArticle(checkURL(body?.url).href);
+    return send(res, 200, await summarizeArticle(page, model, key, payer ? (spent) => recordUsage(payer, spent) : null));
   }
   if (route === 'GET /api/saved') return send(res, 200, profile.saved);
   if (route === 'POST /api/saved') {

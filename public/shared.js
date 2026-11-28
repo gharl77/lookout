@@ -252,7 +252,8 @@ const GENERAL = { displayName: '', showGreeting: true, showGlance: true, appeara
   tintedBackdrop: true, language: 'auto', columns: 0, density: 'comfortable', refreshMinutes: 30, openLinksInBackground: false,
   dimReadArticles: true, units: 'metric',
   unreadFirst: true,      // les articles nouveaux, puis non lus, passent devant ceux déjà lus
-  dedupeArticles: true,   // une même nouvelle n'apparaît qu'une fois par page
+  dedupeArticles: true,
+  groupTopics: true,      // les articles de sources différentes sur le même sujet sont réunis sous un seul   // une même nouvelle n'apparaît qu'une fois par page
   readerDefault: false,   // un clic sur un article l'ouvre dans le lecteur intégré plutôt que dans un nouvel onglet
   muteKeywords: '', highlightKeywords: '',   // filtres appliqués à tous les fils
   displaySeconds: 30,
@@ -334,9 +335,64 @@ export function present(articles, options, sourceOrder, limit, general = {}, ski
   return out;
 }
 
+// --- Sujets regroupés : plusieurs sources, un même événement ---
+// Mots trop courants pour dire de quoi parle un titre (sans accents, comparés après normalisation).
+const STOPWORDS = new Set(('avec pour dans plus sans sous vers chez entre apres avant selon contre cette leur leurs nous vous elle elles sont etre avoir fait faire tout tous toute toutes '
+  + 'mais comme aussi encore deja tres bien alors donc dont quand pourquoi comment quel quelle quels quelles votre notre deux trois nouveau nouvelle nouvelles nouveaux premier premiere '
+  + 'face annee annees jour jours depuis pendant veut peut doit vont sera serait etait ete voici voila moins autre autres meme '
+  + 'the with from that this have will what when where after before about over into than they their were been more says said your here just could would should first year years '
+  + 'most some there which while being does make made new news video photos live update').split(' '));
+/** Mots significatifs d'un titre : sans accents ni ponctuation, sans mots courants, pluriels ramenés au singulier. */
+export function topicWords(title) {
+  const text = String(title ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const words = text.split(/[^a-z0-9]+/);
+  // Un pointage (« 6-0 ») distingue un match d'un autre : il compte comme un mot.
+  const out = new Set(text.match(/\b\d{1,3}-\d{1,3}\b/g) ?? []);
+  for (const w of words) {
+    if (w.length < 4 && !/^\d{2,}$/.test(w)) continue;
+    if (STOPWORDS.has(w)) continue;
+    out.add(w.length > 4 ? w.replace(/(es|s|x)$/, '') : w);
+  }
+  return out;
+}
+/**
+ * Regroupe les articles qui parlent du même événement d'après leurs titres. Prudent par construction : il faut au
+ * moins trois mots significatifs en commun et une forte ressemblance, à moins de deux jours d'écart. Deux titres dans
+ * des langues différentes ne se rejoignent donc pas. Renvoie Map(id d'article -> numéro de sujet) pour les seuls
+ * sujets couverts par au moins deux articles d'adresses différentes.
+ */
+export function topicClusters(articles) {
+  const seeds = [], byWord = new Map(), assigned = new Map();
+  const sorted = [...articles].sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
+  for (const article of sorted) {
+    const words = topicWords(article.title);
+    if (words.size < 3) continue;
+    const shared = new Map();
+    for (const w of words) for (const i of byWord.get(w) ?? []) shared.set(i, (shared.get(i) ?? 0) + 1);
+    let best = -1, bestScore = 0;
+    for (const [i, common] of shared) {
+      const seed = seeds[i];
+      if (common < 3 || Math.abs((seed.date ?? 0) - (article.date ?? 0)) > 48 * 3600e3) continue;
+      const jaccard = common / (words.size + seed.words.size - common), overlap = common / Math.min(words.size, seed.words.size);
+      if ((jaccard >= 0.4 || (common >= 4 && overlap >= 0.6)) && jaccard > bestScore) { best = i; bestScore = jaccard; }
+    }
+    if (best < 0) {
+      best = seeds.length;
+      seeds.push({ words, date: article.date, members: [] });
+      for (const w of words) { if (!byWord.has(w)) byWord.set(w, []); byWord.get(w).push(best); }
+    }
+    seeds[best].members.push(article);
+  }
+  seeds.forEach((seed, i) => {
+    if (new Set(seed.members.map((a) => a.link ?? a.id)).size < 2) return;
+    for (const a of seed.members) assigned.set(a.id, i);
+  });
+  return assigned;
+}
+
 const CALENDAR = { calendars: [], days: 7, showLocation: true, showEnded: false };
 export const calendarSource = (name = '', url = '') => ({ id: uuid(), name, url, enabled: true, colorHex: '' });
-const STANDINGS = { leagues: [], showStandings: true, showLeaders: true, grouping: 'conference', onlyMine: false };
+const STANDINGS = { leagues: [], showStandings: true, showLeaders: true, showTeams: true, upcoming: 5, playoffLine: true, grouping: 'conference', onlyMine: false };
 const HASS = { url: '', token: '', entities: [], allowControl: true };
 export const hassEntity = (entity = '', name = '') => ({ id: uuid(), entity, name, enabled: true });
 /** Domaines Home Assistant qu'un toucher peut actionner, et le service appelé. Les serrures et les alarmes n'en font pas partie. */
@@ -511,7 +567,7 @@ export function fetchSignature(s, units) {
     : s.kind === 'releases' ? s.releases
     : s.kind === 'calendar' ? [s.calendar.calendars.map((c) => [c.id, c.url, c.enabled, c.name, c.colorHex]), s.calendar.days, s.calendar.showEnded]
     : s.kind === 'hass' ? [s.hass.url, s.hass.token, s.hass.entities.map((e) => [e.id, e.entity, e.enabled])]
-    : s.kind === 'standings' ? [s.standings.leagues.map((l) => [l.id, l.name, l.path, l.enabled, l.provider, l.key, l.teams.map((x) => x.id)]), s.standings.showStandings, s.standings.showLeaders, s.standings.grouping, s.maxItems]
+    : s.kind === 'standings' ? [s.standings.leagues.map((l) => [l.id, l.name, l.path, l.enabled, l.provider, l.key, l.teams.map((x) => x.id)]), s.standings.showStandings, s.standings.showLeaders, s.standings.showTeams, s.standings.upcoming, s.standings.grouping, s.maxItems]
     : s.kind === 'stocks' ? s.stocks.symbols.map((x) => [x.id, x.symbol, x.enabled])
     : s.kind === 'summary' ? [s.summary, s.maxItems]
     : [s.api, s.title];

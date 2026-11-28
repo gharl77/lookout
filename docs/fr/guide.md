@@ -223,6 +223,11 @@ Le classement complet de vos ligues et leurs meneurs, dans une carte à onglets.
 - **Classement** : par association ou par division (ligues ESPN qui en ont), avec la fiche, les points, le
   différentiel, les dix derniers matchs et la séquence. *Seulement les groupes de mes équipes* raccourcit la
   carte. Sur une carte étroite, les colonnes secondaires sont masquées.
+- **Course aux séries** : dans le classement par association, un trait marque la limite des séries, et une
+  ligne donne l'écart en points de vos équipes (hockey et soccer). Elle suit le classement de la source, sans
+  tous les critères de bris d'égalité.
+- **Mes équipes** : un onglet avec, pour chaque équipe suivie (six au plus par ligue), ses 5 ou 10 prochains
+  matchs, ses cinq derniers résultats et ses meilleurs joueurs.
 - **Meneurs** : les meilleurs joueurs par catégorie (points, buts, passes et gardiens au hockey ; verges et
   touchés au football ; points, rebonds et passes au basketball ; moyenne, circuits et lanceurs au baseball).
   Le nombre par catégorie se règle de 1 à 10. Non offert pour le soccer.
@@ -276,11 +281,20 @@ que l'administrateur vous a ouverte.
   politique…), seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant.
   Sous l'article, la mention *aussi dans…* nomme les sections qui l'ont reçu elles aussi. Se désactive dans
   *Réglages → Lecture et filtres*.
+- **Sujets regroupés** : quand plusieurs sources couvrent le même événement avec des titres proches, un seul
+  article est affiché, suivi de *aussi : La Presse, Le Devoir* ; un clic sur un nom ouvre son article. Le
+  rapprochement se fait sur les mots des titres, dans une même langue : il peut manquer un sujet ou réunir
+  deux nouvelles voisines. Se désactive dans *Réglages → Lecture et filtres*.
 - **Mots-clés suivis** (*Réglages → Lecture et filtres*) : un article qui en contient un est mis en évidence
   dans toutes vos sections, et peut déclencher une notification.
 - Clic droit sur un article (ordinateur) : ouvrir, copier le lien, garder pour plus tard, marquer lu ou non lu.
 
 ![La rubrique Lecture et filtres](../images/fr/reglages-lecture.jpg)
+
+**Résumé d'un article.** Dans le lecteur intégré, *Résumer* demande à Claude trois à cinq points sur l'article.
+Le bouton n'apparaît que si vous avez une clé Anthropic (dans une section *Résumé du jour*, ou partagée par un
+administrateur). Chaque résumé est facturé à l'usage, quelques cents au plus ; le même article n'est pas
+résumé deux fois.
 
 ## Recherche
 

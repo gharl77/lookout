@@ -532,7 +532,12 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         line('Afficher le classement', toggle(o, 'showStandings', { label: 'Afficher le classement', rerender: true })),
         o.showStandings && line('Regrouper par', select(o, 'grouping', [['conference', 'Association'], ['division', 'Division']], { label: 'Regrouper par' })),
         o.showStandings && line('Seulement les groupes de mes équipes', toggle(o, 'onlyMine', { label: 'Seulement les groupes de mes équipes' })),
-      ], "Le regroupement par division vaut pour les ligues ESPN qui en ont (LNH, NFL, NBA, MLB). Les ligues HockeyTech sont toujours présentées par association."),
+        o.showStandings && line('Marquer la limite des séries', toggle(o, 'playoffLine', { label: 'Marquer la limite des séries' })),
+      ], "Le regroupement par division vaut pour les ligues ESPN qui en ont (LNH, NFL, NBA, MLB). Les ligues HockeyTech sont toujours présentées par association. La limite des séries s'affiche dans le classement par association, avec l'écart en points de vos équipes pour le hockey et le soccer ; elle suit le classement de la source et ne tient pas compte de tous les critères de bris d'égalité."),
+      group('Mes équipes', [
+        line('Afficher la fiche de mes équipes', toggle(o, 'showTeams', { label: 'Afficher la fiche de mes équipes', rerender: true })),
+        o.showTeams && line('Prochains matchs', select(o, 'upcoming', [[5, '5'], [10, '10']], { label: 'Prochains matchs' })),
+      ], "Pour chaque équipe choisie ci-dessus (six au plus par ligue) : ses prochains matchs, ses cinq derniers résultats et ses meilleurs joueurs."),
       group('Meneurs', [
         line('Afficher les meneurs', toggle(o, 'showLeaders', { label: 'Afficher les meneurs' })),
       ], "Les meilleurs joueurs par catégorie : points, buts, passes et gardiens au hockey ; verges et touchés au football ; points, rebonds et passes au basketball ; moyenne, circuits et lanceurs au baseball. Non offert pour le soccer."),
@@ -950,8 +955,9 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         line("Afficher d'abord les articles nouveaux et non lus", toggle(g, 'unreadFirst', { label: "Afficher d'abord les articles nouveaux et non lus" })),
       ], "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils. Avec la seconde option, chaque carte montre d'abord les articles parus depuis votre dernière visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Un article que vous venez d'ouvrir garde sa place jusqu'à la prochaine mise à jour de la section."),
       group('Doublons', [
-        line('Afficher chaque nouvelle une seule fois par page', toggle(g, 'dedupeArticles', { label: 'Afficher chaque nouvelle une seule fois par page' })),
-      ], "Quand plusieurs sections d'une même page reçoivent la même nouvelle, seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant. Deux articles différents sur le même sujet ne sont pas considérés comme des doublons."),
+        line('Afficher chaque nouvelle une seule fois par page', toggle(g, 'dedupeArticles', { label: 'Afficher chaque nouvelle une seule fois par page', rerender: true })),
+        g.dedupeArticles && line('Regrouper les articles sur le même sujet', toggle(g, 'groupTopics', { label: 'Regrouper les articles sur le même sujet' })),
+      ], "Quand plusieurs sections d'une même page reçoivent la même nouvelle, seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant. Avec le regroupement, quand plusieurs sources couvrent le même événement avec des titres proches, un seul article est affiché et il nomme les autres sources ; un clic sur un nom ouvre son article. Le rapprochement se fait sur les mots des titres, dans une même langue : il peut à l'occasion manquer un sujet, ou réunir deux nouvelles voisines."),
       group('Lecteur intégré', [
         line('Ouvrir les articles dans Lookout', toggle(g, 'readerDefault', { label: 'Ouvrir les articles dans Lookout' })),
       ], "Le lecteur affiche le texte de l'article sans quitter Lookout. Activé, un clic sur un article l'ouvre dans le lecteur ; sinon, utilisez le bouton en forme de livre sur chaque article. Certains sites réservés aux abonnés ne s'y prêtent pas : un bouton ouvre alors l'article sur le site."),

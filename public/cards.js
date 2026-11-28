@@ -33,7 +33,12 @@ function articleRow(article, style, section, ctx) {
   // Nouvelle que d'autres sections de la page auraient affichée aussi (doublons écartés) : on dit lesquelles.
   const also = ctx.alsoIn?.(article, section) ?? [];
   const alsoNote = also.length > 0 && h('span', { class: 'a-also', title: t('Cette nouvelle figure aussi dans : {0}', also.join(', ')) }, `${meta ? ' · ' : ''}${t('aussi dans {0}', also.join(', '))}`);
-  const metaLine = (meta || pill || alsoNote) && h('span', { class: 'a-meta' }, pill, meta, alsoNote);
+  // Même sujet couvert par d'autres sources : leurs noms, chacun ouvrant son article.
+  const related = ctx.related?.(article, section) ?? [];
+  const relatedNote = related.length > 0 && h('span', { class: 'a-also' }, `${meta ? ' · ' : ''}${t('aussi')} : `, related.map((r, i) => [i > 0 && ', ',
+    h('span', { class: 'a-related', role: 'link', tabindex: '0', title: r.title, onClick: (e) => { e.preventDefault(); e.stopPropagation(); window.open(r.link, '_blank', 'noopener'); },
+      onKeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); window.open(r.link, '_blank', 'noopener'); } } }, document.createTextNode(r.source))]));
+  const metaLine = (meta || pill || alsoNote || relatedNote) && h('span', { class: 'a-meta' }, pill, meta, relatedNote || alsoNote);
   const img = (cls) => o.showImages && article.image
     && h('img', { class: cls, src: article.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() });
 
@@ -105,9 +110,18 @@ export function articleKeys(article) {
 
 /** Articles affichés par une section. `skip` écarte ceux qu'une section placée avant elle montre déjà. */
 export function shownArticles(section, articles, general, skip = null) {
+  // Sujets regroupés : dans une même section, un seul article par sujet (le plus récent).
+  const topicOf = topicProvider(section);
+  if (topicOf) {
+    const seen = new Set();
+    articles = [...articles].sort((a, b) => (b.date ?? 0) - (a.date ?? 0)).filter((a) => { const topic = topicOf(a); return topic == null || (seen.has(topic) ? false : (seen.add(topic), true)); });
+  }
   return present(articles, section.feed, section.feed.sources.map((s) => s.name), Math.max(1, section.maxItems), general, skip, rankProvider(section));
 }
 // Rang des articles d'une section (nouveaux et non lus d'abord), fourni par le tableau de bord ; nul si l'option est coupée.
+// Sujet d'un article (voir topicClusters), fourni par le tableau de bord ; nul si le regroupement est coupé.
+let topicProvider = () => null;
+export function setTopicProvider(fn) { topicProvider = fn; }
 let rankProvider = () => null;
 export function setRankProvider(fn) { rankProvider = fn; }
 
@@ -386,7 +400,24 @@ function leagueView(section, payload) {
     const table = payload.tables.find((x) => x.leagueID === choice.league) ?? payload.tables[0];
     const mine = new Set(table.mine);
     const hasTable = o.showStandings !== false && table.groups.length > 0, hasLeaders = o.showLeaders !== false && table.leaders.length > 0;
-    const view = choice.view === 'leaders' && hasLeaders ? 'leaders' : hasTable ? 'table' : hasLeaders ? 'leaders' : 'none';
+    const hasTeams = o.showTeams !== false && (table.teams?.length ?? 0) > 0;
+    const view = choice.view === 'leaders' && hasLeaders ? 'leaders' : choice.view === 'teams' && hasTeams ? 'teams'
+      : hasTable ? 'table' : hasTeams ? 'teams' : hasLeaders ? 'leaders' : 'none';
+    // Course aux séries : la limite après la dernière équipe qualifiée, et l'écart de mes équipes par rapport à elle.
+    const cut = o.playoffLine !== false ? table.cut ?? 0 : 0;
+    const race = (g) => {
+      if (!cut || g.rows.length <= cut) return null;
+      const last = g.rows[cut - 1], first = g.rows[cut];
+      const notes = g.rows.filter((r) => mine.has(r.teamID) && r.points != null && last.points != null).map((r) => (r.rank <= cut
+        ? t('{0} : {1} pts d’avance sur la {2}e place', r.name, r.points - first.points, cut + 1) : t('{0} : à {1} pts de la {2}e place', r.name, last.points - r.points, cut)));
+      return notes.length ? h('p', { class: 'st-race' }, notes.map((n) => h('span', {}, document.createTextNode(n)))) : null;
+    };
+    const english = document.documentElement.lang === 'en';
+    const day = (ms) => new Intl.DateTimeFormat(document.documentElement.lang, { weekday: 'short', day: 'numeric', month: 'short' }).format(ms);
+    const game = (g, played) => h(g.link ? 'a' : 'div', { class: 'st-game', href: g.link, target: '_blank', rel: 'noopener noreferrer' },
+      h('time', {}, day(g.date)), h('span', { class: 'st-opp' }, document.createTextNode(`${g.home ? (english ? 'vs' : 'c.') : '@'} ${g.opponent}`)),
+      played ? h('b', { class: g.won === true ? 'won' : g.won === false ? 'lost' : '' }, document.createTextNode(`${g.won === true ? (english ? 'W' : 'V') : g.won === false ? (english ? 'L' : 'D') : (english ? 'T' : 'N')} ${g.mine}-${g.theirs}${g.extra ? ` ${g.extra}` : ''}`))
+        : h('span', { class: 'st-time' }, fmt.time(g.date)));
     const pick = (next) => { standingsChoice.set(section.id, { league: table.leagueID, view, ...next }); draw(); };
     const tabs = (items, current, key) => h('div', { class: 'seg st-tabs', role: 'group' },
       items.map(([value, label]) => h('button', { 'aria-pressed': String(value === current), onClick: () => pick({ [key]: value }) }, label)));
@@ -395,12 +426,21 @@ function leagueView(section, payload) {
     const body = view === 'table' ? groups.map((g) => h('table', { class: 'st-table' },
       h('thead', {}, h('tr', {}, h('th', { class: 'st-team', colspan: '2', scope: 'col' }, document.createTextNode(g.name || table.league)),
         table.columns.map((c) => h('th', { class: c.minor ? 'minor' : null, scope: 'col' }, document.createTextNode(c.label))))),
-      h('tbody', {}, g.rows.map((r) => h('tr', { class: mine.has(r.teamID) ? 'mine' : null },
+      h('tbody', {}, g.rows.map((r) => h('tr', { class: `${mine.has(r.teamID) ? 'mine' : ''}${cut && r.rank === cut && g.rows.length > cut ? ' cut' : ''}` || null },
         h('td', { class: 'st-rank' }, String(r.rank)),
         h('th', { class: 'st-team', scope: 'row' }, h('div', { class: 'st-name' },
           r.logo && h('img', { class: 'logo', src: r.logo, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() }),
           h('span', {}, document.createTextNode(r.name)))),
         r.values.map((v, i) => h('td', { class: table.columns[i]?.minor ? 'minor' : null }, document.createTextNode(v))))))))
+      : view === 'teams' ? h('div', { class: 'st-teams' }, table.teams.map((x) => h('section', { class: 'st-sheet' },
+        h('header', {}, x.logo && h('img', { class: 'logo', src: x.logo, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() }),
+          h('div', {}, h('h3', {}, document.createTextNode(x.name)), (x.record || x.standing) && h('small', {}, document.createTextNode([x.record, x.standing].filter(Boolean).join(' · '))))),
+        h('div', { class: 'st-cols' },
+          x.upcoming.length > 0 && h('div', {}, h('h4', {}, 'Prochains matchs'), x.upcoming.map((g) => game(g, false))),
+          x.recent.length > 0 && h('div', {}, h('h4', {}, 'Derniers matchs'), x.recent.map((g) => game(g, true))),
+          x.leaders.map((c) => h('div', {}, h('h4', {}, document.createTextNode(c.name)), c.players.map((p) => h('div', { class: 'st-game' },
+            h('span', { class: 'st-opp' }, document.createTextNode(p.name), p.detail && h('small', {}, document.createTextNode(` ${p.detail}`))), h('b', {}, document.createTextNode(p.value)))))),
+          !x.upcoming.length && !x.recent.length && h('div', { class: 'hint' }, 'Aucun match au calendrier pour le moment.')))))
       : view === 'leaders' ? h('div', { class: 'st-leaders' }, table.leaders.map((c) => h('section', {},
         h('h3', {}, document.createTextNode(c.name)),
         h('ol', {}, c.players.map((p) => h('li', { class: mine.has(p.teamID) ? 'mine' : null },
@@ -410,8 +450,8 @@ function leagueView(section, payload) {
         : h('div', { class: 'hint' }, 'Rien à afficher pour cette ligue pour le moment.');
     host.replaceChildren(...[
       payload.tables.length > 1 && tabs(payload.tables.map((x) => [x.leagueID, x.league]), table.leagueID, 'league'),
-      hasTable && hasLeaders && tabs([['table', t('Classement')], ['leaders', t('Meneurs')]], view, 'view'),
-      h('div', { class: 'st-body' }, body)].filter(Boolean));
+      [hasTable, hasLeaders, hasTeams].filter(Boolean).length > 1 && tabs([hasTable && ['table', t('Classement')], hasTeams && ['teams', t('Mes équipes')], hasLeaders && ['leaders', t('Meneurs')]].filter(Boolean), view, 'view'),
+      h('div', { class: 'st-body' }, body, view === 'table' && groups.map(race))].filter(Boolean));
   };
   draw();
   return host;

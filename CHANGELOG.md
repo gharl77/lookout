@@ -4,10 +4,15 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ## À venir / Unreleased
 
-Chargement plus rapide, surtout pour YouTube ; nouveaux articles en premier. / Faster loading, especially for YouTube; new articles first.
+Fiches d'équipe, sujets regroupés, résumé d'article, chargement plus rapide. / Team sheets, grouped topics, article summaries, faster loading.
 
 ### Français
 
+- **Classements** : onglet *Mes équipes* (prochains matchs, derniers résultats, meilleurs joueurs de chaque
+  équipe suivie) ; limite des séries marquée dans le classement, avec l'écart en points de vos équipes.
+- **Sujets regroupés** : plusieurs sources sur le même événement sont réunies sous un seul article, qui nomme
+  les autres (*aussi : La Presse, Le Devoir*).
+- **Résumé d'un article par Claude** dans le lecteur intégré (clé Anthropic requise, facturé à l'usage).
 - **Nouveaux et non lus d'abord** : chaque carte montre d'abord les articles parus depuis votre dernière
   visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Réglable dans
   *Lecture et filtres*.
@@ -20,6 +25,11 @@ Chargement plus rapide, surtout pour YouTube ; nouveaux articles en premier. / F
 
 ### English
 
+- **Standings**: a *My teams* tab (upcoming games, recent results, best players of each followed team); the
+  playoff line marked in the standings, with your teams' gap in points.
+- **Grouped topics**: several sources on the same event are brought together under one article, which names
+  the others (*also: La Presse, Le Devoir*).
+- **Article summary by Claude** in the built-in reader (Anthropic key required, billed per use).
 - **New and unread first**: each card first shows the articles published since your last visit, then the
   other unread ones; an article already read only comes back if there is room left. Adjustable under
   *Reading and filters*.
