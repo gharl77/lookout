@@ -531,7 +531,7 @@ setRankProvider((s) => {
   return (a) => (read.has(a.id) ? 2 : newSince && a.date && a.date > newSince ? 0 : 1);
 });
 
-const ctx = { get general() { return general(); }, skipFor, alsoIn, related, get callEntity() { return app.viewing ? null : callEntity; }, isRead: (id) => state.readIDs.has(id), setRead,
+const ctx = { get general() { return general(); }, skipFor, alsoIn, related, get configure() { return app.viewing || app.display ? null : (s) => openSettings(app, { sectionID: s.id }); }, get callEntity() { return app.viewing ? null : callEntity; }, isRead: (id) => state.readIDs.has(id), setRead,
   get canSave() { return !app.viewing && !app.display; }, get playVideo() { return app.display ? null : playVideo; }, get readArticle() { return app.display ? null : readArticle; }, isSaved: (id) => state.saved.some((a) => a.id === id), toggleSaved,
   isNew: (article) => Boolean(newSince && article.date && article.date > newSince && !state.readIDs.has(article.id)) };
 

@@ -393,14 +393,16 @@ function stocksView(section, payload) {
 // Vue choisie dans chaque carte (ligue, puis classement ou meneurs) : gardée tant que la page reste ouverte.
 const standingsChoice = new Map();   // id de section -> { league, view }
 
-function leagueView(section, payload) {
+function leagueView(section, payload, ctx) {
   const o = section.standings, host = h('div', { class: 'st' });
   const draw = () => {
     const choice = standingsChoice.get(section.id) ?? {};
     const table = payload.tables.find((x) => x.leagueID === choice.league) ?? payload.tables[0];
     const mine = new Set(table.mine);
     const hasTable = o.showStandings !== false && table.groups.length > 0, hasLeaders = o.showLeaders !== false && table.leaders.length > 0;
-    const hasTeams = o.showTeams !== false && (table.teams?.length ?? 0) > 0;
+    // Sans équipe choisie, l'onglet reste offert : il explique comment en choisir, plutôt que de disparaître sans un mot.
+    const noTeams = o.showTeams !== false && !table.mine.length;
+    const hasTeams = o.showTeams !== false && ((table.teams?.length ?? 0) > 0 || noTeams);
     const view = choice.view === 'leaders' && hasLeaders ? 'leaders' : choice.view === 'teams' && hasTeams ? 'teams'
       : hasTable ? 'table' : hasTeams ? 'teams' : hasLeaders ? 'leaders' : 'none';
     // Course aux séries : la limite après la dernière équipe qualifiée, et l'écart de mes équipes par rapport à elle.
@@ -432,6 +434,8 @@ function leagueView(section, payload) {
           r.logo && h('img', { class: 'logo', src: r.logo, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() }),
           h('span', {}, document.createTextNode(r.name)))),
         r.values.map((v, i) => h('td', { class: table.columns[i]?.minor ? 'minor' : null }, document.createTextNode(v))))))))
+      : view === 'teams' && noTeams ? h('div', { class: 'error-state' }, h('span', {}, t('Choisissez vos équipes de la ligue {0} pour voir leurs prochains matchs, leurs derniers résultats et leurs meilleurs joueurs.', table.league)),
+        ctx.configure && h('button', { class: 'btn primary', onClick: () => ctx.configure(section) }, 'Choisir mes équipes…'))
       : view === 'teams' ? h('div', { class: 'st-teams' }, table.teams.map((x) => h('section', { class: 'st-sheet' },
         h('header', {}, x.logo && h('img', { class: 'logo', src: x.logo, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() }),
           h('div', {}, h('h3', {}, document.createTextNode(x.name)), (x.record || x.standing) && h('small', {}, document.createTextNode([x.record, x.standing].filter(Boolean).join(' · '))))),
@@ -471,7 +475,7 @@ export function cardBody(section, payload, ctx) {
   if (payload.summary) return summaryView(section, payload);
   if (payload.entities) return hassView(section, payload, ctx);
   if (payload.quotes) return stocksView(section, payload);
-  if (payload.tables) return leagueView(section, payload);
+  if (payload.tables) return leagueView(section, payload, ctx);
   if (payload.articles) return articleList(section, payload.articles, ctx);
   if (payload.weather) return weatherView(section, payload.weather);
   if (payload.games) return sportsView(section, payload.games, ctx, payload.standings);

@@ -2,6 +2,19 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+### Français
+
+- **Classements** : sans équipe choisie dans la section, celles de la même ligue dans vos sections *Pointages*
+  sont reprises ; s'il n'y en a aucune, l'onglet *Mes équipes* explique comment en choisir au lieu de
+  disparaître.
+
+### English
+
+- **Standings**: with no team picked in the section, those of the same league in your *Scores* sections are
+  used; if there are none, the *My teams* tab explains how to pick some instead of disappearing.
+
 ## 2026.11.8
 
 Fiches d'équipe, sujets regroupés, résumé d'article, chargement plus rapide. / Team sheets, grouped topics, article summaries, faster loading.

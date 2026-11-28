@@ -318,6 +318,21 @@ async function notify(userID, message, only = null) {
   return result;
 }
 
+/**
+ * Classements : une ligue où aucune équipe n'est choisie reprend celles de la même ligue dans les sections
+ * « Pointages » du profil. On suit d'ordinaire les mêmes équipes aux deux endroits, sans avoir à les choisir deux fois.
+ */
+function withFollowedTeams(section, config) {
+  const followed = new Map();
+  for (const s of config.sections) {
+    if (s.kind !== 'sports') continue;
+    for (const l of s.sports.leagues) if (l.teams?.length && !followed.has(`${l.provider}|${l.path}`)) followed.set(`${l.provider}|${l.path}`, l.teams);
+  }
+  if (!followed.size || section.standings.leagues.every((l) => l.teams?.length)) return section;
+  return { ...section, standings: { ...section.standings,
+    leagues: section.standings.leagues.map((l) => (l.teams?.length ? l : { ...l, teams: followed.get(`${l.provider}|${l.path}`) ?? [] })) } };
+}
+
 // Délai après lequel la page redemande une section servie depuis le cache pendant qu'elle se met à jour.
 const REFRESHING_MS = 4000;
 
@@ -327,6 +342,7 @@ const REFRESHING_MS = 4000;
  * la page les redemande quelques secondes plus tard. Personne n'attend donc 200 chaînes YouTube devant une carte vide.
  */
 async function loadSection(section, config, force = false, stale = false) {
+  if (section.kind === 'standings') section = withFollowedTeams(section, config);
   const units = config.general.units;
   const signature = `${requestLang.getStore() ?? 'fr'}|${fetchSignature(section, units)}`;
   const key = `${section.id}|${signature}`;

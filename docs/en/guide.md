@@ -212,7 +212,9 @@ The full standings of your leagues and their leaders, in a card with tabs.
 
 - **Leagues**: the same as for scores, from ESPN (NHL, NFL, NBA, MLB, MLS, European soccer) and HockeyTech
   (QMJHL, PWHL, OHL, WHL, AHL). With several leagues, the card offers one tab per league.
-- **My teams**: pick them for each league; they are highlighted in the standings and among the leaders.
+- **My teams**: pick them for each league, with the *All teams* button to the right of its name; they are
+  highlighted in the standings and among the leaders. If you pick none, those of the same league in your
+  *Scores* sections are used.
 - **Standings**: by conference or by division (ESPN leagues that have them), with the record, points,
   differential, last ten games and streak. *Only the groups of my teams* shortens the card. On a narrow card,
   secondary columns are hidden.

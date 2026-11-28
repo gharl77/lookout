@@ -218,8 +218,9 @@ Le classement complet de vos ligues et leurs meneurs, dans une carte à onglets.
 
 - **Ligues** : les mêmes que pour les pointages, côté ESPN (LNH, NFL, NBA, MLB, MLS, soccer européen) et
   HockeyTech (LHJMQ, LPHF, OHL, WHL, LAH). Avec plusieurs ligues, la carte offre un onglet par ligue.
-- **Mes équipes** : choisissez-les pour chaque ligue ; elles sont mises en évidence dans le classement et chez
-  les meneurs.
+- **Mes équipes** : choisissez-les pour chaque ligue, par le bouton *Toutes les équipes* à droite de son nom ;
+  elles sont mises en évidence dans le classement et chez les meneurs. Si vous n'en choisissez aucune, celles
+  de la même ligue dans vos sections *Pointages* sont reprises.
 - **Classement** : par association ou par division (ligues ESPN qui en ont), avec la fiche, les points, le
   différentiel, les dix derniers matchs et la séquence. *Seulement les groupes de mes équipes* raccourcit la
   carte. Sur une carte étroite, les colonnes secondaires sont masquées.

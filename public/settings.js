@@ -537,7 +537,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       group('Mes équipes', [
         line('Afficher la fiche de mes équipes', toggle(o, 'showTeams', { label: 'Afficher la fiche de mes équipes', rerender: true })),
         o.showTeams && line('Prochains matchs', select(o, 'upcoming', [[5, '5'], [10, '10']], { label: 'Prochains matchs' })),
-      ], "Pour chaque équipe choisie ci-dessus (six au plus par ligue) : ses prochains matchs, ses cinq derniers résultats et ses meilleurs joueurs."),
+      ], "Pour chaque équipe choisie ci-dessus (six au plus par ligue) : ses prochains matchs, ses cinq derniers résultats et ses meilleurs joueurs. Pour choisir, cliquez le bouton « Toutes les équipes » à droite du nom de la ligue. Si vous n'en choisissez aucune, les équipes de la même ligue dans vos sections Pointages sont reprises."),
       group('Meneurs', [
         line('Afficher les meneurs', toggle(o, 'showLeaders', { label: 'Afficher les meneurs' })),
       ], "Les meilleurs joueurs par catégorie : points, buts, passes et gardiens au hockey ; verges et touchés au football ; points, rebonds et passes au basketball ; moyenne, circuits et lanceurs au baseball. Non offert pour le soccer."),
