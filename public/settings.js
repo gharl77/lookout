@@ -648,22 +648,33 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
 
   // --- Résumé du jour ---
   function summaryEditor(s) {
-    const o = s.summary, shared = app.sharedKeys?.anthropicKey;
-    const feeds = config().sections.filter((x) => (x.kind === 'feed' || x.kind === 'api') && !x.feed.youtube);
+    const o = s.summary, shared = app.sharedKeys?.anthropicKey, mailReady = Boolean(app.sharedKeys?.smtpHost);
+    const feeds = config().sections.filter((x) => x.kind === 'feed' || x.kind === 'api');
     const all = !o.sections.length;
-    return [group('Résumé', [
+    return [group('Édition du matin', [
+      line('Produire le résumé une fois par jour', toggle(o, 'scheduled', { label: 'Produire le résumé une fois par jour', rerender: true })),
+      o.scheduled && line('Heure', text(o, 'time', { type: 'time', bare: false, label: "Heure de l'édition" })),
+      o.scheduled && line('Annoncer par une notification', toggle(o, 'notify', { label: 'Annoncer par une notification' })),
+    ], o.scheduled ? "Chaque jour à cette heure (celle du serveur), Lookout réunit les nouvelles des dernières 24 heures, fait choisir l'essentiel par Claude et garde le résultat : la carte l'affiche toute la journée sans nouvel appel. Si le serveur était arrêté à cette heure, l'édition est produite à son retour. Le bouton de mise à jour de la carte en produit une nouvelle sur-le-champ."
+      : "Sans édition quotidienne, le résumé est redemandé quand vous ouvrez la page, au plus une fois par heure, et seulement si les titres ont changé."),
+    group('Résumé', [
       line('Modèle', select(o, 'model', SUMMARY_MODELS, { label: 'Modèle' })),
       line('Clé Anthropic', text(o, 'anthropicKey', { placeholder: shared ? "Fournie par l'administrateur" : 'sk-ant-…', mono: true })),
       !shared && h('div', { class: 'line' }, h('a', { href: 'https://platform.claude.com/settings/keys', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },
         'Créer une clé sur platform.claude.com')),
       line('Accent particulier', text(o, 'focus', { placeholder: 'ex. le Québec et la techno d’abord', label: 'Accent particulier' })),
-    ], "Chaque mise à jour envoie à Anthropic les titres récents de vos fils (pas vos réglages ni vos clés) et coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku. Lookout ne redemande un résumé que si les titres ont changé, et jamais plus d'une fois par heure."),
-    group('Sections résumées', [
-      line('Tous mes fils', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: all, 'aria-label': 'Tous mes fils',
+    ], "Chaque édition envoie à Anthropic les titres et les chapeaux récents de vos fils (jamais vos réglages, vos clés, votre agenda ni vos données de maison) et coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku."),
+    group('Sections couvertes', [
+      line('Toutes mes sections d’articles', h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: all, 'aria-label': 'Toutes mes sections d’articles',
         onChange: (e) => { o.sections = e.target.checked ? [] : feeds.map((x) => x.id); commit(); render(); } })),
-      !all && feeds.map((x) => line(x.title, h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: o.sections.includes(x.id), 'aria-label': x.title,
+      !all && feeds.map((x) => line(x.feed.youtube ? t('{0} (vidéos)', x.title) : x.title, h('input', { class: 'switch', type: 'checkbox', role: 'switch', checked: o.sections.includes(x.id), 'aria-label': x.title,
         onChange: (e) => { o.sections = e.target.checked ? [...o.sections, x.id] : o.sections.filter((id) => id !== x.id); commit(); } }))),
-    ], "Seuls les articles des dernières 24 heures comptent, huit par section au plus. Les sections YouTube ne sont pas résumées.")];
+    ], "Seuls les articles des dernières 24 heures comptent. Les nouvelles vidéos de vos sections YouTube sont listées à part, sous les points du résumé, sans passer par Claude."),
+    o.scheduled && group('Courriel', [
+      line('Envoyer aussi par courriel', toggle(o, 'email', { label: 'Envoyer aussi par courriel', rerender: true })),
+      o.email && line('Adresse', text(o, 'emailTo', { type: 'email', bare: false, placeholder: 'vous@exemple.com', label: 'Adresse de courriel' })),
+    ], mailReady ? "L'édition est envoyée à cette adresse dès qu'elle est produite. Un envoi manqué est signalé sur la carte."
+      : "L'envoi de courriels n'est pas encore configuré sur ce serveur : un administrateur doit indiquer le serveur d'envoi dans Réglages → Clés partagées.")].filter(Boolean);
   }
 
   function editor(s) {
@@ -1387,6 +1398,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
   }
 
   let policyDraft = null, keysFresh = false;   // qui a droit à la clé Anthropic partagée, tant que ce n'est pas enregistré
+  let mailSecurity = null;   // choix en cours dans le formulaire, avant enregistrement
   function sharedKeysForm() {
     if (!users) { loadUsers(); return h('span', { class: 'spinner' }); }
     // À l'ouverture de la rubrique : état à jour des clés et de la dépense (une fois par ouverture des réglages).
@@ -1394,7 +1406,18 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     const API_KEYS = [['tomtomKey', 'Clé TomTom', 'Trajets avec circulation'], ['apiSportsKey', 'Clé API-Sports', 'Ligues API-Sports'],
       ['tmdbKey', 'Clé TMDB', 'Films de la section Sorties'], ['anthropicKey', 'Clé Anthropic', 'Résumé du jour — facturé à l’usage']];
     const GOOGLE_KEYS = [['googleClientId', 'Identifiant client', 'Fourni par Google Cloud'], ['googleClientSecret', 'Secret client', 'Fourni par Google Cloud']];
-    const KEYS = [...API_KEYS, ...GOOGLE_KEYS];
+    const MAIL_KEYS = [['smtpHost', 'Serveur', 'ex. smtp.fournisseur.com'], ['smtpPort', 'Port', '587 (STARTTLS) ou 465 (TLS)'], ['smtpUser', "Nom d'utilisateur", 'Souvent votre adresse'],
+      ['smtpPassword', 'Mot de passe', "Mot de passe d'application"], ['smtpFrom', "Adresse d'expédition", 'ex. lookout@votredomaine.com']];
+    const KEYS = [...API_KEYS, ...GOOGLE_KEYS, ...MAIL_KEYS];
+    const security = { value: mailSecurity ?? app.sharedKeys?.mailSecurity ?? 'starttls' };
+    const testMail = async () => {
+      const to = testAddress.value.trim();
+      if (!to) return testAddress.focus();
+      try { await api('/api/mail/test', { method: 'POST', body: { to } }); sharedNote = { text: t("Courriel d'essai envoyé à {0}.", to), ok: true }; }
+      catch (error) { sharedNote = { text: error.message, ok: false }; }
+      render();
+    };
+    const testAddress = h('input', { class: 'field', type: 'email', placeholder: 'vous@exemple.com', 'aria-label': "Adresse pour l'essai", autocomplete: 'email' });
     const inputs = new Map(KEYS.map(([key, label, use]) => [key, h('input', { class: 'field bare mono', name: `shared-${key}`, value: app.sharedKeys?.[key] ? SECRET_MASK : '',
       placeholder: t(use), 'aria-label': label, autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
       onFocus: (e) => { if (e.target.value === SECRET_MASK) e.target.select(); } })]));
@@ -1403,8 +1426,9 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
     const save = async (e) => {
       e.preventDefault();
       try {
-        app.sharedKeys = await api('/api/shared-keys', { method: 'PUT', body: { ...Object.fromEntries(KEYS.map(([key]) => [key, inputs.get(key).value])), policy: policyDraft } });
+        app.sharedKeys = await api('/api/shared-keys', { method: 'PUT', body: { ...Object.fromEntries(KEYS.map(([key]) => [key, inputs.get(key).value])), smtpSecurity: security.value, policy: policyDraft } });
         policyDraft = null;
+        mailSecurity = null;
         sharedNote = { text: t('Clés partagées enregistrées.'), ok: true };
       } catch (error) { sharedNote = { text: error.message, ok: false }; }
       render();
@@ -1427,6 +1451,12 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         h('div', { class: 'line' }, h('span', { class: 'lbl' }, 'Marche à suivre et adresse de redirection'),
           h('button', { class: 'info-btn', type: 'button', title: 'Comment obtenir un identifiant client Google', 'aria-label': 'Comment obtenir un identifiant client Google', onClick: googleHelp }, 'i')),
       ], "Ces deux valeurs identifient cette installation de Lookout auprès de Google ; elles ne donnent accès au compte de personne. Chaque profil relie ensuite son propre compte Google depuis sa section YouTube, et ne voit que ses propres abonnements."),
+      group('Envoi de courriels', [
+        ...rows(MAIL_KEYS),
+        line('Chiffrement', h('select', { class: 'field', 'aria-label': 'Chiffrement', onChange: (e) => { security.value = e.target.value; mailSecurity = e.target.value; } },
+          [['starttls', 'STARTTLS (port 587)'], ['tls', 'TLS (port 465)'], ['none', 'Aucun (serveur local sans mot de passe)']].map(([value, name]) => h('option', { value, selected: security.value === value }, name)))),
+        app.sharedKeys?.smtpHost && h('div', { class: 'line' }, testAddress, h('button', { class: 'btn', type: 'button', onClick: testMail }, "Envoyer un courriel d'essai")),
+      ], "Le serveur SMTP par lequel Lookout envoie l'édition du matin : celui de votre fournisseur de courriel ou d'un service d'envoi. Avec Gmail, iCloud ou Outlook, créez un « mot de passe d'application » réservé à Lookout plutôt que d'utiliser le vôtre. Le mot de passe reste sur le serveur et n'est plus affiché. Enregistrez d'abord, puis faites l'essai."),
       h('div', { class: 'form-actions' }, h('div', {}, note), h('button', { class: 'btn primary', type: 'submit' }, icon('key'), 'Enregistrer')));
   }
 
@@ -1540,7 +1570,7 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
       ['data', 'Mes données', () => icon('drive'), 'exporter importer réinitialiser configuration export import reset'] ] },
     ...(admin ? [{ title: 'Administration', items: [
       ['users', 'Profils', () => icon('users'), 'utilisateurs comptes en ligne appareils users accounts online devices'],
-      ['keys', 'Clés partagées', () => icon('key'), 'tomtom tmdb anthropic google api-sports api keys'],
+      ['keys', 'Clés partagées', () => icon('key'), 'tomtom tmdb anthropic google api-sports courriel smtp email mail api keys'],
       ['health', 'État des sources', () => icon('shield'), 'pannes fils erreurs santé failing health errors'],
       ['backup', 'Sauvegarde', () => icon('download'), 'restaurer télécharger automatique nuit restore download backup automatic nightly'] ] }] : []),
     { title: null, items: [['about', 'À propos', () => sfIcon('tag.fill'), 'version licence github license']] },

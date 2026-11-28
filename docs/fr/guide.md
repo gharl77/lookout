@@ -251,14 +251,23 @@ pour un pays et une période.
 
 ### Résumé du jour
 
-L'essentiel de vos fils en quelques points, rédigé par Claude. Il faut une clé Anthropic, la vôtre ou celle
-que l'administrateur vous a ouverte.
+L'essentiel de vos fils en quelques points, choisi par Claude, produit une fois par jour.
 
-- **Modèle** : Claude Opus 5.5 (par défaut), Sonnet 5.5 ou Haiku 5.5, du plus capable au plus économique.
-- **Accent particulier** : une consigne libre, par exemple « le Québec et la techno d'abord ».
-- **Sections résumées** : tous vos fils, ou seulement ceux que vous cochez.
-- Seuls les titres des dernières 24 heures sont envoyés à Anthropic. Un nouveau résumé n'est demandé que si
-  les titres ont changé, et jamais plus d'une fois par heure.
+- **Édition du matin** : chaque jour à l'heure choisie (5 h 30 par défaut, heure du serveur), Lookout réunit les
+  nouvelles des dernières 24 heures, regroupe celles qui parlent du même événement, et fait choisir l'essentiel
+  par Claude. Le résultat est gardé : la carte l'affiche toute la journée sans nouvel appel.
+- **La carte** : la journée en un coup d'œil (météo, rendez-vous, trajet, dernier résultat de vos équipes), puis
+  les points numérotés. Chaque point nomme ses sources ; un clic sur un nom ouvre l'article. Un point que le
+  modèle ne peut pas rattacher à un article n'est jamais affiché.
+- **Sections couvertes** : toutes vos sections d'articles, ou seulement celles que vous cochez. Les nouvelles
+  vidéos des sections YouTube choisies sont listées sous les points, sans passer par Claude.
+- **Courriel** : l'édition peut être envoyée à l'adresse de votre choix dès qu'elle est produite. Un
+  administrateur doit d'abord indiquer le serveur d'envoi (voir le guide d'administration).
+- **Notification** : les deux premiers points sont annoncés sur vos appareils abonnés.
+- **Clé et coût** : il faut une clé Anthropic, la vôtre dans la section ou celle que partage un administrateur.
+  Chaque édition coûte quelques cents avec Claude Opus 5.5, moins avec Sonnet ou Haiku. Le bouton de mise à jour
+  de la carte en produit une nouvelle sur-le-champ, facturée elle aussi.
+- Seuls les titres et les chapeaux de vos fils sont envoyés à Anthropic.
 
 ## Lire les articles
 

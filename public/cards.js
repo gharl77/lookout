@@ -462,17 +462,47 @@ function leagueView(section, payload, ctx) {
 }
 
 // --- Résumé du jour ---
-function summaryView(section, payload) {
-  return [h('ol', { class: 'summary' }, payload.summary.map((point) => h('li', {},
-    h(point.link ? 'a' : 'span', { href: point.link, target: '_blank', rel: 'noopener noreferrer' }, point.text),
-    point.source && h('span', { class: 'a-meta' }, point.source)))),
-  h('div', { class: 'a-meta summary-foot' }, t('Résumé de {0} titres par {1}', payload.basedOn, String(payload.model ?? '').replace(/^claude-/, 'Claude ').replace(/-/g, ' ')))];
+function summaryView(section, payload, ctx) {
+  const model = String(payload.model ?? '').replace(/^claude-([a-z]+)-(\d+)-(\d+).*$/, (m, family, major, minor) => `Claude ${family[0].toUpperCase()}${family.slice(1)} ${major}.${minor}`);
+  // Ancien mode (résumé à la demande) : la simple liste de points.
+  if (!payload.scheduled) {
+    return [h('ol', { class: 'summary' }, payload.summary.map((point) => h('li', {},
+      h(point.link ? 'a' : 'span', { href: point.link, target: '_blank', rel: 'noopener noreferrer' }, point.text),
+      point.source && h('span', { class: 'a-meta' }, point.source)))),
+    h('div', { class: 'a-meta summary-foot' }, t('Résumé de {0} titres par {1}', payload.basedOn, model))];
+  }
+  // Édition du matin : la journée en un coup d'œil, les points numérotés avec leurs sources, puis les nouvelles vidéos.
+  const lang = document.documentElement.lang;
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const old = payload.edition !== ymd(new Date());
+  const ICONS = { weather: 'w-cloud-sun', calendar: null, commute: 'car', sports: null };
+  const glyph = (g) => (g.kind === 'calendar' ? sfIcon('calendar') : g.kind === 'sports' ? sfIcon('trophy.fill') : icon(ICONS[g.kind] ?? 'check'));
+  const open = (link, event) => { event.preventDefault(); event.stopPropagation(); window.open(link, '_blank', 'noopener'); };
+  return [
+    h('div', { class: 'ed-head a-meta' }, old && h('span', { class: 'ed-old' }, 'Édition précédente'),
+      new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${payload.edition}T12:00:00`)), ' · ', fmt.time(payload.generatedAt)),
+    payload.glance?.length > 0 && h('div', { class: 'ed-glance' }, payload.glance.map((g) => h('div', {}, glyph(g),
+      h('span', {}, h('b', {}, document.createTextNode(g.title)), g.detail && h('small', {}, document.createTextNode(g.detail)))))),
+    h('ol', { class: 'ed-points' }, payload.summary.map((point) => h('li', {},
+      h('a', { href: point.link, target: '_blank', rel: 'noopener noreferrer' }, document.createTextNode(point.text)),
+      h('span', { class: 'a-meta' }, (point.sources ?? []).map((src, i) => [i > 0 && ' · ',
+        h('span', { class: 'a-related', role: 'link', tabindex: '0', title: src.title, onClick: (e) => open(src.link, e),
+          onKeydown: (e) => { if (e.key === 'Enter') open(src.link, e); } }, document.createTextNode(src.name))]))))),
+    payload.videos?.length > 0 && h('div', { class: 'ed-videos' }, h('h3', {}, t('Nouvelles vidéos ({0})', payload.videos.length)),
+      payload.videos.map((v) => h('a', { class: 'ed-video', href: v.link, target: '_blank', rel: 'noopener noreferrer',
+        onClick: (e) => { if (ctx.playVideo && youtubeVideoID(v.link) && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); ctx.playVideo(v); } } },
+      v.image && h('img', { src: v.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onError: (e) => e.target.remove() }),
+      h('span', {}, h('b', {}, document.createTextNode(v.title)), h('small', {}, document.createTextNode([v.source, fmt.ago(v.date)].filter(Boolean).join(' · '))))))),
+    h('div', { class: 'a-meta summary-foot' }, t('{0} sujets passés en revue par {1}', payload.basedOn, model),
+      payload.mailed?.ok && ` · ${t('envoyé par courriel')}`),
+    payload.mailed && !payload.mailed.ok && h('div', { class: 'note' }, icon('warning'), t('Courriel non envoyé : {0}', payload.mailed.error)),
+  ];
 }
 
 export function cardBody(section, payload, ctx) {
   if (payload.releases) return releasesView(section, payload);
   if (payload.events) return calendarView(section, payload);
-  if (payload.summary) return summaryView(section, payload);
+  if (payload.summary) return summaryView(section, payload, ctx);
   if (payload.entities) return hassView(section, payload, ctx);
   if (payload.quotes) return stocksView(section, payload);
   if (payload.tables) return leagueView(section, payload, ctx);

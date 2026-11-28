@@ -411,7 +411,10 @@ export const WMO_LABELS = { 0: 'Dégagé', 1: 'Généralement dégagé', 2: 'Par
 const RELEASES = { country: 'CA', days: 7, showMovies: true, showSeries: true, tmdbKey: '' };
 /** Modèles offerts pour le résumé, du plus capable au plus économique. */
 export const SUMMARY_MODELS = [['claude-opus-5-5', 'Claude Opus 5.5'], ['claude-sonnet-5-5', 'Claude Sonnet 5.5'], ['claude-haiku-5-5', 'Claude Haiku 5.5']];
-const SUMMARY = { anthropicKey: '', model: 'claude-opus-5-5', sections: [], focus: '' };   // sections vides = tous les fils
+const SUMMARY = { anthropicKey: '', model: 'claude-opus-5-5', sections: [], focus: '',
+  scheduled: true, time: '05:30',   // édition du matin : produite une fois par jour, à l'heure choisie (heure du serveur)
+  email: false, emailTo: '',        // envoyée aussi par courriel
+  notify: true };                   // annoncée par une notification sur les appareils abonnés   // sections vides = tous les fils
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 export const feedSource = (name, url) => ({ id: uuid(), name, url, enabled: true });
@@ -552,6 +555,7 @@ export function normalize(input) {
     s.summary = { ...SUMMARY, ...(raw.summary ?? {}) };
     if (!Array.isArray(s.summary.sections)) s.summary.sections = [];
     if (!SUMMARY_MODELS.some(([id]) => id === s.summary.model)) s.summary.model = SUMMARY.model;
+    s.summary.time = clockTime(s.summary.time, SUMMARY.time);
     if (!config.pages.some((p) => p.id === s.page)) s.page = config.pages[0].id;   // page inconnue ou supprimée
     config.sections.push(s);
   }

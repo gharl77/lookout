@@ -13,6 +13,7 @@ Pour la personne qui installe Lookout et qui gère les profils. L'installation r
 - [Clés partagées](#clés-partagées)
 - [Connexion Google pour YouTube](#connexion-google-pour-youtube)
 - [État des sources](#état-des-sources)
+- [Envoi de courriels](#envoi-de-courriels)
 - [Sauvegarde et restauration](#sauvegarde-et-restauration)
 - [Mise à jour](#mise-à-jour)
 - [Ce que contient le dossier de données](#ce-que-contient-le-dossier-de-données)
@@ -133,6 +134,21 @@ confondus**, avec la durée de la panne et la dernière réponse reçue.
 - Une panne de quelques heures est souvent passagère.
 - Une panne de plusieurs jours (pastille rouge à partir de trois jours) signale d'ordinaire une adresse qui a
   changé.
+
+## Envoi de courriels
+
+L'édition du matin peut être envoyée par courriel. *Réglages → Clés partagées → Envoi de courriels* :
+
+| Champ | Valeur |
+|---|---|
+| Serveur | Le serveur SMTP de votre fournisseur de courriel ou d'un service d'envoi |
+| Port et chiffrement | 587 avec STARTTLS (le plus courant), ou 465 avec TLS |
+| Nom d'utilisateur et mot de passe | Ceux du compte d'envoi. Avec Gmail, iCloud ou Outlook, créez un *mot de passe d'application* réservé à Lookout |
+| Adresse d'expédition | L'adresse qui figure comme expéditeur ; le fournisseur exige souvent que ce soit celle du compte |
+
+Enregistrez, puis *Envoyer un courriel d'essai*. Le mot de passe reste sur le serveur et n'est plus affiché ; il
+fait partie de la sauvegarde complète. Sans chiffrement, Lookout refuse de transmettre un mot de passe. Chaque
+profil choisit ensuite, dans sa section *Résumé du jour*, l'adresse qui reçoit son édition.
 
 ## Sauvegarde et restauration
 

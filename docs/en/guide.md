@@ -244,14 +244,23 @@ and a period.
 
 ### Daily summary
 
-The essentials of your feeds in a few points, written by Claude. It needs an Anthropic key, either yours or
-the one the administrator has opened to you.
+The essentials of your feeds in a few points, picked by Claude, produced once a day.
 
-- **Model**: Claude Opus 5.5 (default), Sonnet 5.5 or Haiku 5.5, from most capable to cheapest.
-- **Particular emphasis**: a free-form instruction, for example “Quebec and tech first”.
-- **Summarized sections**: all your feeds, or only the ones you tick.
-- Only headlines from the last 24 hours are sent to Anthropic. A new summary is requested only when the
-  headlines have changed, and never more than once an hour.
+- **Morning edition**: every day at the chosen time (5:30 a.m. by default, server time), Lookout gathers the news
+  of the last 24 hours, groups stories about the same event, and has Claude pick what matters. The result is
+  kept: the card shows it all day without another call.
+- **The card**: the day at a glance (weather, events, commute, your teams' latest result), then the numbered
+  points. Each point names its sources; clicking a name opens the article. A point the model cannot tie to an
+  article is never shown.
+- **Sections covered**: all your article sections, or only the ones you tick. New videos from the chosen YouTube
+  sections are listed under the points, without going through Claude.
+- **Email**: the edition can be sent to the address of your choice as soon as it is produced. An administrator
+  must first enter the mail server (see the administration guide).
+- **Notification**: the first two points are announced on your subscribed devices.
+- **Key and cost**: an Anthropic key is required, yours in the section or one shared by an administrator. Each
+  edition costs a few cents with Claude Opus 5.5, less with Sonnet or Haiku. The card's update button produces a
+  new one on the spot, also billed.
+- Only the headlines and standfirsts of your feeds are sent to Anthropic.
 
 ## Reading articles
 

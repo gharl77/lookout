@@ -22,7 +22,9 @@ import { resolveChannel } from './lib/youtube.js';
 import { fetchReleases } from './lib/releases.js';
 import { fetchCalendar } from './lib/calendar.js';
 import { readArticle } from './lib/reader.js';
-import { fetchSummary, summarizeArticle } from './lib/summary.js';
+import { fetchSummary, summarizeArticle, fetchEdition } from './lib/summary.js';
+import { collectEdition, renderEmail, dayKey } from './lib/edition.js';
+import { sendMail, checkAddress } from './lib/mail.js';
 import { fetchHass, searchHass, callHass } from './lib/hass.js';
 import { fetchStocks, searchSymbols } from './lib/stocks.js';
 import { Backups } from './lib/backups.js';
@@ -146,7 +148,15 @@ function logSourceErrors(section, sourceErrors = {}) {
  * Résumé du jour : rassemble les titres récents des fils du profil (ceux que leurs cartes afficheraient), puis les
  * fait condenser. Les fils passent par le cache habituel : le résumé ne fait interroger aucune source plus souvent.
  */
-async function summarize(section, config) {
+async function summarize(section, config, force = false) {
+  // Édition du matin : la carte montre l'édition gardée sur disque. Elle n'est produite sur demande que la toute
+  // première fois, ou quand on appuie sur « Mettre à jour maintenant » ; sinon, c'est l'horloge qui s'en charge.
+  if (section.summary.scheduled !== false) {
+    const owner = accounts.ownerOfConfig(config);
+    if (!owner) throw new BriefingError('Profil introuvable');
+    const stored = force ? null : readEdition(owner.id, section.id);
+    return stored ?? produceEdition(owner, section, config, false);
+  }
   const wanted = new Set(section.summary.sections);
   const feeds = config.sections.filter((s) => s.enabled && (s.kind === 'feed' || s.kind === 'api') && !s.feed.youtube && (!wanted.size || wanted.has(s.id)));
   const items = [];
@@ -161,6 +171,83 @@ async function summarize(section, config) {
     payer ? (spent) => recordUsage(payer, spent) : null);
   return { ...result, sourceErrors: {} };
 }
+
+// --- Édition du matin ---
+// Une fois par jour, à l'heure choisie dans la section, le résumé est produit pour de bon : sujets des dernières
+// 24 heures réunis par événement, choix des nouvelles par Claude, puis mise en forme. Il est gardé sur disque
+// (data/profiles/<profil>/edition-<section>.json) : la carte l'affiche toute la journée sans nouvel appel.
+const editionFile = (userID, sectionID) => path.join(DATA, 'profiles', String(userID).replace(/[^A-Za-z0-9-]/g, ''), `edition-${String(sectionID).replace(/[^A-Za-z0-9-]/g, '')}.json`);
+function readEdition(userID, sectionID) {
+  try { const saved = JSON.parse(fs.readFileSync(editionFile(userID, sectionID), 'utf8')); return saved?.summary ? saved : null; } catch { return null; }
+}
+/** Réglages du serveur d'envoi de courriels (fournis par un administrateur), ou null s'il n'est pas configuré. */
+function mailConfig() {
+  const host = accounts.sharedKey('smtpHost'), from = accounts.sharedKey('smtpFrom');
+  return host && from ? { host, from, port: accounts.sharedKey('smtpPort'), security: accounts.sharedKey('smtpSecurity') || 'starttls', user: accounts.sharedKey('smtpUser'), password: accounts.sharedKey('smtpPassword') } : null;
+}
+
+/**
+ * Produit l'édition d'une section, l'enregistre et, si `deliver`, l'envoie (courriel, notification).
+ * Un envoi qui échoue n'annule pas l'édition : elle reste affichée, et l'échec est noté dans le journal et sur la carte.
+ */
+async function produceEdition(owner, section, config, deliver) {
+  const draft = await collectEdition(section, config, (s) => loadSection(s, config));
+  const { key, model, payer } = anthropicAccess(section.summary, owner);
+  const result = await fetchEdition({ model, points: section.maxItems, focus: section.summary.focus }, key, draft.topics, payer ? (spent) => recordUsage(payer, spent) : null);
+  const edition = { summary: result.points, glance: draft.glance, videos: draft.videos, model: result.model, basedOn: result.basedOn,
+    edition: dayKey(), generatedAt: Date.now(), scheduled: true, mailed: null, sourceErrors: {} };
+  if (deliver) {
+    if (section.summary.email && String(section.summary.emailTo).trim()) {
+      try {
+        const mail = mailConfig();
+        if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
+        await sendMail(mail, { to: section.summary.emailTo, ...renderEmail(edition, section.title) });
+        edition.mailed = { ok: true, at: Date.now() };
+        console.log(`Édition du matin de « ${owner.name} » envoyée par courriel.`);
+      } catch (error) {
+        edition.mailed = { ok: false, error: String(error.message).slice(0, 200) };
+        console.warn(`Édition du matin de « ${owner.name} » — courriel non envoyé : ${error.message}`);
+      }
+    }
+    if (section.summary.notify !== false) {
+      notify(owner.id, { title: section.title, body: edition.summary.slice(0, 2).map((p, i) => `${i + 1}. ${p.text}`).join('\n').slice(0, 400), tag: `edition-${section.id}` }).catch(() => {});
+    }
+  }
+  fs.mkdirSync(path.dirname(editionFile(owner.id, section.id)), { recursive: true });
+  fs.writeFileSync(editionFile(owner.id, section.id), JSON.stringify(edition), { mode: 0o600 });
+  // La carte ne doit pas continuer à servir l'édition précédente depuis le cache.
+  for (const cacheKey of cache.keys()) if (cacheKey.startsWith(`${section.id}|`)) cache.delete(cacheKey);
+  return edition;
+}
+
+/** Horloge des éditions : chaque minute, produit celles dont l'heure est passée et qui manquent encore pour aujourd'hui. */
+const editionTries = new Map();   // « profil|section|jour » -> essais faits (trois au plus par jour)
+let editionBusy = false;
+async function editionTick() {
+  if (editionBusy) return;
+  editionBusy = true;
+  try {
+    const now = new Date(), today = dayKey(now), minutes = now.getHours() * 60 + now.getMinutes();
+    for (const key of editionTries.keys()) if (!key.endsWith(today)) editionTries.delete(key);
+    for (const listed of accounts.list()) {
+      const owner = accounts.user(listed.id), config = accounts.profile(listed.id).config;
+      for (const section of config.sections) {
+        if (!section.enabled || section.kind !== 'summary' || section.summary.scheduled === false) continue;
+        const [h, m] = section.summary.time.split(':').map(Number), tryKey = `${owner.id}|${section.id}|${today}`;
+        if (minutes < h * 60 + m || readEdition(owner.id, section.id)?.edition === today || (editionTries.get(tryKey) ?? 0) >= 3) continue;
+        // Sans clé, rien à tenter : la carte le dit déjà, inutile de remplir le journal chaque matin.
+        if (!String(section.summary.anthropicKey ?? '').trim() && !accounts.sharedAllowed(owner.id, 'anthropicKey')) continue;
+        editionTries.set(tryKey, (editionTries.get(tryKey) ?? 0) + 1);
+        const lang = config.general.language === 'en' ? 'en' : 'fr';
+        try {
+          await requestLang.run(lang, () => produceEdition(owner, section, config, true));
+          console.log(`Édition du matin produite pour « ${owner.name} » (${section.title}).`);
+        } catch (error) { console.warn(`Édition du matin de « ${owner.name} » : ${error.message}`); }
+      }
+    }
+  } finally { editionBusy = false; }
+}
+setInterval(() => { editionTick().catch((error) => console.error('Édition du matin :', error)); }, 60e3).unref();
 
 /**
  * Clé et modèle pour un appel à Claude. Clé du profil : aucun plafond, c'est lui qui paie. Clé partagée : seulement
@@ -364,7 +451,7 @@ async function loadSection(section, config, force = false, stale = false) {
         : section.kind === 'hass' ? await fetchHass(section.hass)
         : section.kind === 'stocks' ? await fetchStocks(section.stocks)
         : section.kind === 'standings' ? await fetchStandings(section.standings, section.maxItems)
-        : section.kind === 'summary' ? await summarize(section, config)
+        : section.kind === 'summary' ? await summarize(section, config, force)
         : await fetchJSONAPI(section.api, section.title);
       payload = { kind: section.kind, ...data, error: null, updatedAt: Date.now() };
       logSourceErrors(section, data.sourceErrors);
@@ -544,14 +631,14 @@ async function api(req, res, url) {
   // --- Clés d'API partagées : tout le monde sait lesquelles existent, seul un administrateur les définit ---
   // Chacun apprend quelles clés partagées il peut utiliser ; l'administrateur voit en plus qui a droit à la clé Anthropic.
   if (route === 'GET /api/shared-keys') {
-    return send(res, 200, user.role === 'admin' ? { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy, usage: usageReport() } : accounts.sharedKeysFor(user.id));
+    return send(res, 200, user.role === 'admin' ? { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy, usage: usageReport(), mailSecurity: accounts.sharedKey('smtpSecurity') || 'starttls' } : accounts.sharedKeysFor(user.id));
   }
   if (route === 'PUT /api/shared-keys') {
     requireAdmin(user);
     const body = await readBody(req);
     accounts.setSharedKeys(body);
     if (body?.policy) accounts.setSharedPolicy(body.policy);
-    const set = { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy, usage: usageReport() };
+    const set = { ...accounts.sharedKeysSet, policy: accounts.sharedPolicy, usage: usageReport(), mailSecurity: accounts.sharedKey('smtpSecurity') || 'starttls' };
     // Les sections restées en erreur (clé manquante ou refusée) sont redemandées dès le prochain affichage.
     for (const [key, entry] of cache) if (hasErrors(entry.payload)) cache.delete(key);
     return send(res, 200, set);
@@ -578,6 +665,15 @@ async function api(req, res, url) {
     backups.create();
     console.log(`Sauvegarde faite à la demande de « ${user.name} ».`);
     return send(res, 200, { keep: backups.keep, files: backups.list() });
+  }
+  // Courriel d'essai : vérifie le serveur d'envoi avec l'adresse donnée (administrateur).
+  if (route === 'POST /api/mail/test') {
+    requireAdmin(user);
+    const mail = mailConfig();
+    if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
+    const to = checkAddress((await readBody(req))?.to);
+    await sendMail(mail, { to, subject: t("Courriel d'essai de Lookout"), text: t("L'envoi de courriels fonctionne."), html: `<p>${t("L'envoi de courriels fonctionne.")}</p>` });
+    return send(res, 200, { ok: true });
   }
   if (route === 'GET /api/health') { requireAdmin(user); return send(res, 200, healthReport()); }
 

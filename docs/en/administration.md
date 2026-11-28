@@ -13,6 +13,7 @@ For the person who installs Lookout and manages profiles. The quick start is in 
 - [Shared keys](#shared-keys)
 - [Google sign-in for YouTube](#google-sign-in-for-youtube)
 - [Source status](#source-status)
+- [Email delivery](#email-delivery)
 - [Backup and restore](#backup-and-restore)
 - [Updating](#updating)
 - [What the data folder holds](#what-the-data-folder-holds)
@@ -128,6 +129,21 @@ profiles**, with how long they have been failing and when they last answered.
 - A source is only known once its section has been loaded at least once.
 - An outage of a few hours is often temporary.
 - An outage of several days (red dot from three days on) usually means an address has changed.
+
+## Email delivery
+
+The morning edition can be sent by email. *Settings → Shared keys → Email delivery*:
+
+| Field | Value |
+|---|---|
+| Server | The SMTP server of your email provider or of a delivery service |
+| Port and encryption | 587 with STARTTLS (the most common), or 465 with TLS |
+| User name and password | Those of the sending account. With Gmail, iCloud or Outlook, create an *app password* just for Lookout |
+| From address | The address shown as the sender; providers often require it to be the account's own |
+
+Save, then *Send a test email*. The password stays on the server and is no longer shown; it is part of the full
+backup. Without encryption, Lookout refuses to transmit a password. Each profile then chooses, in its *Daily
+summary* section, the address that receives its edition.
 
 ## Backup and restore
 

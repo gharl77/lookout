@@ -285,6 +285,15 @@ await check('sauvegardes automatiques : listées, faites à la demande, protég�
     expect((await request('/api/restore', { method: 'POST', ...json({ password: ADMIN.password, name: bad }) })).status === 400, `restauration acceptée : ${bad}`);
   }
 });
+await check('courriel : essai refusé tant que le serveur d\'envoi n\'est pas configuré, adresses contrôlées', async () => {
+  expect((await request('/api/mail/test', { method: 'POST', ...json({ to: 'lecteur@exemple.test' }) })).status === 400, 'essai accepté sans serveur d\'envoi');
+  const keys = await (await request('/api/shared-keys', { method: 'PUT', ...json({ smtpHost: '127.0.0.1', smtpPort: '1', smtpSecurity: 'none', smtpFrom: 'lookout@exemple.test', smtpPassword: 'SECRET-SMTP-123' }) })).text();
+  expect(!keys.includes('SECRET-SMTP-123') && JSON.parse(keys).smtpPassword === true, 'le mot de passe du serveur d\'envoi est renvoyé');
+  expect((await request('/api/mail/test', { method: 'POST', ...json({ to: 'pas-une-adresse' }) })).status === 400, 'adresse invalide acceptée');
+  const failed = await request('/api/mail/test', { method: 'POST', ...json({ to: 'lecteur@exemple.test' }) });
+  expect(failed.status === 400 && !(await failed.text()).includes('SECRET-SMTP-123'), 'serveur injoignable mal signalé');
+  await request('/api/shared-keys', { method: 'PUT', ...json({ smtpHost: '', smtpPort: '', smtpSecurity: '', smtpFrom: '', smtpPassword: '' }) });
+});
 await check('Home Assistant : seules les entités de la section peuvent être actionnées', async () => {
   expect((await request('/api/hass/call', { method: 'POST', ...json({ section: 'inconnue', entity: 'light.x' }) })).status === 400, 'section inconnue acceptée');
   expect((await request('/api/hass/call', { method: 'POST', ...json({ section: config.sections[0].id, entity: 'light.x' }) })).status === 403, 'entité hors de la section actionnée');

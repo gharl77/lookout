@@ -4,14 +4,26 @@ Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `y
 
 ## À venir / Unreleased
 
+Édition du matin par Claude, envoyée par courriel. / Morning edition by Claude, sent by email.
+
 ### Français
 
+- **Résumé du jour, édition du matin** : produit une fois par jour à l'heure choisie (5 h 30 par défaut), gardé
+  toute la journée. La journée en un coup d'œil, puis cinq points numérotés, chacun avec ses sources ; les
+  nouvelles vidéos de vos abonnements YouTube des dernières 24 heures à la suite. Sections au choix.
+- **Courriel** : l'édition peut être envoyée par courriel. Un administrateur indique le serveur SMTP dans
+  *Clés partagées*, avec un courriel d'essai.
 - **Classements** : sans équipe choisie dans la section, celles de la même ligue dans vos sections *Pointages*
   sont reprises ; s'il n'y en a aucune, l'onglet *Mes équipes* explique comment en choisir au lieu de
   disparaître.
 
 ### English
 
+- **Daily summary, morning edition**: produced once a day at the chosen time (5:30 a.m. by default), kept all
+  day. The day at a glance, then five numbered points, each with its sources; new videos from your YouTube
+  subscriptions over the last 24 hours follow. Sections of your choice.
+- **Email**: the edition can be sent by email. An administrator enters the SMTP server under *Shared keys*,
+  with a test email.
 - **Standings**: with no team picked in the section, those of the same league in your *Scores* sections are
   used; if there are none, the *My teams* tab explains how to pick some instead of disappearing.
 
