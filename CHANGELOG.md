@@ -2,6 +2,20 @@
 
 Les versions sont numérotées `année.mois.numéro`. / Releases are numbered `year.month.number`.
 
+## À venir / Unreleased
+
+### Français
+
+- **Résumé par courriel, nouvelle mise en page** : un résumé par page (dans l'ordre de vos onglets) au lieu d'un
+  seul pour tout ; une vignette pour chaque point et chaque vidéo, à côté de son titre ; le logo de Lookout en
+  tête ; mode sombre, aperçu dans la boîte de réception, mise en page adaptée au téléphone.
+
+### English
+
+- **Email summary, new layout**: one summary per page (in the order of your tabs) instead of a single one for
+  everything; a thumbnail for each point and each video, next to its title; the Lookout logo at the top; dark
+  mode, inbox preview text, phone-friendly layout.
+
 ## 2026.11.11
 
 ### Français

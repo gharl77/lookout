@@ -310,11 +310,14 @@ par courriel. Il n'a pas de carte : il ne prend aucune place sur le tableau de b
 
 - **Envoi** : l'heure (5 h 30 par défaut, heure du serveur) et l'adresse. *Envoyer maintenant* produit un résumé
   à jour et l'envoie tout de suite, en plus de l'envoi planifié ; au plus un par minute.
+- **Un résumé par page** : le courriel a un bloc pour chaque page cochée, dans l'ordre de vos onglets, avec ses
+  propres points puis ses nouvelles vidéos. Chaque point et chaque vidéo porte sa vignette ; le logo de Lookout
+  est en tête. Une nouvelle couverte par deux pages reste dans la première.
 - **Contenu** : l'arborescence de vos pages et de leurs sections. Cocher une page coche toutes ses sections.
   Les fils d'articles fournissent les points du résumé ; les sections YouTube, la liste des nouvelles vidéos des
   dernières 24 heures ; la météo, l'agenda, les trajets et les pointages, le coup d'œil en tête du courriel.
   Une section masquée du tableau de bord peut être cochée ; une section ajoutée plus tard ne l'est pas d'office.
-- **Rédaction** : le modèle (Claude Opus 5.5 par défaut), le nombre de points (3 à 10), un accent particulier,
+- **Rédaction** : le modèle (Claude Opus 5.5 par défaut), le nombre de points par page (3 à 10), un accent particulier,
   et la clé Anthropic — la vôtre, ou celle que partage un administrateur.
 - **Fiabilité** : chaque point nomme ses sources, avec un lien vers chaque article. Un point que Claude ne peut
   pas rattacher à un article n'est jamais envoyé. Le coup d'œil et les vidéos sont mis en forme sans passer

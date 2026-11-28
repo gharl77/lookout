@@ -997,10 +997,10 @@ export function openSettings(app, { sectionID = null, tab = null } = {}) {
         : "L'envoi de courriels n'est pas encore configuré sur ce serveur : un administrateur doit indiquer le serveur d'envoi dans Réglages → Clés partagées."),
       group('Contenu : pages et sections', [
         tree.length ? tree : h('div', { class: 'line' }, 'Aucune section à résumer pour le moment.'),
-      ], "Cocher une page coche toutes ses sections. Les fils d'articles fournissent les points du résumé ; les sections YouTube, la liste des nouvelles vidéos des dernières 24 heures ; la météo, l'agenda, les trajets et les pointages, le coup d'œil en tête du courriel. Une section masquée du tableau de bord peut être cochée. Une section ajoutée plus tard n'est pas cochée d'office."),
+      ], "Chaque page cochée a son propre résumé dans le courriel, dans l'ordre de vos onglets. Cocher une page coche toutes ses sections. Les fils d'articles fournissent les points du résumé ; les sections YouTube, la liste des nouvelles vidéos des dernières 24 heures ; la météo, l'agenda, les trajets et les pointages, le coup d'œil en tête du courriel. Une section masquée du tableau de bord peut être cochée. Une section ajoutée plus tard n'est pas cochée d'office."),
       group('Rédaction', [
         line('Modèle', select(d, 'model', SUMMARY_MODELS, { label: 'Modèle' })),
-        line('Nombre de points', stepper(d, 'points', 3, 10)),
+        line('Points par page', stepper(d, 'points', 3, 10)),
         line('Accent particulier', text(d, 'focus', { placeholder: 'ex. le Québec et la techno d’abord', label: 'Accent particulier' })),
         line('Clé Anthropic', text(d, 'anthropicKey', { placeholder: shared ? "Fournie par l'administrateur" : 'sk-ant-…', mono: true, label: 'Clé Anthropic' })),
         !shared && h('div', { class: 'line' }, h('a', { href: 'https://platform.claude.com/settings/keys', target: '_blank', rel: 'noopener noreferrer', style: { color: 'var(--accent)' } },

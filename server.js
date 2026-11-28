@@ -23,7 +23,7 @@ import { fetchReleases } from './lib/releases.js';
 import { fetchCalendar } from './lib/calendar.js';
 import { readArticle } from './lib/reader.js';
 import { summarizeArticle, fetchEdition } from './lib/summary.js';
-import { collectEdition, renderEmail, dayKey } from './lib/edition.js';
+import { collectEdition, renderEmail, dayKey, LOGO_CID } from './lib/edition.js';
 import { sendMail, checkAddress } from './lib/mail.js';
 import { fetchHass, searchHass, callHass } from './lib/hass.js';
 import { fetchStocks, searchSymbols } from './lib/stocks.js';
@@ -156,6 +156,9 @@ function saveDigestState(userID, state) {
   fs.mkdirSync(path.dirname(digestFile(userID)), { recursive: true });
   fs.writeFileSync(digestFile(userID), JSON.stringify(state), { mode: 0o600 });
 }
+// Logo joint aux courriels (affiché en tête du résumé). Absent, le courriel part simplement sans image.
+let MAIL_LOGO = null;
+try { MAIL_LOGO = fs.readFileSync(path.join(PUBLIC, 'lookout-180.png')); } catch { /* fichier retiré de l'installation */ }
 /** Réglages du serveur d'envoi de courriels (fournis par un administrateur), ou null s'il n'est pas configuré. */
 function mailConfig() {
   const host = accounts.sharedKey('smtpHost'), from = accounts.sharedKey('smtpFrom');
@@ -171,18 +174,19 @@ async function sendDigest(owner, config) {
   if (!mail) throw new BriefingError("L'envoi de courriels n'est pas configuré sur ce serveur");
   if (!digest.sections.length) throw new BriefingError('Aucune section cochée : le résumé serait vide.');
   const draft = await collectEdition(digest, config, (section) => loadSection(section, config));
-  let points = [], model = digest.model;
-  if (draft.topics.length) {
+  let points = draft.pages.map(() => []), model = digest.model, basedOn = 0;
+  if (draft.pages.some((page) => page.topics.length)) {
     const access = anthropicAccess(digest, owner);
     if (!access.key) throw new BriefingError('Clé Anthropic manquante : saisissez-la dans Réglages → Résumé par courriel, ou demandez-la à un administrateur');
-    const result = await fetchEdition({ model: access.model, points: digest.points, focus: digest.focus }, access.key, draft.topics, access.payer ? (spent) => recordUsage(access.payer, spent) : null);
-    points = result.points;
-    model = result.model;
+    const result = await fetchEdition({ model: access.model, points: digest.points, focus: digest.focus }, access.key, draft.pages, access.payer ? (spent) => recordUsage(access.payer, spent) : null);
+    ({ pages: points, model, basedOn } = result);
   }
-  if (!points.length && !draft.videos.length && !draft.glance.length) throw new BriefingError('Rien à résumer pour le moment dans les sections cochées');
-  const edition = { summary: points, glance: draft.glance, videos: draft.videos, model, basedOn: draft.topics.length };
-  await sendMail(mail, { to, ...renderEmail(edition, t('Résumé du jour')) });
-  return { points: points.length, videos: draft.videos.length, to };
+  // Un bloc par page : ses points, puis ses nouvelles vidéos.
+  const pages = draft.pages.map((page, i) => ({ name: page.name, points: points[i] ?? [], videos: page.videos })).filter((page) => page.points.length || page.videos.length);
+  if (!pages.length && !draft.glance.length) throw new BriefingError('Rien à résumer pour le moment dans les sections cochées');
+  const edition = { glance: draft.glance, pages, model, basedOn };
+  await sendMail(mail, { to, ...renderEmail(edition, t('Résumé du jour'), new Date(), { logo: Boolean(MAIL_LOGO) }), inline: MAIL_LOGO ? [{ cid: LOGO_CID, type: 'image/png', data: MAIL_LOGO }] : [] });
+  return { points: pages.reduce((n, page) => n + page.points.length, 0), videos: pages.reduce((n, page) => n + page.videos.length, 0), pages: pages.length, to };
 }
 
 /** Horloge du résumé : chaque minute, envoie ceux dont l'heure est passée et qui manquent encore pour aujourd'hui. */
@@ -203,7 +207,7 @@ async function digestTick() {
       try {
         const sent = await requestLang.run(config.general.language === 'en' ? 'en' : 'fr', () => sendDigest(owner, config));
         saveDigestState(owner.id, { scheduledDay: today, lastSentAt: Date.now(), lastError: null, lastPoints: sent.points });
-        console.log(`Résumé par courriel envoyé pour « ${owner.name} » (${sent.points} points, ${sent.videos} vidéos).`);
+        console.log(`Résumé par courriel envoyé pour « ${owner.name} » (${sent.pages} pages, ${sent.points} points, ${sent.videos} vidéos).`);
       } catch (error) {
         // Au troisième échec, on abandonne pour aujourd'hui : l'erreur reste visible dans les réglages.
         saveDigestState(owner.id, { ...state, lastError: String(error.message).slice(0, 200), lastErrorAt: Date.now(),

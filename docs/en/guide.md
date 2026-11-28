@@ -299,11 +299,14 @@ has no card: it takes no room on the dashboard.
 
 - **Delivery**: the time (5:30 a.m. by default, server time) and the address. *Send now* produces an
   up-to-date summary and sends it right away, on top of the scheduled delivery; one per minute at most.
+- **One summary per page**: the email has a block for each ticked page, in the order of your tabs, with its
+  own points then its new videos. Each point and each video carries its thumbnail; the Lookout logo is at the
+  top. A story covered by two pages stays in the first.
 - **Content**: the tree of your pages and their sections. Ticking a page ticks all its sections. Article feeds
   supply the summary points; YouTube sections, the list of new videos from the last 24 hours; weather,
   calendar, commutes and scores, the at-a-glance strip at the top of the email. A section hidden from the
   dashboard can be ticked; a section added later is not ticked automatically.
-- **Writing**: the model (Claude Opus 5.5 by default), the number of points (3 to 10), a particular emphasis,
+- **Writing**: the model (Claude Opus 5.5 by default), the number of points per page (3 to 10), a particular emphasis,
   and the Anthropic key — yours, or one shared by an administrator.
 - **Reliability**: each point names its sources, with a link to each article. A point Claude cannot tie to an
   article is never sent. The at-a-glance strip and the videos are laid out without going through Claude.
