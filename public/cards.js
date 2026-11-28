@@ -3,7 +3,7 @@ import { h, icon, sfIcon, fmt, t, openMenu, copyText } from './ui.js';
 
 // --- Articles (RSS et API JSON) ---
 
-import { keywords, articleFilter, youtubeVideoID, WMO_LABELS, present } from './shared.js';
+import { keywords, youtubeVideoID, WMO_LABELS, present } from './shared.js';
 
 export { present };
 
