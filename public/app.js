@@ -50,6 +50,8 @@ function applyLanguage() {
   $('btn-edit').title = t('Réorganiser, redimensionner ou masquer les sections');
   $('btn-settings').title = t('Configurer les sections et les sources');
   $('btn-saved').title = t('À lire plus tard');
+  $('btn-readall').title = t('Tout marquer comme lu sur cette page ( M )');
+  $('btn-readall').setAttribute('aria-label', t('Tout marquer comme lu sur cette page'));
   $('btn-search').title = t('Rechercher dans les articles ( / )');
   $('btn-search').setAttribute('aria-label', t('Rechercher dans les articles'));
   $('btn-saved').setAttribute('aria-label', t('À lire plus tard'));
@@ -419,11 +421,14 @@ document.addEventListener('fullscreenchange', () => { if (app.display && wentFul
 document.addEventListener('visibilitychange', () => { if (app.display && !document.hidden) keepAwake(); });
 
 // --- Lecture des articles ---
-function setRead(ids, read) {
+function setRead(ids, read, advance = false) {
   if (app.viewing) return;   // on ne marque rien comme lu à la place de quelqu'un d'autre
   for (const id of ids) read ? state.readIDs.add(id) : state.readIDs.delete(id);
   api('/api/read', { method: 'POST', body: read ? { add: ids } : { remove: ids } }).catch(() => {});
+  // « Tout marquer comme lu » : on a fini ces articles, les cartes passent tout de suite aux non lus suivants.
+  if (advance) for (const s of visible()) if (readAtLoad.has(s.id)) readAtLoad.set(s.id, new Set(state.readIDs));
   for (const s of visible()) if (state.data.get(s.id)?.articles) renderCard(s.id);
+  updateReadAll();
 }
 // --- Nouveautés depuis la dernière visite ---
 // Un article est « nouveau » s'il est paru après votre départ précédent de cette page, sur cet appareil.
@@ -546,6 +551,11 @@ function updateToolbar() {
   $('btn-refresh').classList.toggle('spinning', busy);
   showSubtitle(busy ? t('Actualisation…') : freshness());
   $('btn-edit').setAttribute('aria-pressed', String(state.editing));
+  updateReadAll();
+}
+/** Le bouton « tout lu » de la page n'apparaît que s'il reste des articles non lus à l'écran. */
+function updateReadAll() {
+  $('btn-readall').hidden = Boolean(app.viewing) || app.display || state.editing || !state.config || !visible().some((s) => unreadShown(s).length > 0);
 }
 
 function renderHero() {
@@ -919,8 +929,15 @@ function unreadShown(s) {
 function markAllRead(s) {
   const ids = unreadShown(s);
   if (!ids.length) return;
-  setRead(ids, true);
-  showToast(ids.length > 1 ? t('{0} articles marqués comme lus', ids.length) : t('Article marqué comme lu'), 'Annuler', () => setRead(ids, false));
+  setRead(ids, true, true);
+  showToast(ids.length > 1 ? t('{0} articles marqués comme lus', ids.length) : t('Article marqué comme lu'), 'Annuler', () => setRead(ids, false, true));
+}
+/** Marque comme lus tous les articles affichés sur la page courante, toutes sections confondues. */
+function markPageRead() {
+  const ids = [...new Set(visible().flatMap(unreadShown))];
+  if (!ids.length) return;
+  setRead(ids, true, true);
+  showToast(ids.length > 1 ? t('{0} articles marqués comme lus', ids.length) : t('Article marqué comme lu'), 'Annuler', () => setRead(ids, false, true));
 }
 
 function cardMenu(anchor, s) {
@@ -1408,7 +1425,7 @@ function renderUserButton() {
 
 // --- Raccourcis clavier ---
 const SHORTCUTS = [[['/'], 'Rechercher dans les articles et les agendas'], [['⌘', 'K'], 'Rechercher (Ctrl+K sous Windows et Linux)'], [['R'], 'Actualiser les sections'],
-  [['E'], 'Organiser le tableau de bord'], [['L'], 'Ouvrir « À lire plus tard »'], [['1', '…', '9'], 'Aller à la page de ce rang'], [['←', '→'], 'Page précédente ou suivante'],
+  [['E'], 'Organiser le tableau de bord'], [['M'], 'Tout marquer comme lu sur la page'], [['L'], 'Ouvrir « À lire plus tard »'], [['1', '…', '9'], 'Aller à la page de ce rang'], [['←', '→'], 'Page précédente ou suivante'],
   [['⌘', ','], 'Ouvrir les réglages'], [['?'], 'Afficher cette aide'], [['Échap'], 'Fermer une fenêtre, quitter le mode affichage']];
 function shortcutsDialog() {
   if (hasOverlay()) return;
@@ -1424,6 +1441,8 @@ $('btn-refresh').addEventListener('click', () => refreshAll());
 $('btn-edit').addEventListener('click', () => setEditing(!state.editing));
 $('btn-settings').addEventListener('click', () => openSettings(app));
 $('btn-saved').addEventListener('click', savedDialog);
+$('btn-readall').append(icon('check-on'));
+$('btn-readall').addEventListener('click', markPageRead);
 $('btn-search').append(icon('search'));
 $('btn-search').addEventListener('click', searchDialog);
 $('display-exit').addEventListener('click', stopDisplay);
@@ -1436,6 +1455,7 @@ document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || !state.config || app.display) return;
   if (e.key === '?') shortcutsDialog();
   if (e.key === 'e' && !app.viewing) setEditing(!state.editing);
+  if (e.key === 'm' && !app.viewing) markPageRead();
   if (e.key === 'l' && state.saved.length && !app.viewing) savedDialog();
   // Pages : par leur rang, ou de proche en proche avec les flèches.
   const list = pages(), at = list.findIndex((p) => p.id === currentPage());

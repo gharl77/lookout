@@ -265,8 +265,9 @@ the one the administrator has opened to you.
 - **New and unread first**: each card first shows the articles published since your last visit, then the
   other unread ones; an article already read only comes back if there is room left. An article you just
   opened keeps its place until the next update. Turn it off under *Settings → Reading and filters*.
-- **Mark all as read**: the ✓ button in a card's header marks all its displayed articles; a banner lets you
-  undo. It only appears while unread articles remain.
+- **Mark all as read**: the ✓ button in a card's header marks all its displayed articles; the same button in
+  the top bar (or the `M` key) does it for the whole page. A banner lets you undo. Cards move on at once to
+  the next unread articles. The button only appears while unread articles remain.
 - **Duplicates**: when several sections on the same page receive the same story (top stories, world,
   politics…), only the first one in page order shows it; the others show their next article. Under the
   article, *also in…* names the sections that received it too. Turn it off under
@@ -383,6 +384,7 @@ keys nor your tokens.
 | `/` or `Cmd`/`Ctrl`+`K` | Search articles and calendars |
 | `R` | Refresh all sections |
 | `E` | Arrange the dashboard |
+| `M` | Mark everything on the page as read |
 | `L` | Open *Read later* |
 | `1` to `9` | Go to the page at that position |
 | `←` `→` | Previous or next page |

@@ -672,6 +672,9 @@ export const EN = {
   "Afficher d'abord les articles nouveaux et non lus": "Show new and unread articles first",
   "L'état « lu » est enregistré sur le serveur : il est partagé entre tous vos appareils. Avec la seconde option, chaque carte montre d'abord les articles parus depuis votre dernière visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Un article que vous venez d'ouvrir garde sa place jusqu'à la prochaine mise à jour de la section.": "The read state is stored on the server: it is shared across all your devices. With the second option, each card first shows the articles published since your last visit, then the other unread ones; an article already read only comes back if there is room left. An article you just opened keeps its place until the section next updates.",
   // Classements et statistiques
+  "Tout marquer comme lu sur cette page": "Mark everything on this page as read",
+  "Tout marquer comme lu sur cette page ( M )": "Mark everything on this page as read ( M )",
+  "Tout marquer comme lu sur la page": "Mark everything on the page as read",
   "Le modèle a refusé de résumer ce contenu": "The model declined to summarize this content",
   "Clé Anthropic manquante : ajoutez-la dans une section « Résumé du jour », ou demandez-la à un administrateur": "Anthropic key missing: add it in a “Daily summary” section, or ask an administrator",
   "Cet article est trop court pour être résumé": "This article is too short to summarize",

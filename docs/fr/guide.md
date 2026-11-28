@@ -275,8 +275,10 @@ que l'administrateur vous a ouverte.
   visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Un article que
   vous venez d'ouvrir garde sa place jusqu'à la prochaine mise à jour. Se désactive dans
   *Réglages → Lecture et filtres*.
-- **Tout marquer comme lu** : le bouton ✓ dans l'en-tête d'une carte marque tous ses articles affichés ; un
-  bandeau permet d'annuler. Il n'apparaît que s'il reste des articles non lus.
+- **Tout marquer comme lu** : le bouton ✓ dans l'en-tête d'une carte marque tous ses articles affichés ; le
+  même bouton dans la barre du haut (ou la touche `M`) le fait pour toute la page. Un bandeau permet
+  d'annuler. Les cartes passent aussitôt aux articles non lus suivants. Le bouton n'apparaît que s'il reste
+  des articles non lus.
 - **Doublons** : quand plusieurs sections d'une même page reçoivent la même nouvelle (à la une, international,
   politique…), seule la première dans l'ordre de la page l'affiche ; les autres montrent l'article suivant.
   Sous l'article, la mention *aussi dans…* nomme les sections qui l'ont reçu elles aussi. Se désactive dans
@@ -395,6 +397,7 @@ clés ni vos jetons.
 | `/` ou `Cmd`/`Ctrl`+`K` | Rechercher dans les articles et les agendas |
 | `R` | Actualiser toutes les sections |
 | `E` | Organiser le tableau de bord |
+| `M` | Tout marquer comme lu sur la page |
 | `L` | Ouvrir *À lire plus tard* |
 | `1` à `9` | Aller à la page de ce rang |
 | `←` `→` | Page précédente ou suivante |

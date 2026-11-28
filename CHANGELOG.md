@@ -13,6 +13,8 @@ Fiches d'équipe, sujets regroupés, résumé d'article, chargement plus rapide.
 - **Sujets regroupés** : plusieurs sources sur le même événement sont réunies sous un seul article, qui nomme
   les autres (*aussi : La Presse, Le Devoir*).
 - **Résumé d'un article par Claude** dans le lecteur intégré (clé Anthropic requise, facturé à l'usage).
+- **Tout marquer comme lu pour la page** : un bouton ✓ dans la barre du haut (touche `M`), avec annulation ;
+  les cartes passent aussitôt aux articles non lus suivants.
 - **Nouveaux et non lus d'abord** : chaque carte montre d'abord les articles parus depuis votre dernière
   visite, puis les autres non lus ; un article déjà lu ne revient que s'il reste de la place. Réglable dans
   *Lecture et filtres*.
@@ -30,6 +32,8 @@ Fiches d'équipe, sujets regroupés, résumé d'article, chargement plus rapide.
 - **Grouped topics**: several sources on the same event are brought together under one article, which names
   the others (*also: La Presse, Le Devoir*).
 - **Article summary by Claude** in the built-in reader (Anthropic key required, billed per use).
+- **Mark the whole page as read**: a ✓ button in the top bar (`M` key), with undo; cards move on at once to
+  the next unread articles.
 - **New and unread first**: each card first shows the articles published since your last visit, then the
   other unread ones; an article already read only comes back if there is room left. Adjustable under
   *Reading and filters*.
